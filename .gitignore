@@ -1,0 +1,5 @@
+build/x64/
+build/.vs/
+build/Debug/nfc.obj
+build/Debug/
+build/Release/

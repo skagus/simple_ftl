@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ftl">
+      <UniqueIdentifier>{f01ff97d-739b-4760-90e8-480317163245}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hw">
+      <UniqueIdentifier>{67c7c697-59b6-43cd-a831-5d766bb0332a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="com">
+      <UniqueIdentifier>{d3153b1d-1401-49c3-a387-f7e2286c379c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="test">
+      <UniqueIdentifier>{ae2119c4-96f0-4ba0-8400-eb1f3d428a47}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\ftl\map_block.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\map_hybrid.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\map_log.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\map_sector.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\io.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\ftl.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\buf.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\die.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\nfc.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\sim.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\timer.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\test\test.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
+    <ClCompile Include="..\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\ftl\ftl.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\io.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\buf.h">
+      <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\die.h">
+      <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\nfc.h">
+      <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\sim.h">
+      <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\timer.h">
+      <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\config.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\macro.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\templ.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\types.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test\test.h">
+      <Filter>test</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
