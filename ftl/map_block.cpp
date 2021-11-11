@@ -6,7 +6,7 @@
 #include "io.h"
 
 #if (MAPPING == FTL_BLOCK_MAP)
-#define PRINTF			 SIM_Print
+#define PRINTF				// SIM_Print
 
 #define NUM_META_BLK		(3)
 

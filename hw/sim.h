@@ -45,3 +45,4 @@ void* SIM_NewEvt(HwID eOwn, uint32 time);
 void SIM_CpuTimePass(uint32 nTick);
 void SIM_Run();	// infinite running.
 
+uint32 SIM_GetRand(uint32 nMod);

@@ -81,7 +81,7 @@ void nfc_HandleRead(NFCEvt* pOldEvt, CurRun* pRun)
 		{
 			pRun->bmRest = pCmd->stRead.bmChunk;
 			pRun->eStep = NS_WAIT_BUSY;
-			NFCEvt* pNewEvt = (NFCEvt*)SIM_NewEvt(HW_NFC, TIME_READ_BUSY);
+			NFCEvt* pNewEvt = (NFCEvt*)SIM_NewEvt(HW_NFC, TIME_READ_BUSY + SIM_GetRand(TIME_READ_BUSY / 2));
 			pNewEvt->bNewCmd = false;
 			pNewEvt->nDie = pOldEvt->nDie;
 			pNewEvt->nTick = SIM_GetTick();
@@ -175,7 +175,7 @@ void nfc_HandleProgram(NFCEvt* pOldEvt, CurRun* pRun)
 			{
 				pRun->eStep = NS_WAIT_BUSY;
 
-				NFCEvt* pNewEvt = (NFCEvt*)SIM_NewEvt(HW_NFC, TIME_PGM_BUSY);
+				NFCEvt* pNewEvt = (NFCEvt*)SIM_NewEvt(HW_NFC, TIME_PGM_BUSY + SIM_GetRand(TIME_PGM_BUSY / 2));
 				pNewEvt->bNewCmd = false;
 				pNewEvt->nDie = pOldEvt->nDie;
 				pNewEvt->nTick = SIM_GetTick();
@@ -213,7 +213,7 @@ void nfc_HandleErase(NFCEvt* pOldEvt, CurRun* pRun)
 		case NStep::NS_WAIT_CMD_IN:
 		{
 			pRun->eStep = NS_WAIT_BUSY;
-			NFCEvt* pNewEvt = (NFCEvt*)SIM_NewEvt(HW_NFC, TIME_ERASE_BUSY);
+			NFCEvt* pNewEvt = (NFCEvt*)SIM_NewEvt(HW_NFC, TIME_ERASE_BUSY + SIM_GetRand(100));
 			pNewEvt->bNewCmd = false;
 			pNewEvt->nDie = pOldEvt->nDie;
 			pNewEvt->nTick = SIM_GetTick();

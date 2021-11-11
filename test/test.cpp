@@ -129,8 +129,11 @@ void TEST_Main(void* pParam)
 {
 	srand(10);
 	uint32 nNumUserLPN = FTL_GetNumLPN();
-	gaDict = new uint32[nNumUserLPN];
-	memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
+	if (nullptr == gaDict)
+	{
+		gaDict = new uint32[nNumUserLPN];
+		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
+	}
 	tc_SeqWrite(0, nNumUserLPN);
 	for (uint32 nLoop = 0; nLoop < 5; nLoop++)
 	{

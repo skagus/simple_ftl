@@ -1,5 +1,6 @@
 #include <queue>
 #include <list>
+#include <random>
 
 #include "sim.h"
 
@@ -38,6 +39,8 @@ HANDLE ghEngine;		///< Engine용 Task.
 uint64 gnHwTick;		///< HW tick time.
 EvtHdr gfEvtHdr[NUM_HW];	///< HW별 Event handler.
 bool gbPowerOn;			///< Power on state.
+
+mt19937_64* gpRand;
 
 /// Event repository.
 static Evt gaEvts[NUM_EVENT];
@@ -98,6 +101,11 @@ void SIM_Print(const char *szFormat, ...)
 	vsprintf_s(aBuf, MAX_BUF_SIZE, szFormat, stAP);
 	va_end(stAP);
 	fprintf(stdout, "%8lld: %s", gnHwTick, aBuf);
+}
+
+uint32 SIM_GetRand(uint32 nMod)
+{
+	return (*gpRand)() % nMod;
 }
 
 inline void sim_Switch(HANDLE hFiber)
@@ -179,6 +187,7 @@ sim의 실행 방법은,
 void SIM_Run()
 {
 	ghEngine = ConvertThreadToFiber(nullptr);
+	gpRand = new mt19937_64();
 	SIM_Reset();
 
 	while (true)
