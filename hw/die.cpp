@@ -108,6 +108,13 @@ public:
 					ap4DOut[nPln][nChunk] = pWL->aChunk + nChunk;
 				}
 			}
+			else
+			{
+				for (uint8 nChunk = 0; nChunk < CHUNK_PER_PPG; nChunk++)
+				{
+					ap4DOut[nPln][nChunk] = nullptr;
+				}
+			}
 		}
 		return;
 	}

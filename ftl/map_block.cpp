@@ -28,9 +28,6 @@ static MetaCtx gstMetaCtx;
 
 void ftl_MetaSave()
 {
-	gstMetaCtx.nCurBN;
-	gstMetaCtx.nNextWL;
-
 	////// Save Meta data. ////////
 	if (0 == gstMetaCtx.nNextWL)
 	{
@@ -115,8 +112,10 @@ bool ftl_Open()
 			gstMetaCtx.nNextWL = 0;
 			gstMetaCtx.nCurBN = (nMinBN + 1) % NUM_META_BLK;
 		}
+		BM_Free(nBuf);
 		return true;
 	}
+	BM_Free(nBuf);
 	return false;
 }
 

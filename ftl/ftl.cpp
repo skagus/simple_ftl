@@ -57,11 +57,6 @@ void FTL_Main(void* pParam)
 			TEST_DoneCmd(pReq);
 		}
 		SIM_CpuTimePass(1);
-		if (SIM_GetTick() > 20016680)
-		{
-			POWER_SwitchOff();
-			END_RUN;
-		}
 	}
 }
 

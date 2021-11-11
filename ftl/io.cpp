@@ -4,6 +4,7 @@
 #include "ftl.h"
 #include "buf.h"
 
+#define PRINTF			// SIM_Print
 
 static bool gbDone;
 
@@ -35,6 +36,7 @@ void IO_Read(uint16 nPBN, uint16 nPage, uint16 nBufId)
 	
 	NFC_Issue(&stCmd);
 	CmdInfo* pstDone = io_GetDone();
+	PRINTF("IO Rd (%X,%X)-->%X\n", nPBN, nPage, *(uint32*)BM_GetSpare(nBufId));
 	SIM_CpuTimePass(3);
 }
 
@@ -48,6 +50,7 @@ void IO_Program(uint16 nPBN, uint16 nPage, uint16 nBufId)
 	stCmd.bmPln = BIT(nPBN % NUM_PLN);
 	stCmd.stPgm.bmChunk = 1;
 	stCmd.stPgm.anBufId[0] = nBufId;
+	PRINTF("IO Pgm (%X,%X) %X\n", nPBN, nPage, *(uint32*)BM_GetSpare(nBufId));
 
 	NFC_Issue(&stCmd);
 	CmdInfo* pstDone = io_GetDone();
