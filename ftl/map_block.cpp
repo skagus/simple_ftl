@@ -34,13 +34,13 @@ void ftl_MetaSave()
 	////// Save Meta data. ////////
 	if (0 == gstMetaCtx.nNextWL)
 	{
-		io_Erase(gstMetaCtx.nCurBN);
+		IO_Erase(gstMetaCtx.nCurBN);
 	}
 	uint16 nBuf = BM_Alloc();
 	*(uint32*)BM_GetSpare(nBuf) = gstMetaCtx.nAge;
 	uint8* pMain = BM_GetMain(nBuf);
 	memcpy(pMain, &gstMeta, sizeof(gstMeta));
-	io_Program(gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf);
+	IO_Program(gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf);
 	BM_Free(nBuf);
 
 	/////// Setup Next Address ///////////
@@ -81,7 +81,7 @@ bool ftl_Open()
 	uint16 nMinBN = 0xFFFF;
 	for (uint16 nBN = 0; nBN < NUM_META_BLK; nBN++)
 	{
-		io_Read(nBN, 0, nBuf);
+		IO_Read(nBN, 0, nBuf);
 		if (*pnSpare < nMinAge)
 		{
 			nMinAge = *pnSpare;
@@ -93,7 +93,7 @@ bool ftl_Open()
 		uint16 nCPO;
 		for (nCPO = 0; nCPO < NUM_WL; nCPO++)
 		{
-			io_Read(nMinBN, nCPO, nBuf);
+			IO_Read(nMinBN, nCPO, nBuf);
 			if (0xFFFFFFFF != *pnSpare)
 			{
 				gstMetaCtx.nAge = *pnSpare;
@@ -140,19 +140,19 @@ void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 	uint16 nDstBN = gstMeta.gnLogPBN;
 	uint16 nSrcBN = gstMeta.ganMap[nLBN];
 	uint16 nBuf4Copy = BM_Alloc();
-	io_Erase(nDstBN);	// Erase before program.
+	IO_Erase(nDstBN);	// Erase before program.
 	for (uint16 nPage = 0; nPage < NUM_WL; nPage++)
 	{
 		if (nNewPage == nPage)
 		{
 			uint32* pnVal = (uint32*)BM_GetSpare(nNewBuf);
 			*pnVal = nLPN;
-			io_Program(nDstBN, nPage, nNewBuf);
+			IO_Program(nDstBN, nPage, nNewBuf);
 		}
 		else
 		{
-			io_Read(nSrcBN, nPage, nBuf4Copy);
-			io_Program(nDstBN, nPage, nBuf4Copy);
+			IO_Read(nSrcBN, nPage, nBuf4Copy);
+			IO_Program(nDstBN, nPage, nBuf4Copy);
 		}
 	}
 	BM_Free(nBuf4Copy);
@@ -166,7 +166,7 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 	uint16 nLBN = nLPN / LPN_PER_USER_BLK;
 	uint16 nPBN = gstMeta.ganMap[nLBN];
 	uint16 nPage = nLPN % LPN_PER_USER_BLK;
-	io_Read(nPBN, nPage, nBufId);
+	IO_Read(nPBN, nPage, nBufId);
 	uint32* pnVal = (uint32*)BM_GetSpare(nBufId);
 	PRINTF("Read: %X, %X\n", nLPN, *pnVal);
 	if (0 != *pnVal)

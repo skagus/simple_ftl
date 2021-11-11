@@ -32,5 +32,10 @@ public:
 		data[tail] = entry;
 		tail = (tail + 1) % SIZE;
 	}
+	void Init()
+	{
+		head = 0;
+		tail = 0;
+	}
 };
 

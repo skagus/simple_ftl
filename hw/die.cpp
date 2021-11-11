@@ -135,7 +135,6 @@ public:
 
 Die* gaDies[NUM_DIE];
 
-
 void DIE_InitSim()
 {
 	for (uint8 nDie = 0; nDie < NUM_DIE; nDie++)

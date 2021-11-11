@@ -78,5 +78,6 @@ void TMR_Remove(uint32 nTimerId)
 // Initialize by FW.
 void TMR_Init()
 {
-
+	MEMSET_ARRAY(gaTimer, 0);
+	gnCntTimer = 0;
 }

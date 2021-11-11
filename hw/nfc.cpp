@@ -299,6 +299,7 @@ void NFC_InitSim()
 void NFC_Issue(CmdInfo* pCmd)
 {
 	uint8 nDie = pCmd->nDie;
+	pCmd->nDbgSN = SIM_GetSeqNo();
 	gstDieQue[nDie].PushTail(pCmd);
 
 	nfc_Trigger(nDie);
@@ -321,6 +322,9 @@ void NFC_Init(CbFunc pfCbfDone)
 	for (uint32 nId = 0; nId < NUM_DIE; nId++)
 	{
 		gaDies[nId]->Reset();
+		gstDieQue[nId].Init();
 	}
+	gstDoneQue.Init();
+	MEMSET_ARRAY(gastRun, 0x0);
 }
 

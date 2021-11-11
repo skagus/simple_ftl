@@ -83,16 +83,16 @@ void migrate(LogMap* pVictim)
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf4Copy);
 	uint32* pMain = (uint32*)BM_GetMain(nBuf4Copy);
 
-	io_Erase(nDstBN);	// Erase before program.
+	IO_Erase(nDstBN);	// Erase before program.
 	for (uint16 nPO = 0; nPO < NUM_WL; nPO++)
 	{
 		if (0xFFFFFFFF != pVictim->anMap[nPO])
 		{
-			io_Read(nLogBN, pVictim->anMap[nPO], nBuf4Copy);
+			IO_Read(nLogBN, pVictim->anMap[nPO], nBuf4Copy);
 		}
 		else
 		{
-			io_Read(nOrgBN, nPO, nBuf4Copy);
+			IO_Read(nOrgBN, nPO, nBuf4Copy);
 		}
 		PRINTF("Mig: %X\n", *pSpare);
 		if (*pSpare & 0xF == nPO)
@@ -101,7 +101,7 @@ void migrate(LogMap* pVictim)
 		}
 		assert(*pSpare == *(uint32*)BM_GetMain(nBuf4Copy));
 
-		io_Program(nDstBN, nPO, nBuf4Copy);
+		IO_Program(nDstBN, nPO, nBuf4Copy);
 	}
 	gnFreePBN = gastMap[pVictim->nLBN].nPBN;
 	gastMap[pVictim->nLBN].bLog = 0;
@@ -124,7 +124,7 @@ LogMap* makeNewLog(uint16 nLBN, LogMap* pSrcLog)
 	gastMap[nLBN].bLog = 1;
 	pSrcLog->nLBN = nLBN;
 	pSrcLog->nCPO = 0;
-	io_Erase(pSrcLog->nPBN);
+	IO_Erase(pSrcLog->nPBN);
 	return pSrcLog;
 }
 
@@ -140,7 +140,7 @@ void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 	}
 	*(uint32*)BM_GetSpare(nNewBuf) = nLPN;
 	assert(nLPN == *(uint32*)BM_GetMain(nNewBuf));
-	io_Program(pMap->nPBN, pMap->nCPO, nNewBuf);
+	IO_Program(pMap->nPBN, pMap->nCPO, nNewBuf);
 	pMap->anMap[nLPO] = pMap->nCPO;
 	pMap->nCPO++;
 }
@@ -159,11 +159,11 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 
 	if (0xFFFF != nPPO)	// in Log block.
 	{
-		io_Read(pMap->nPBN, nPPO, nBufId);
+		IO_Read(pMap->nPBN, nPPO, nBufId);
 	}
 	else
 	{
-		io_Read(gastMap[nLBN].nPBN, nLPO, nBufId);
+		IO_Read(gastMap[nLBN].nPBN, nLPO, nBufId);
 	}
 
 	uint32* pnVal = (uint32*)BM_GetSpare(nBufId);

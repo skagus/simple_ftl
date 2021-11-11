@@ -93,7 +93,7 @@ void makeNewOpen(OpenBlk* pstOpen)
 	uint16 nDstBN = getMinValid(0xFFFF, &nValid);
 	assert(nValid == 0);
 	uint16 nSrcBN = getMinValid(nDstBN, &nValid);
-	io_Erase(nDstBN);
+	IO_Erase(nDstBN);
 	if (0 == nValid) // New free exit.
 	{
 		pstOpen->nPBN = nDstBN;
@@ -111,11 +111,11 @@ void makeNewOpen(OpenBlk* pstOpen)
 		{
 			if (pSrcBI->bmValid & BIT(nPage))
 			{
-				io_Read(nSrcBN, nPage, nCopyBuf);
+				IO_Read(nSrcBN, nPage, nCopyBuf);
 				assert(*pnLPN < NUM_USER_PAGE);
 				assert(gastL2P[*pnLPN].nPBN == nSrcBN);
 				assert(gastL2P[*pnLPN].nPage == nPage);
-				io_Program(nDstBN, nCPO, nCopyBuf);
+				IO_Program(nDstBN, nCPO, nCopyBuf);
 				mapUpdate(*pnLPN, nDstBN, nCPO);
 				nCPO++;
 			}
@@ -134,7 +134,7 @@ void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 		makeNewOpen(&gstOpen);
 	}
 	*(uint32*)BM_GetSpare(nNewBuf) = nLPN;
-	io_Program(gstOpen.nPBN, gstOpen.nCPO, nNewBuf);
+	IO_Program(gstOpen.nPBN, gstOpen.nCPO, nNewBuf);
 	mapUpdate(nLPN, gstOpen.nPBN, gstOpen.nCPO);
 	gstOpen.nCPO++;
 }
@@ -144,7 +144,7 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 	Addr* pAddr = gastL2P + nLPN;
 	if (pAddr->nPBN < PBLK_PER_DIE)
 	{
-		io_Read(pAddr->nPBN, pAddr->nPage, nBufId);
+		IO_Read(pAddr->nPBN, pAddr->nPage, nBufId);
 	}
 	else
 	{

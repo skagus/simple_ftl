@@ -22,7 +22,7 @@ void io_CbDone(uint32 nDie, uint32 nTag)
 	gbDone = true;
 }
 
-void io_Read(uint16 nPBN, uint16 nPage, uint16 nBufId)
+void IO_Read(uint16 nPBN, uint16 nPage, uint16 nBufId)
 {
 	CmdInfo stCmd;
 	stCmd.eCmd = NCmd::NC_READ;
@@ -38,7 +38,7 @@ void io_Read(uint16 nPBN, uint16 nPage, uint16 nBufId)
 	SIM_CpuTimePass(3);
 }
 
-void io_Program(uint16 nPBN, uint16 nPage, uint16 nBufId)
+void IO_Program(uint16 nPBN, uint16 nPage, uint16 nBufId)
 {
 	CmdInfo stCmd;
 	stCmd.eCmd = NCmd::NC_PGM;
@@ -54,7 +54,7 @@ void io_Program(uint16 nPBN, uint16 nPage, uint16 nBufId)
 	SIM_CpuTimePass(3);
 }
 
-void io_Erase(uint16 nPBN)
+void IO_Erase(uint16 nPBN)
 {
 	CmdInfo stCmd;
 	stCmd.eCmd = NCmd::NC_ERB;
@@ -68,3 +68,7 @@ void io_Erase(uint16 nPBN)
 	SIM_CpuTimePass(3);
 }
 
+void IO_Init()
+{
+	gbDone = false;
+}

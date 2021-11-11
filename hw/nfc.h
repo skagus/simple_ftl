@@ -56,6 +56,7 @@ struct CmdInfo
 		ReadInfo stRead;
 		ErbInfo stErb;
 	};
+	uint32 nDbgSN;
 };
 
 

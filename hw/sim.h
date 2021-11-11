@@ -46,3 +46,4 @@ void SIM_CpuTimePass(uint32 nTick);
 void SIM_Run();	// infinite running.
 
 uint32 SIM_GetRand(uint32 nMod);
+uint32 SIM_GetSeqNo();

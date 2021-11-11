@@ -32,7 +32,7 @@ public:
 	}
 };
 
-CpuContext gaCpu[NUM_CPU];
+CpuContext gaCpu[NUM_CPU];	///< CPU(FW) information.
 uint32 gnCurCpu;		///< Current running CPU.
 
 HANDLE ghEngine;		///< Engine용 Task.
@@ -40,7 +40,8 @@ uint64 gnHwTick;		///< HW tick time.
 EvtHdr gfEvtHdr[NUM_HW];	///< HW별 Event handler.
 bool gbPowerOn;			///< Power on state.
 
-mt19937_64* gpRand;
+uint32 gnSeqNo;			///< Sequence number for debug.
+mt19937_64 gRand;		///< Random number generator.
 
 /// Event repository.
 static Evt gaEvts[NUM_EVENT];
@@ -105,7 +106,13 @@ void SIM_Print(const char *szFormat, ...)
 
 uint32 SIM_GetRand(uint32 nMod)
 {
-	return (*gpRand)() % nMod;
+	return gRand() % nMod;
+}
+
+uint32 SIM_GetSeqNo()
+{
+	gnSeqNo++;
+	return gnSeqNo;
 }
 
 inline void sim_Switch(HANDLE hFiber)
@@ -187,7 +194,7 @@ sim의 실행 방법은,
 void SIM_Run()
 {
 	ghEngine = ConvertThreadToFiber(nullptr);
-	gpRand = new mt19937_64();
+	gRand.seed(10);
 	SIM_Reset();
 
 	while (true)

@@ -135,22 +135,22 @@ void ftl_migrate2UserBlk(BufBlkInfo* pFree)
 	PRINTF("Mig: %X, %X\n", nMaxLBN, bmValid);
 	uint16 nCopyBuf = BM_Alloc();
 	uint32* pnLPN = (uint32*)BM_GetSpare(nCopyBuf);
-	io_Erase(pFree->nPBN);
+	IO_Erase(pFree->nPBN);
 	for (uint32 nPg = 0; nPg < CHUNK_PER_PBLK; nPg++)
 	{
 		if (BIT(nPg) & bmValid)
 		{
 			BufBlkInfo* pBI = gaBufBlk + aInBuf[nPg].nBufBN;
-			io_Read(pBI->nPBN, aInBuf[nPg].nPage, nCopyBuf);
+			IO_Read(pBI->nPBN, aInBuf[nPg].nPage, nCopyBuf);
 			assert(pBI->nValid > 0);
 			assert(*pnLPN == nMaxLBN * CHUNK_PER_PBLK + nPg);
 			pBI->Remove(aInBuf[nPg].nPage);
 		}
 		else
 		{
-			io_Read(pDataVictim->nPBN, nPg, nCopyBuf);
+			IO_Read(pDataVictim->nPBN, nPg, nCopyBuf);
 		}
-		io_Program(pFree->nPBN, nPg, nCopyBuf);
+		IO_Program(pFree->nPBN, nPg, nCopyBuf);
 	}
 	BM_Free(nCopyBuf);
 
@@ -206,9 +206,9 @@ void ftl_compactBufBlk()
 	{
 		if (pSrc->bmValid & BIT(nPg))
 		{
-			io_Read(pSrc->nPBN, nPg, nCopyBuf);
+			IO_Read(pSrc->nPBN, nPg, nCopyBuf);
 			pSrc->Remove(nPg);
-			io_Program(gpCurOpen->nPBN, nCPO, nCopyBuf);
+			IO_Program(gpCurOpen->nPBN, nCPO, nCopyBuf);
 			gpCurOpen->Add(nCPO, *pnLPN);
 			nCPO++;
 		}
@@ -253,7 +253,7 @@ void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 		}
 		gpCurOpen = pFree;
 		gnOpenCPO = 0;
-		io_Erase(gpCurOpen->nPBN);
+		IO_Erase(gpCurOpen->nPBN);
 		if (nullptr == _getFree(gpCurOpen, &nAccValid))
 		{
 			ftl_compactBufBlk();
@@ -276,7 +276,7 @@ void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 	}
 	uint32* pnLPN = (uint32*)BM_GetSpare(nNewBuf);
 	*pnLPN = nLPN;
-	io_Program(gpCurOpen->nPBN, gnOpenCPO, nNewBuf);
+	IO_Program(gpCurOpen->nPBN, gnOpenCPO, nNewBuf);
 	gpCurOpen->Add(gnOpenCPO, nLPN);
 	gnOpenCPO++;
 }
@@ -293,12 +293,12 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 		BufBlkInfo* pBI = gaBufBlk + nBufIdx;
 		if (pBI->nPBN < PBLK_PER_DIE)
 		{
-			io_Read(pBI->nPBN, nOff, nBufId);
+			IO_Read(pBI->nPBN, nOff, nBufId);
 		}
 	}
 	else
 	{
-		io_Read(pLBlk->nPBN, nOff, nBufId);
+		IO_Read(pLBlk->nPBN, nOff, nBufId);
 	}
 }
 

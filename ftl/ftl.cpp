@@ -1,7 +1,9 @@
+
+#include "templ.h"
 #include "sim.h"
 #include "buf.h"
-#include "templ.h"
 #include "nfc.h"
+#include "power.h"
 #include "test.h"
 #include "io.h"
 #include "ftl.h"
@@ -11,6 +13,7 @@
 #define SIZE_REQ_QUE	(16)
 
 Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
+
 void FTL_Request(ReqInfo* pReq)
 {
 	gstReqQ.PushTail(pReq);
@@ -24,6 +27,7 @@ uint32 FTL_GetNumLPN()
 
 void FTL_Main(void* pParam)
 {
+	gstReqQ.Init();
 	FTL_Init();
 
 	while (true)
@@ -53,6 +57,11 @@ void FTL_Main(void* pParam)
 			TEST_DoneCmd(pReq);
 		}
 		SIM_CpuTimePass(1);
+		if (SIM_GetTick() > 20016680)
+		{
+			POWER_SwitchOff();
+			END_RUN;
+		}
 	}
 }
 

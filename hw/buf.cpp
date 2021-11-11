@@ -45,6 +45,8 @@ void BM_Free(uint16 nBuf)
 
 void BM_Init()
 {
+	MEMSET_ARRAY(gbAlloc, 0);
+	gFreeQue.Init();
 	for (uint16 nBuf = 0; nBuf < NUM_BUF; nBuf++)
 	{
 		gFreeQue.PushTail(nBuf);
