@@ -134,12 +134,11 @@ void TEST_Main(void* pParam)
 		gaDict = new uint32[nNumUserLPN];
 		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
 	}
-	tc_SeqWrite(0, nNumUserLPN);
+	tc_SeqRead(0, nNumUserLPN);
 	for (uint32 nLoop = 0; nLoop < 5; nLoop++)
 	{
 		tc_RandRead(0, nNumUserLPN, nNumUserLPN / 2);
 		tc_RandWrite(0, 0x20, nNumUserLPN * 2);
-		tc_SeqRead(0, nNumUserLPN);
 	}
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();

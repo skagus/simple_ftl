@@ -25,4 +25,4 @@
 #define FTL_SECTOR_MAP		(3)		// 73M			37M
 #define FTL_HYBRID			(4)		// 300M			308M
 
-#define MAPPING				(FTL_BLOCK_MAP)
+#define MAPPING				(FTL_LOG_MAP)

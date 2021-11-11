@@ -7,9 +7,11 @@
 
 #if (MAPPING == FTL_LOG_MAP)
 
-#define PRINTF		//	SIM_Print
+#define PRINTF				// SIM_Print
+#define NUM_META_BLK		(2)
+#define NUM_LOG_BLK		(PBLK_PER_DIE - NUM_USER_BLK - NUM_META_BLK - 1)
+static_assert(NUM_LOG_BLK > 1);
 
-#define NUM_LOG_BLK		(PBLK_PER_DIE - NUM_USER_BLK - 1)
 struct LogMap
 {
 	uint16 nLBN;
@@ -23,38 +25,178 @@ struct BlkMap
 	uint16 bLog : 1;
 	uint16 nPBN : 15;
 };
-BlkMap gastMap[NUM_USER_BLK];
-LogMap gastLog[NUM_LOG_BLK];
-uint16 gnFreePBN;
+
+struct Meta
+{
+	BlkMap astMap[NUM_USER_BLK];
+	LogMap astLog[NUM_LOG_BLK];
+	uint16 nFreePBN;
+};
+static_assert(sizeof(Meta) <= BYTE_PER_CHUNK);
+
+struct MetaCtx
+{
+	uint16 nCurBN;
+	uint16 nNextWL;
+	uint32 nAge;
+};
+
+Meta gstMeta;
+MetaCtx gstMetaCtx;
+
+void ftl_Format()
+{
+	uint16 nBN = NUM_META_BLK;
+	for (uint16 nIdx = 0; nIdx < NUM_USER_BLK; nIdx++)
+	{
+		gstMeta.astMap[nIdx].nPBN = nBN;
+		gstMeta.astMap[nIdx].bLog = 0;
+		nBN++;
+	}
+
+	for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
+	{
+		gstMeta.astLog[nIdx].nLBN = 0xFFFF;
+		gstMeta.astLog[nIdx].nPBN = nBN;
+		nBN++;
+	}
+	gstMeta.nFreePBN = nBN;
+	gstMetaCtx.nAge = NUM_WL;	/// Not tobe zero.
+}
+
+void ftl_MetaSave()
+{
+	PRINTF("MetaSave\n");
+	////// Save Meta data. ////////
+	if (0 == gstMetaCtx.nNextWL)
+	{
+		IO_Erase(gstMetaCtx.nCurBN);
+	}
+	uint16 nBuf = BM_Alloc();
+	*(uint32*)BM_GetSpare(nBuf) = gstMetaCtx.nAge;
+	uint8* pMain = BM_GetMain(nBuf);
+	memcpy(pMain, &gstMeta, sizeof(gstMeta));
+	IO_Program(gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf);
+	BM_Free(nBuf);
+
+	/////// Setup Next Address ///////////
+	gstMetaCtx.nAge++;
+	gstMetaCtx.nNextWL++;
+	if (gstMetaCtx.nNextWL >= NUM_WL)
+	{
+		gstMetaCtx.nNextWL = 0;
+		gstMetaCtx.nCurBN++;
+		if (gstMetaCtx.nCurBN >= NUM_META_BLK)
+		{
+			gstMetaCtx.nCurBN = 0;
+		}
+	}
+}
+
+void ftl_Scan(uint32 nLogIdx)
+{
+	LogMap* pLMap = gstMeta.astLog + nLogIdx;
+	uint16 nCPO = pLMap->nCPO;
+	uint16 nBuf = BM_Alloc();
+	uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+	uint8* pMain = BM_GetMain(nBuf);
+	uint16 nPO;
+	PRINTF("Log Scan from (%X,%X) \n", pLMap->nPBN, pLMap->nCPO);
+	for (nPO = nCPO; nPO < NUM_WL; nPO++)
+	{
+		IO_Read(pLMap->nPBN, nPO, nBuf);
+		if (0xFFFFFFFF == *pnSpare)
+		{
+			break;
+		}
+		else
+		{
+			uint32 nLPO = *pnSpare % CHUNK_PER_PBLK;
+			PRINTF("MapUpdate: %X (%X, %X)\n", *pnSpare, pLMap->nPBN, nPO);
+			pLMap->anMap[nLPO] = nPO;
+		}
+	}
+	BM_Free(nBuf);
+	pLMap->nCPO = nPO;
+}
+
+bool ftl_Open()
+{
+	uint16 nBuf = BM_Alloc();
+	uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+	uint8* pMain = BM_GetMain(nBuf);
+	// Find Latest Blk.
+	uint32 nMaxAge = 0;
+	uint16 nMaxBN = 0xFFFF;
+	for (uint16 nBN = 0; nBN < NUM_META_BLK; nBN++)
+	{
+		IO_Read(nBN, 0, nBuf);
+		if ((*pnSpare > nMaxAge) && (*pnSpare != 0xFFFFFFFF))
+		{
+			nMaxAge = *pnSpare;
+			nMaxBN = nBN;
+		}
+	}
+	if (0xFFFF != nMaxBN)
+	{	// Find Latest WL
+		uint16 nCPO;
+		for (nCPO = 0; nCPO < NUM_WL; nCPO++)
+		{
+			IO_Read(nMaxBN, nCPO, nBuf);
+			if (0xFFFFFFFF != *pnSpare)
+			{
+				gstMetaCtx.nAge = *pnSpare;
+				memcpy(&gstMeta, pMain, sizeof(gstMeta));
+			}
+			else
+			{
+				break;
+			}
+		}
+		if (nCPO < NUM_WL)
+		{
+			gstMetaCtx.nCurBN = nMaxBN;
+			gstMetaCtx.nNextWL = nCPO;
+		}
+		else
+		{
+			gstMetaCtx.nNextWL = 0;
+			gstMetaCtx.nCurBN = (nMaxBN + 1) % NUM_META_BLK;
+		}
+		for (uint32 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
+		{
+			ftl_Scan(nIdx);
+		}
+		BM_Free(nBuf);
+		return true;
+	}
+	BM_Free(nBuf);
+	return false;
+}
 
 void FTL_Init()
 {
 	BM_Init();
 	NFC_Init(io_CbDone);
 
-	for (uint16 nBN = 0; nBN < NUM_USER_BLK; nBN++)
-	{
-		gastMap[nBN].nPBN = nBN;
-		gastMap[nBN].bLog = 0;
-	}
+	MEMSET_OBJ(gstMeta, 0);
+	MEMSET_OBJ(gstMetaCtx, 0);
 
-	for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
+	if (false == ftl_Open())
 	{
-		gastLog[nIdx].nLBN = 0xFFFF;
-		gastLog[nIdx].nPBN = NUM_USER_BLK + nIdx;
+		ftl_Format();
 	}
-	gnFreePBN = NUM_USER_BLK + NUM_LOG_BLK;
 }
 
 LogMap* getLogMap(uint16 nLBN)
 {
-	if (gastMap[nLBN].bLog)
+	if (gstMeta.astMap[nLBN].bLog)
 	{
 		for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
 		{
-			if (gastLog[nIdx].nLBN == nLBN)
+			if (gstMeta.astLog[nIdx].nLBN == nLBN)
 			{
-				return gastLog + nIdx;
+				return gstMeta.astLog + nIdx;
 			}
 		}
 	}
@@ -65,21 +207,21 @@ LogMap* getVictim()
 {
 	for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
 	{
-		if (gastLog[nIdx].nLBN == 0xFFFF)
+		if (gstMeta.astLog[nIdx].nLBN == 0xFFFF)
 		{
-			return gastLog + nIdx;
+			return gstMeta.astLog + nIdx;
 		}
 	}
 	// free가 없으면, random victim.
-	return gastLog + rand() % NUM_LOG_BLK;
+	return gstMeta.astLog + rand() % NUM_LOG_BLK;
 }
 
 void migrate(LogMap* pVictim)
 {
-	uint16 nOrgBN = gastMap[pVictim->nLBN].nPBN;
+	uint16 nOrgBN = gstMeta.astMap[pVictim->nLBN].nPBN;
 	uint16 nLogBN = pVictim->nPBN;
 	uint16 nBuf4Copy = BM_Alloc();
-	uint16 nDstBN = gnFreePBN;
+	uint16 nDstBN = gstMeta.nFreePBN;
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf4Copy);
 	uint32* pMain = (uint32*)BM_GetMain(nBuf4Copy);
 
@@ -103,10 +245,11 @@ void migrate(LogMap* pVictim)
 
 		IO_Program(nDstBN, nPO, nBuf4Copy);
 	}
-	gnFreePBN = gastMap[pVictim->nLBN].nPBN;
-	gastMap[pVictim->nLBN].bLog = 0;
-	gastMap[pVictim->nLBN].nPBN = nDstBN;
+	gstMeta.nFreePBN = gstMeta.astMap[pVictim->nLBN].nPBN;
+	gstMeta.astMap[pVictim->nLBN].bLog = 0;
+	gstMeta.astMap[pVictim->nLBN].nPBN = nDstBN;
 	BM_Free(nBuf4Copy);
+//	ftl_MetaSave();
 }
 
 LogMap* makeNewLog(uint16 nLBN, LogMap* pSrcLog)
@@ -121,10 +264,11 @@ LogMap* makeNewLog(uint16 nLBN, LogMap* pSrcLog)
 		migrate(pSrcLog);
 	}
 	memset(pSrcLog->anMap, 0xFF, sizeof(pSrcLog->anMap));
-	gastMap[nLBN].bLog = 1;
+	gstMeta.astMap[nLBN].bLog = 1;
 	pSrcLog->nLBN = nLBN;
 	pSrcLog->nCPO = 0;
 	IO_Erase(pSrcLog->nPBN);
+	ftl_MetaSave();
 	return pSrcLog;
 }
 
@@ -163,12 +307,12 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 	}
 	else
 	{
-		IO_Read(gastMap[nLBN].nPBN, nLPO, nBufId);
+		IO_Read(gstMeta.astMap[nLBN].nPBN, nLPO, nBufId);
 	}
 
 	uint32* pnVal = (uint32*)BM_GetSpare(nBufId);
 	PRINTF("Read: %X, %X\n", nLPN, *pnVal);
-	if (0 != *pnVal)
+	if (0xFFFFFFFF != *pnVal)
 	{
 		assert(nLPN == *pnVal);
 	}
