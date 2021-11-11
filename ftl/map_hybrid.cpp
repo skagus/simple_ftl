@@ -304,6 +304,7 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 
 void FTL_Init()
 {
+	BM_Init();
 	NFC_Init(io_CbDone);
 
 	for (uint32 nBN = 0; nBN < NUM_USER_BLK; nBN++)

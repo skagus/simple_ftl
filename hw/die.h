@@ -18,6 +18,7 @@ public:
 	virtual void DoRead(uint16 anBBN[NUM_PLN], uint32 nWL, uint8 bmPln) = 0;
 	virtual void DataIn(uint8 nOffset, uint8* pMainBuf, uint8* pSpare, bool bFull = true) = 0;
 	virtual NErr DataOut(uint8 nOffset, uint8* pMainBuf, uint8* pSpare, bool* pbFull = nullptr) = 0;
+	virtual void Reset() = 0;
 };
 
 extern Die* gaDies[NUM_DIE];

@@ -29,8 +29,9 @@
 #define BIT_TST(dst, mask)			((dst) & (mask))
 #define BIT_COUNT(val32)			__popcnt(val32)
 
-#define MEMSET_SIZE(obj, val)		memset(obj, val, sizeof(obj))
-
+#define MEMSET_OBJ(obj, val)		memset((void*)&(obj), val, sizeof(obj))
+#define MEMSET_ARRAY(arr, val)		memset((void*)(arr), val, sizeof(arr))
+#define MEMSET_PTR(ptr, val)		memset((void*)(ptr), val, sizeof(*ptr))
 
 extern const int test_array[4];
 

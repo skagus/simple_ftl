@@ -18,6 +18,7 @@ void FTL_Request(ReqInfo* pReq)
 
 uint32 FTL_GetNumLPN()
 {
+	SIM_CpuTimePass(100);	// Wait open time.
 	return NUM_USER_BLK * LPN_PER_USER_BLK;
 }
 
@@ -58,7 +59,6 @@ void FTL_Main(void* pParam)
 
 void FTL_InitSim()
 {
-	BM_Init();
 	SIM_AddCPU(CPU_FTL, FTL_Main, (void*)4);
 }
 

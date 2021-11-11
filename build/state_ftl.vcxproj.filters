@@ -52,6 +52,9 @@
       <Filter>test</Filter>
     </ClCompile>
     <ClCompile Include="..\main.cpp" />
+    <ClCompile Include="..\hw\power.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ftl\ftl.h">
@@ -89,6 +92,9 @@
     </ClInclude>
     <ClInclude Include="..\test\test.h">
       <Filter>test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\power.h">
+      <Filter>hw</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

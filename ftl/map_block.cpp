@@ -6,29 +6,139 @@
 #include "io.h"
 
 #if (MAPPING == FTL_BLOCK_MAP)
-#define PRINTF			// SIM_Print
+#define PRINTF			 SIM_Print
 
-uint16 ganMap[NUM_USER_BLK];
-uint16 gnLogPBN;
+#define NUM_META_BLK		(3)
+
+const uint16 gaMetaBlk[NUM_META_BLK] = { 0,1,2, };
+struct MetaCtx
+{
+	uint16 nCurBN;
+	uint16 nNextWL;
+	uint32 nAge;
+};
+
+struct Meta
+{
+	uint16 ganMap[NUM_USER_BLK];
+	uint16 gnLogPBN;
+};
+static Meta gstMeta;
+static MetaCtx gstMetaCtx;
+
+void ftl_MetaSave()
+{
+	gstMetaCtx.nCurBN;
+	gstMetaCtx.nNextWL;
+
+	////// Save Meta data. ////////
+	if (0 == gstMetaCtx.nNextWL)
+	{
+		io_Erase(gstMetaCtx.nCurBN);
+	}
+	uint16 nBuf = BM_Alloc();
+	*(uint32*)BM_GetSpare(nBuf) = gstMetaCtx.nAge;
+	uint8* pMain = BM_GetMain(nBuf);
+	memcpy(pMain, &gstMeta, sizeof(gstMeta));
+	io_Program(gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf);
+	BM_Free(nBuf);
+
+	/////// Setup Next Address ///////////
+	gstMetaCtx.nAge++;
+	gstMetaCtx.nNextWL++;
+	if (gstMetaCtx.nNextWL >= NUM_WL)
+	{
+		gstMetaCtx.nNextWL = 0;
+		gstMetaCtx.nCurBN++;
+		if (gstMetaCtx.nCurBN >= NUM_META_BLK)
+		{
+			gstMetaCtx.nCurBN = 0;
+		}
+	}
+}
+
+void ftl_Format()
+{
+	uint16 nBN = NUM_META_BLK;
+	for (uint16 nIdx = 0; nIdx < NUM_USER_BLK; nIdx++)
+	{
+		gstMeta.ganMap[nIdx] = nBN;
+		nBN++;
+	}
+	gstMeta.gnLogPBN = nBN;
+
+	gstMetaCtx.nCurBN = gaMetaBlk[0];
+	gstMetaCtx.nNextWL = 0;
+}
+
+bool ftl_Open()
+{
+	uint16 nBuf = BM_Alloc();
+	uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+	uint8* pMain = BM_GetMain(nBuf);
+	// Find Latest Blk.
+	uint32 nMinAge = 0xFFFFFFFF;
+	uint16 nMinBN = 0xFFFF;
+	for (uint16 nBN = 0; nBN < NUM_META_BLK; nBN++)
+	{
+		io_Read(nBN, 0, nBuf);
+		if (*pnSpare < nMinAge)
+		{
+			nMinAge = *pnSpare;
+			nMinBN = nBN;
+		}
+	}
+	if (0xFFFF != nMinBN)
+	{	// Find Latest WL
+		uint16 nCPO;
+		for (nCPO = 0; nCPO < NUM_WL; nCPO++)
+		{
+			io_Read(nMinBN, nCPO, nBuf);
+			if (0xFFFFFFFF != *pnSpare)
+			{
+				gstMetaCtx.nAge = *pnSpare;
+				memcpy(&gstMeta, pMain, sizeof(gstMeta));
+			}
+			else
+			{
+				break;
+			}
+		}
+		gstMetaCtx.nAge++;
+		if (nCPO < NUM_WL)
+		{
+			gstMetaCtx.nCurBN = nMinBN;
+			gstMetaCtx.nNextWL = nCPO;
+		}
+		else
+		{
+			gstMetaCtx.nNextWL = 0;
+			gstMetaCtx.nCurBN = (nMinBN + 1) % NUM_META_BLK;
+		}
+		return true;
+	}
+	return false;
+}
 
 void FTL_Init()
 {
+	BM_Init();
 	NFC_Init(io_CbDone);
+	MEMSET_OBJ(gstMeta, 0);
+	MEMSET_OBJ(gstMetaCtx, 0);
 
-	for (uint16 nBN = 0; nBN < NUM_USER_BLK; nBN++)
+	if (false == ftl_Open())
 	{
-		ganMap[nBN] = nBN;
+		ftl_Format();
 	}
-	gnLogPBN = NUM_USER_BLK;
 }
-
 
 void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 {
 	uint16 nLBN = nLPN / LPN_PER_USER_BLK;
 	uint16 nNewPage = nLPN % LPN_PER_USER_BLK;
-	uint16 nDstBN = gnLogPBN;
-	uint16 nSrcBN = ganMap[nLBN];
+	uint16 nDstBN = gstMeta.gnLogPBN;
+	uint16 nSrcBN = gstMeta.ganMap[nLBN];
 	uint16 nBuf4Copy = BM_Alloc();
 	io_Erase(nDstBN);	// Erase before program.
 	for (uint16 nPage = 0; nPage < NUM_WL; nPage++)
@@ -46,14 +156,15 @@ void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 		}
 	}
 	BM_Free(nBuf4Copy);
-	ganMap[nLBN] = nDstBN;
-	gnLogPBN = nSrcBN;
+	gstMeta.ganMap[nLBN] = nDstBN;
+	gstMeta.gnLogPBN = nSrcBN;
+	ftl_MetaSave();
 }
 
 void FTL_Read(uint32 nLPN, uint16 nBufId)
 {
 	uint16 nLBN = nLPN / LPN_PER_USER_BLK;
-	uint16 nPBN = ganMap[nLBN];
+	uint16 nPBN = gstMeta.ganMap[nLBN];
 	uint16 nPage = nLPN % LPN_PER_USER_BLK;
 	io_Read(nPBN, nPage, nBufId);
 	uint32* pnVal = (uint32*)BM_GetSpare(nBufId);

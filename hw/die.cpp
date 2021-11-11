@@ -31,7 +31,7 @@ struct PBlk
 	void Erase()
 	{
 		nNextPgm = 0;
-		memset(astWL, 0x00, sizeof(astWL));
+		MEMSET_ARRAY(astWL, 0x00, sizeof(astWL));
 	}
 };
 
@@ -45,9 +45,9 @@ class MyDie : public Die
 public:
 	MyDie()
 	{
-		memset(ap4DOut, 0, sizeof(ap4DOut));
-		memset(a4DIn, 0, sizeof(a4DIn));
-		memset(astPBlk, 0, sizeof(astPBlk));
+		MEMSET_ARRAY(ap4DOut, 0, sizeof(ap4DOut));
+		MEMSET_ARRAY(a4DIn, 0, sizeof(a4DIn));
+		MEMSET_ARRAY(astPBlk, 0, sizeof(astPBlk));
 	}
 
 	bool DoErase(uint16 anBBN[NUM_PLN], uint8 bmPln) override
@@ -117,11 +117,19 @@ public:
 		Chunk* pChunk = ap4DOut[nOffset / CHUNK_PER_PPG][nOffset % CHUNK_PER_PPG];
 		if (nullptr == pChunk)
 		{
+			memset(pMain, 0xFF, BYTE_PER_CHUNK);
+			memset(pSpare, 0xFF, BYTE_PER_SPARE);
 			return NErr::ERASED;
 		}
 
 		pChunk->Load(pMain, pSpare);
 		return NErr::OK;
+	}
+
+	void Reset() override
+	{
+		MEMSET_ARRAY(ap4DOut, 0);
+		MEMSET_ARRAY(a4DIn, 0);
 	}
 };
 

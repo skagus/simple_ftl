@@ -9,10 +9,11 @@ HW ID: 같은 handler를 사용하게 된다.
 */
 enum HwID
 {
-	HW_HIC,			// Host side DMA done.
-	HW_NFC,		// NFC HW state chages.
-	HW_NAND,		// NAND state changes busy to idle.
-	HW_TIMER,	
+	HW_HIC,		///< Host side DMA done.
+	HW_NFC,		///< NFC HW state chages.
+	HW_NAND,	///< NAND state changes busy to idle.
+	HW_TIMER,	///< Timer.
+	HW_POWER,
 	NUM_HW,
 };
 

@@ -29,6 +29,7 @@ uint16 gnFreePBN;
 
 void FTL_Init()
 {
+	BM_Init();
 	NFC_Init(io_CbDone);
 
 	for (uint16 nBN = 0; nBN < NUM_USER_BLK; nBN++)

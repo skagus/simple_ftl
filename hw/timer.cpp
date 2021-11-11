@@ -72,7 +72,7 @@ void TMR_Remove(uint32 nTimerId)
 		pTimer->pstEvt->bValid = false;
 	}
 	pTimer->pstEvt = nullptr;
-	memset(pTimer, 0, sizeof(*pTimer));
+	MEMSET_PTR(pTimer, 0);
 }
 
 // Initialize by FW.

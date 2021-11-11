@@ -3,6 +3,7 @@
 #include "buf.h"
 #include "ftl.h"
 #include "test.h"
+#include "power.h"
 
 #define PRINTF			SIM_Print
 static uint32* gaDict;
@@ -128,16 +129,17 @@ void TEST_Main(void* pParam)
 {
 	srand(10);
 	uint32 nNumUserLPN = FTL_GetNumLPN();
-	gaDict = new uint32(nNumUserLPN);
+	gaDict = new uint32[nNumUserLPN];
 	memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
 	tc_SeqWrite(0, nNumUserLPN);
-	for (uint32 nLoop = 0; nLoop < 100; nLoop++)
+	for (uint32 nLoop = 0; nLoop < 5; nLoop++)
 	{
-//		tc_RandRead(0, nNumUserLPN, nNumUserLPN / 2);
+		tc_RandRead(0, nNumUserLPN, nNumUserLPN / 2);
 		tc_RandWrite(0, 0x20, nNumUserLPN * 2);
-//		tc_SeqRead(0, nNumUserLPN);
+		tc_SeqRead(0, nNumUserLPN);
 	}
 	PRINTF("All Test Done\n");
+	POWER_SwitchOff();
 	END_RUN;
 }
 

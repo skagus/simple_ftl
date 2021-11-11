@@ -21,7 +21,7 @@ struct PBlkInfo
 {
 	uint16 nValid;
 	uint32 bmValid;
-static_assert(NUM_WL <= 32);	// bmValid bit수를 늘려야 함.
+	static_assert(NUM_WL <= 32);	// bmValid bit수를 늘려야 함.
 };
 
 struct OpenBlk
@@ -36,6 +36,7 @@ OpenBlk gstOpen;
 
 void FTL_Init()
 {
+	BM_Init();
 	NFC_Init(io_CbDone);
 
 	memset(gastL2P, 0xFF, sizeof(gastL2P));

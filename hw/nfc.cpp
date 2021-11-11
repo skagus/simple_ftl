@@ -104,7 +104,7 @@ void nfc_HandleRead(NFCEvt* pOldEvt, CurRun* pRun)
 		{
 			uint8* pMain = BM_GetMain(pCmd->stRead.anBufId[pOldEvt->nOffset]);
 			uint8* pSpare = BM_GetSpare(pCmd->stRead.anBufId[pOldEvt->nOffset]);
-			pDie->DataOut(pOldEvt->nOffset, pMain, pSpare);
+			NErr eErr = pDie->DataOut(pOldEvt->nOffset, pMain, pSpare);
 
 			pRun->bmRest &= ~BIT(pOldEvt->nOffset);
 			if (0 != pRun->bmRest)
@@ -316,7 +316,11 @@ CmdInfo* NFC_GetDone()
 // Initialize by FW.
 void NFC_Init(CbFunc pfCbfDone)
 {
-	memset(gastRun, 0, sizeof(gastRun));
+	MEMSET_ARRAY(gastRun, 0);
 	gfCbDone = pfCbfDone;
+	for (uint32 nId = 0; nId < NUM_DIE; nId++)
+	{
+		gaDies[nId]->Reset();
+	}
 }
 
