@@ -4,6 +4,7 @@
 #include "ftl.h"
 #include "io.h"
 #include "test.h"
+#include "meta_manager.h"
 #include "req_handler.h"
 #include "scheduler.h"
 
@@ -18,10 +19,10 @@ void REQ_SetCbf(CbfReq pfCbf)
 	gfCbf = pfCbf;
 }
 
-uint8 anContext[4096];		///< Stack like meta context.
 
 enum ReqState
 {
+	RS_WaitOpen,
 	RS_WaitUser,
 	RS_WaitMerge,
 	RS_WaitIssue,
@@ -34,6 +35,7 @@ struct ReqRunCtx
 	ReqInfo* pCurRun;
 };
 
+static uint8 anContext[4096];		///< Stack like meta context.
 ReqRunCtx* pCtx;
 void req_Run(Evts bmEvt)
 {
@@ -43,6 +45,19 @@ RETRY:
 
 	switch (pCtx->eState)
 	{
+		case RS_WaitOpen:
+		{
+			if (META_Ready())
+			{
+				pCtx->eState = RS_WaitUser;
+				goto RETRY;
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_OPEN), 0);
+			}
+			break;
+		}
 		case RS_WaitUser:
 		{
 			if (gstReqQ.Count() <= 0)
@@ -62,13 +77,11 @@ RETRY:
 			{
 				case CMD_WRITE:
 				{
-					//					PRINTF("Do Write: %d\n", pReq->nLPN);
 					FTL_Write(pReq->nLPN, pReq->nBuf);
 					break;
 				}
 				case CMD_READ:
 				{
-					//					PRINTF("Do Read: %d\n", pReq->nLPN);
 					FTL_Read(pReq->nLPN, pReq->nBuf);
 					break;
 				}

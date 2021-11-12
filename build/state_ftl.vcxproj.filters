@@ -61,6 +61,9 @@
     <ClCompile Include="..\ftl\req_handler.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
+    <ClCompile Include="..\ftl\meta_manager.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ftl\ftl.h">
@@ -109,6 +112,12 @@
       <Filter>com</Filter>
     </ClInclude>
     <ClInclude Include="..\ftl\req_handler.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\meta_manager.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\map_log.h">
       <Filter>ftl</Filter>
     </ClInclude>
   </ItemGroup>

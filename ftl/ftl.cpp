@@ -11,6 +11,7 @@
 #include "ftl.h"
 #include "io.h"
 #include "req_handler.h"
+#include "meta_manager.h"
 
 #define PRINTF			SIM_Print
 
@@ -40,8 +41,8 @@ void FTL_Main(void* pParam)
 
 	gstReqQ.Init();
 	IO_Init();
-	FTL_Init();
 	REQ_Init();
+	META_Init();
 
 	while (true)
 	{

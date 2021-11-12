@@ -154,6 +154,7 @@
     <ClCompile Include="..\ftl\map_hybrid.cpp" />
     <ClCompile Include="..\ftl\map_log.cpp" />
     <ClCompile Include="..\ftl\map_sector.cpp" />
+    <ClCompile Include="..\ftl\meta_manager.cpp" />
     <ClCompile Include="..\ftl\req_handler.cpp" />
     <ClCompile Include="..\hw\buf.cpp" />
     <ClCompile Include="..\hw\die.cpp" />
@@ -173,6 +174,8 @@
     <ClInclude Include="..\com\types.h" />
     <ClInclude Include="..\ftl\ftl.h" />
     <ClInclude Include="..\ftl\io.h" />
+    <ClInclude Include="..\ftl\map_log.h" />
+    <ClInclude Include="..\ftl\meta_manager.h" />
     <ClInclude Include="..\ftl\req_handler.h" />
     <ClInclude Include="..\hw\buf.h" />
     <ClInclude Include="..\hw\die.h" />

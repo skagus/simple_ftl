@@ -5,6 +5,7 @@
 
 typedef enum
 {
+	EVT_OPEN,
 	EVT_BUF,
 	EVT_NAND_CMD,
 	EVT_USER_CMD,
