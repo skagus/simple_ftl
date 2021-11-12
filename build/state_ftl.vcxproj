@@ -118,7 +118,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);EN_SIM</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>../com;../ftl;../hw;../test</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -134,7 +134,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);EN_SIM</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>../com;../ftl;../hw;../test</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -147,12 +147,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\com\scheduler.cpp" />
     <ClCompile Include="..\ftl\ftl.cpp" />
     <ClCompile Include="..\ftl\io.cpp" />
     <ClCompile Include="..\ftl\map_block.cpp" />
     <ClCompile Include="..\ftl\map_hybrid.cpp" />
     <ClCompile Include="..\ftl\map_log.cpp" />
     <ClCompile Include="..\ftl\map_sector.cpp" />
+    <ClCompile Include="..\ftl\req_handler.cpp" />
     <ClCompile Include="..\hw\buf.cpp" />
     <ClCompile Include="..\hw\die.cpp" />
     <ClCompile Include="..\hw\nfc.cpp" />
@@ -165,10 +167,13 @@
   <ItemGroup>
     <ClInclude Include="..\com\config.h" />
     <ClInclude Include="..\com\macro.h" />
+    <ClInclude Include="..\com\scheduler.h" />
+    <ClInclude Include="..\com\scheduler_conf.h" />
     <ClInclude Include="..\com\templ.h" />
     <ClInclude Include="..\com\types.h" />
     <ClInclude Include="..\ftl\ftl.h" />
     <ClInclude Include="..\ftl\io.h" />
+    <ClInclude Include="..\ftl\req_handler.h" />
     <ClInclude Include="..\hw\buf.h" />
     <ClInclude Include="..\hw\die.h" />
     <ClInclude Include="..\hw\nfc.h" />

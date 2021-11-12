@@ -2,6 +2,7 @@
 #include <list>
 #include <random>
 
+#include "templ.h"
 #include "sim.h"
 
 using namespace std;
@@ -23,7 +24,7 @@ struct Evt
 public:
 	uint64	nTick;			///< Event발생할 시간.
 	HwID	nOwner;			///< Event발생한 HW.
-	uint8	params[10];		///< Event information for each HW.
+	uint8	params[BYTE_PER_EVT];		///< Event information for each HW.
 
 	/// sorting을 위해서 comparator필요함.
 	bool operator()(const Evt* lhs, const Evt* rhs) const
@@ -46,7 +47,7 @@ mt19937_64 gRand;		///< Random number generator.
 /// Event repository.
 static Evt gaEvts[NUM_EVENT];
 static std::priority_queue<Evt*, std::vector<Evt*>, Evt> gEvtQue;
-static list<Evt*> gEvtPool;
+static Queue<Evt*, NUM_EVENT + 1> gEvtPool;
 
 /**
 HW는 event driven으로만 동작하며,
@@ -79,8 +80,7 @@ void sim_StartCPU()
 
 void* SIM_NewEvt(HwID eOwn, uint32 nTick)
 {
-	Evt* evt = gEvtPool.front();
-	gEvtPool.pop_front();
+	Evt* evt = gEvtPool.PopHead();
 	evt->nTick = gnHwTick + nTick;
 	evt->nOwner = eOwn;
 
@@ -160,7 +160,7 @@ static void sim_ProcEvt(uint64 nEndTick)
 		gnHwTick = evt->nTick;
 		gEvtQue.pop();
 		gfEvtHdr[evt->nOwner](evt->params);
-		gEvtPool.push_front(evt);
+		gEvtPool.PushTail(evt);
 	}
 }
 
@@ -170,20 +170,25 @@ Simulation engine을 처음으로 되돌린다.
 반드시 Simulator fiber에서 호출되어야 한다. 
 (권장: HW event에서 호출하면 좋을 듯..)
 */
-void SIM_Reset()
+void sim_PowerUp()
 {
-	gbPowerOn = false;
-	gEvtPool.resize(0);
+	gbPowerOn = true;
 	while (gEvtQue.size())
 	{
 		gEvtQue.pop();
 	}
-	for (int i = 0; i < NUM_EVENT; i++)
+	gEvtPool.Init();
+	for (uint32 nIdx = 0; nIdx < NUM_EVENT; nIdx++)
 	{
-		gEvtPool.push_back(gaEvts + i);
+		gEvtPool.PushTail(gaEvts + nIdx);
 	}
 	gnHwTick = 0;
 	sim_StartCPU();
+}
+
+void SIM_PowerDown()
+{
+	gbPowerOn = false;
 }
 
 /**
@@ -195,11 +200,10 @@ void SIM_Run()
 {
 	ghEngine = ConvertThreadToFiber(nullptr);
 	gRand.seed(10);
-	SIM_Reset();
 
 	while (true)
 	{
-		gbPowerOn = true;
+		sim_PowerUp();
 		while (gbPowerOn)
 		{
 			for (uint32 nCpu = 0; nCpu < NUM_CPU; nCpu++)
@@ -215,73 +219,3 @@ void SIM_Run()
 		}
 	}
 }
-
-///////////// Example //////////////////
-#if 0
-
-struct DummyEvt
-{
-	uint64 nTick;
-	HwID nId;
-};
-
-void cpu_Entry0(void* pParam)
-{
-	DummyEvt* pEvt = (DummyEvt*)SIM_NewEvt(HW_NFC, 9);
-	pEvt->nTick = SIM_GetTick();
-	pEvt->nId = HW_NFC;
-
-	for (uint32 i = 0; i < 100; i++)
-	{
-		SIM_Print("Cpu0\n");
-		SIM_CpuTimePass(1);
-	}
-	while (true)
-	{
-		SIM_CpuTimePass(100000);
-	}
-}
-
-void cpu_Entry1(void* pParam)
-{
-	DummyEvt* pEvt = (DummyEvt*)SIM_NewEvt(HW_NAND, 20);
-	pEvt->nTick = SIM_GetTick();
-	pEvt->nId = HW_NAND;
-
-	for (uint32 i = 0; i < 10; i++)
-	{
-		SIM_Print("Cpu1\n");
-		SIM_CpuTimePass(10);
-	}
-	while (true)
-	{
-		SIM_CpuTimePass(100000);
-	}
-}
-
-void hw_Handle(void* pEvt)
-{
-	DummyEvt* pstCurEvt = (DummyEvt*)pEvt;
-	SIM_Print("HW %d Issued:%d\n", pstCurEvt->nId, pstCurEvt->nTick);
-	DummyEvt* pNewEvt = (DummyEvt*)SIM_NewEvt(pstCurEvt->nId, rand() % 20);
-	pNewEvt->nTick = SIM_GetTick();
-	pNewEvt->nId = pstCurEvt->nId;
-}
-
-int main()
-{
-	SIM_Reset();
-
-	SIM_AddCPU(CPU_FIL, cpu_Entry0, (void*)3);
-	SIM_AddCPU(CPU_FTL, cpu_Entry1, (void*)4);
-
-	SIM_AddHW(HW_NFC, hw_Handle);
-	SIM_AddHW(HW_NAND, hw_Handle);
-
-	SIM_Run();
-
-	return 0;
-}
-
-#endif
-

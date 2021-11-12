@@ -4,7 +4,7 @@
 #include "die.h"
 #include "nfc.h"
 
-#define PRINT			//SIM_Print
+#define PRINTF			//SIM_Print
 
 /**
 NFC Simulation module.
@@ -27,6 +27,7 @@ struct NFCEvt
 	uint8 nOffset;
 	uint64 nTick;
 };
+static_assert(sizeof(NFCEvt) < BYTE_PER_EVT);
 
 
 struct CurRun
@@ -244,7 +245,7 @@ void nfc_HandleEvt(void* pEvt)
 	NFCEvt* pCurEvt = (NFCEvt*)pEvt;
 	uint8 nDie = pCurEvt->nDie;
 
-	PRINT("NFCEvt Rcv <-- %d\n", pCurEvt->nTick);
+	PRINTF("NFCEvt Rcv <-- %d\n", pCurEvt->nTick);
 
 	CurRun* pRun = gastRun + nDie;
 	if (NStep::NS_WAIT_NEW_CMD == pRun->eStep)

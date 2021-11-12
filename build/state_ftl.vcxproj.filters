@@ -55,6 +55,12 @@
     <ClCompile Include="..\hw\power.cpp">
       <Filter>hw</Filter>
     </ClCompile>
+    <ClCompile Include="..\com\scheduler.cpp">
+      <Filter>com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\req_handler.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ftl\ftl.h">
@@ -95,6 +101,15 @@
     </ClInclude>
     <ClInclude Include="..\hw\power.h">
       <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\scheduler.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\scheduler_conf.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\req_handler.h">
+      <Filter>ftl</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -2,7 +2,9 @@
 
 #include "types.h"
 #include "macro.h"
+
 #define TICK_PER_SEC	(1000000LL)		// us unit.
+#define BYTE_PER_EVT	(20)
 
 /**
 HW ID: 같은 handler를 사용하게 된다.
@@ -34,7 +36,7 @@ typedef void(*CpuEntry)(void* pParam);
 
 //////////////////////////////////////
 
-void SIM_Reset();
+void SIM_PowerDown();
 void SIM_AddHW(HwID id, EvtHdr pfEvtHandler);
 void SIM_AddCPU(CpuID eID, CpuEntry pfEntry, void* pParam);
 

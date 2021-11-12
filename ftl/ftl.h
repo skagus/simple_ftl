@@ -5,6 +5,9 @@
 #define NUM_USER_BLK		(PBLK_PER_DIE - 5)
 #define LPN_PER_USER_BLK	(CHUNK_PER_PBLK)
 
+#define SIZE_REQ_QUE	(16)
+
+
 enum Cmd
 {
 	CMD_WRITE,
@@ -18,8 +21,11 @@ struct ReqInfo
 	uint16 nBuf;
 };
 
-uint32 FTL_GetNumLPN();
+typedef void (*CbfReq)(ReqInfo* pReq);
 
+uint32 FTL_GetNumLPN(CbfReq pfCbf);
 void FTL_Request(ReqInfo* pReq);
 
-void FTL_InitSim();
+#ifdef EN_SIM
+void FTL_Main(void* pParam);
+#endif

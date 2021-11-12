@@ -67,16 +67,21 @@ void ftl_Format()
 void ftl_MetaSave()
 {
 	PRINTF("MetaSave\n");
+	CmdInfo* pCmd;
 	////// Save Meta data. ////////
 	if (0 == gstMetaCtx.nNextWL)
 	{
-		IO_Erase(gstMetaCtx.nCurBN);
+		pCmd = IO_Erase(gstMetaCtx.nCurBN);
+		IO_WaitDone(pCmd);
+		IO_Free(pCmd);
 	}
 	uint16 nBuf = BM_Alloc();
 	*(uint32*)BM_GetSpare(nBuf) = gstMetaCtx.nAge;
 	uint8* pMain = BM_GetMain(nBuf);
 	memcpy(pMain, &gstMeta, sizeof(gstMeta));
-	IO_Program(gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf);
+	pCmd = IO_Program(gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf);
+	IO_WaitDone(pCmd);
+	IO_Free(pCmd);
 	BM_Free(nBuf);
 
 	/////// Setup Next Address ///////////
@@ -101,10 +106,13 @@ void ftl_Scan(uint32 nLogIdx)
 	uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
 	uint8* pMain = BM_GetMain(nBuf);
 	uint16 nPO;
+	CmdInfo* pCmd;
 	PRINTF("Log Scan from (%X,%X) \n", pLMap->nPBN, pLMap->nCPO);
 	for (nPO = nCPO; nPO < NUM_WL; nPO++)
 	{
-		IO_Read(pLMap->nPBN, nPO, nBuf);
+		pCmd = IO_Read(pLMap->nPBN, nPO, nBuf);
+		IO_WaitDone(pCmd);
+		IO_Free(pCmd);
 		if (0xFFFFFFFF == *pnSpare)
 		{
 			break;
@@ -128,9 +136,12 @@ bool ftl_Open()
 	// Find Latest Blk.
 	uint32 nMaxAge = 0;
 	uint16 nMaxBN = 0xFFFF;
+	CmdInfo* pCmd;
 	for (uint16 nBN = 0; nBN < NUM_META_BLK; nBN++)
 	{
-		IO_Read(nBN, 0, nBuf);
+		pCmd = IO_Read(nBN, 0, nBuf);
+		IO_WaitDone(pCmd);
+		IO_Free(pCmd);
 		if ((*pnSpare > nMaxAge) && (*pnSpare != 0xFFFFFFFF))
 		{
 			nMaxAge = *pnSpare;
@@ -142,7 +153,10 @@ bool ftl_Open()
 		uint16 nCPO;
 		for (nCPO = 0; nCPO < NUM_WL; nCPO++)
 		{
-			IO_Read(nMaxBN, nCPO, nBuf);
+			pCmd = IO_Read(nMaxBN, nCPO, nBuf);
+			IO_WaitDone(pCmd);
+			IO_Free(pCmd);
+
 			if (0xFFFFFFFF != *pnSpare)
 			{
 				gstMetaCtx.nAge = *pnSpare;
@@ -176,9 +190,6 @@ bool ftl_Open()
 
 void FTL_Init()
 {
-	BM_Init();
-	NFC_Init(io_CbDone);
-
 	MEMSET_OBJ(gstMeta, 0);
 	MEMSET_OBJ(gstMetaCtx, 0);
 
@@ -224,17 +235,24 @@ void migrate(LogMap* pVictim)
 	uint16 nDstBN = gstMeta.nFreePBN;
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf4Copy);
 	uint32* pMain = (uint32*)BM_GetMain(nBuf4Copy);
+	CmdInfo* pCmd;
 
-	IO_Erase(nDstBN);	// Erase before program.
+	pCmd = IO_Erase(nDstBN);	// Erase before program.
+	IO_WaitDone(pCmd);
+	IO_Free(pCmd);
 	for (uint16 nPO = 0; nPO < NUM_WL; nPO++)
 	{
 		if (0xFFFFFFFF != pVictim->anMap[nPO])
 		{
-			IO_Read(nLogBN, pVictim->anMap[nPO], nBuf4Copy);
+			pCmd = IO_Read(nLogBN, pVictim->anMap[nPO], nBuf4Copy);
+			IO_WaitDone(pCmd);
+			IO_Free(pCmd);
 		}
 		else
 		{
-			IO_Read(nOrgBN, nPO, nBuf4Copy);
+			pCmd = IO_Read(nOrgBN, nPO, nBuf4Copy);
+			IO_WaitDone(pCmd);
+			IO_Free(pCmd);
 		}
 		PRINTF("Mig: %X\n", *pSpare);
 		if (*pSpare & 0xF == nPO)
@@ -243,7 +261,9 @@ void migrate(LogMap* pVictim)
 		}
 		assert(*pSpare == *(uint32*)BM_GetMain(nBuf4Copy));
 
-		IO_Program(nDstBN, nPO, nBuf4Copy);
+		pCmd = IO_Program(nDstBN, nPO, nBuf4Copy);
+		IO_WaitDone(pCmd);
+		IO_Free(pCmd);
 	}
 	gstMeta.nFreePBN = gstMeta.astMap[pVictim->nLBN].nPBN;
 	gstMeta.astMap[pVictim->nLBN].bLog = 0;
@@ -267,7 +287,9 @@ LogMap* makeNewLog(uint16 nLBN, LogMap* pSrcLog)
 	gstMeta.astMap[nLBN].bLog = 1;
 	pSrcLog->nLBN = nLBN;
 	pSrcLog->nCPO = 0;
-	IO_Erase(pSrcLog->nPBN);
+	CmdInfo* pCmd = IO_Erase(pSrcLog->nPBN);
+	IO_WaitDone(pCmd);
+	IO_Free(pCmd);
 	ftl_MetaSave();
 	return pSrcLog;
 }
@@ -310,12 +332,7 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 		IO_Read(gstMeta.astMap[nLBN].nPBN, nLPO, nBufId);
 	}
 
-	uint32* pnVal = (uint32*)BM_GetSpare(nBufId);
-	PRINTF("Read: %X, %X\n", nLPN, *pnVal);
-	if (0xFFFFFFFF != *pnVal)
-	{
-		assert(nLPN == *pnVal);
-	}
+	SIM_CpuTimePass(3);
 }
 
 #endif

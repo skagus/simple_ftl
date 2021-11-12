@@ -16,7 +16,4 @@ typedef int8_t				int8;
 typedef uint64_t			uint64;
 typedef int64_t				int64;
 
-
-typedef uint32				UINT32;
-typedef uint8				UINT8;
-
+typedef void (*Cbf)(uint32 tag, uint32 result);

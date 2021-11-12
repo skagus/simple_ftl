@@ -5,17 +5,17 @@ struct TmrEvt
 	uint32 nTimerId;
 	bool bValid;
 };
+static_assert(sizeof(TmrEvt) < BYTE_PER_EVT);
 
 struct TimerInfo
 {
 	bool bRepeat;
 	uint32 nTimeout;
-	CbFunc pfCbf;
+	Cbf pfCbf;
 	TmrEvt* pstEvt;
 };
 
 TimerInfo gaTimer[NUM_TIMER];
-uint32 gnCntTimer;
 
 TmrEvt* tmr_NewEvt(uint32 nTimerId, uint32 nTimeout)
 {
@@ -46,12 +46,11 @@ void tmr_HandleEvt(void* pEvt)
 void TMR_InitSim()
 {
 	SIM_AddHW(HW_TIMER, tmr_HandleEvt);
-	gnCntTimer = 0;
 }
 
 ///////////////////////////////////// Timer LLD ///////////////////////////////////////////
 
-void TMR_Add(uint32 nTimerId, uint32 nTimeout, CbFunc pfCbf, bool bRepeat)
+void TMR_Add(uint32 nTimerId, uint32 nTimeout, Cbf pfCbf, bool bRepeat)
 {
 	TimerInfo* pTimer = gaTimer + nTimerId;
 	pTimer->nTimeout = nTimeout;
@@ -79,5 +78,4 @@ void TMR_Remove(uint32 nTimerId)
 void TMR_Init()
 {
 	MEMSET_ARRAY(gaTimer, 0);
-	gnCntTimer = 0;
 }

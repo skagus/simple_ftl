@@ -4,6 +4,7 @@ struct PowerEvt
 {
 	uint32 nOffDelay;
 };
+static_assert(sizeof(PowerEvt) < BYTE_PER_EVT);
 
 PowerEvt* power_NewEvt(uint32 nTimeout)
 {
@@ -15,7 +16,7 @@ PowerEvt* power_NewEvt(uint32 nTimeout)
 void power_HandleEvt(void* pEvt)
 {
 	PowerEvt* pstEvt = (PowerEvt*)pEvt;
-	SIM_Reset();
+	SIM_PowerDown();
 }
 
 void POWER_InitSim()

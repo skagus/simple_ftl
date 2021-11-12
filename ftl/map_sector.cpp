@@ -37,7 +37,7 @@ OpenBlk gstOpen;
 void FTL_Init()
 {
 	BM_Init();
-	NFC_Init(io_CbDone);
+	IO_Init();
 
 	memset(gastL2P, 0xFF, sizeof(gastL2P));
 	for (uint32 nBN = 0; nBN < PBLK_PER_DIE; nBN++)

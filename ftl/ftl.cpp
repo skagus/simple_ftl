@@ -3,69 +3,52 @@
 #include "sim.h"
 #include "buf.h"
 #include "nfc.h"
+#include "timer.h"
 #include "power.h"
+#include "scheduler.h"
 #include "test.h"
 #include "io.h"
 #include "ftl.h"
+#include "io.h"
+#include "req_handler.h"
 
 #define PRINTF			SIM_Print
-
-#define SIZE_REQ_QUE	(16)
 
 Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
 void FTL_Request(ReqInfo* pReq)
 {
 	gstReqQ.PushTail(pReq);
+	Sched_TrigSyncEvt(BIT(EVT_USER_CMD));
 }
 
-uint32 FTL_GetNumLPN()
+uint32 FTL_GetNumLPN(CbfReq pfCbf)
 {
+	REQ_SetCbf(pfCbf);
 	SIM_CpuTimePass(100);	// Wait open time.
 	return NUM_USER_BLK * LPN_PER_USER_BLK;
 }
 
 void FTL_Main(void* pParam)
 {
+	TMR_Init();
+	BM_Init();
+	NFC_Init(io_CbDone);
+
+	Cbf pfTickIsr = Sched_Init();
+	TMR_Add(0, 100, pfTickIsr, true);
+
 	gstReqQ.Init();
+	IO_Init();
 	FTL_Init();
+	REQ_Init();
 
 	while (true)
 	{
-		if (gstReqQ.Count() > 0)
-		{
-			ReqInfo* pReq = gstReqQ.PopHead();
-			switch (pReq->eCmd)
-			{
-				case CMD_WRITE:
-				{
-//					PRINTF("Do Write: %d\n", pReq->nLPN);
-					FTL_Write(pReq->nLPN, pReq->nBuf);
-					break;
-				}
-				case CMD_READ:
-				{
-//					PRINTF("Do Read: %d\n", pReq->nLPN);
-					FTL_Read(pReq->nLPN, pReq->nBuf);
-					break;
-				}
-				default:
-				{
-					assert(false);
-				}
-			}
-			TEST_DoneCmd(pReq);
-		}
-		SIM_CpuTimePass(1);
+		Sched_Run();
+		SIM_CpuTimePass(10);
 	}
 }
-
-
-void FTL_InitSim()
-{
-	SIM_AddCPU(CPU_FTL, FTL_Main, (void*)4);
-}
-
 
 
 #if 0 // Test..

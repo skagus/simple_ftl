@@ -122,7 +122,7 @@ bool ftl_Open()
 void FTL_Init()
 {
 	BM_Init();
-	NFC_Init(io_CbDone);
+	IO_Init();
 	MEMSET_OBJ(gstMeta, 0);
 	MEMSET_OBJ(gstMetaCtx, 0);
 

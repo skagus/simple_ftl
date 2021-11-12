@@ -7,6 +7,16 @@
 #include "test.h"
 #include "ftl.h"
 
+void TEST_InitSim()
+{
+	SIM_AddCPU(CPU_WORK, TEST_Main, (void*)4);
+}
+
+void FTL_InitSim()
+{
+	SIM_AddCPU(CPU_FTL, FTL_Main, (void*)4);
+}
+
 int main()
 {
 	NFC_InitSim();

@@ -27,7 +27,7 @@ void _CheckData(uint16 nBuf, uint32 nLPN)
 	}
 }
 
-void TEST_DoneCmd(ReqInfo* pReq)
+void test_DoneCmd(ReqInfo* pReq)
 {
 //	PRINTF("Done\n");
 	gbDone = true;
@@ -67,7 +67,7 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
 		FTL_Request(&stReq);
-//		PRINTF("Read Req: %d\n", nCur);
+		// PRINTF("Read Req: %d\n", nCur);
 		while (false == gbDone)
 		{
 			SIM_CpuTimePass(10);
@@ -85,7 +85,7 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 	stReq.eCmd = CMD_WRITE;
 	while(nCount--)
 	{
-		stReq.nLPN = nBase + rand() % nRange;
+		stReq.nLPN = nBase + SIM_GetRand(nRange);
 		stReq.nBuf = BM_Alloc();
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
@@ -108,7 +108,7 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 
 	while (nCount--)
 	{
-		stReq.nLPN = nBase + rand() % nRange;
+		stReq.nLPN = nBase + SIM_GetRand(nRange);
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
 		FTL_Request(&stReq);
@@ -127,15 +127,14 @@ Workload 생성역할.
 */
 void TEST_Main(void* pParam)
 {
-	srand(10);
-	uint32 nNumUserLPN = FTL_GetNumLPN();
+	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
 	if (nullptr == gaDict)
 	{
 		gaDict = new uint32[nNumUserLPN];
 		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
 	}
 	tc_SeqRead(0, nNumUserLPN);
-	for (uint32 nLoop = 0; nLoop < 5; nLoop++)
+	for (uint32 nLoop = 0; nLoop < 1; nLoop++)
 	{
 		tc_RandRead(0, nNumUserLPN, nNumUserLPN / 2);
 		tc_RandWrite(0, 0x20, nNumUserLPN * 2);
@@ -145,7 +144,4 @@ void TEST_Main(void* pParam)
 	END_RUN;
 }
 
-void TEST_InitSim()
-{
-	SIM_AddCPU(CPU_WORK, TEST_Main, (void*)4);
-}
+
