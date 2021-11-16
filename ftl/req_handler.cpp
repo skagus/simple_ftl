@@ -96,7 +96,7 @@ RETRY:
 		}
 		case RS_WaitNand:
 		{
-			CmdInfo* pCmd = IO_GetDone(false);
+			CmdInfo* pCmd = IO_GetDone(IOCB_User);
 			if (nullptr == pCmd)
 			{
 				Sched_Wait(BIT(EVT_NAND_CMD), 100);

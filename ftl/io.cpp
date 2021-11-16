@@ -5,42 +5,47 @@
 #include "nfc.h"
 #include "ftl.h"
 #include "buf.h"
+#include "io.h"
 
 #define PRINTF			// SIM_Print
 #define NUM_NAND_CMD	(5)
-static bool gbDone;
-
 
 CmdInfo gaCmds[NUM_NAND_CMD];
-Queue<CmdInfo*, NUM_NAND_CMD + 1> gNCmdPool;
+CbKey gaKeys[NUM_NAND_CMD];
+//Queue<CmdInfo*, NUM_NAND_CMD + 1> gNCmdPool;
+LinkedQueue<CmdInfo> gNCmdPool;
+IoCbf gaCbf[NUM_IOCB];
+LinkedQueue<CmdInfo> gaDone[NUM_IOCB];
 
-CmdInfo* IO_GetDone(bool bWait)
+CmdInfo* IO_GetDone(CbKey eCbId)
 {
-	CmdInfo* pRet = NFC_GetDone();
-	while (bWait && (nullptr == pRet))
-	{
-		pRet = NFC_GetDone();
-		SIM_CpuTimePass(10);
-	}
+	CmdInfo* pRet = gaDone[eCbId].PopHead();
 	return pRet;
 }
 
 void io_CbDone(uint32 nDie, uint32 nTag)
 {
-	Sched_TrigAsyncEvt(BIT(EVT_NAND_CMD));
+	CmdInfo* pRet = NFC_GetDone();
+	if (nullptr != pRet)
+	{
+		gaDone[0].PushTail(pRet);
+		Sched_TrigAsyncEvt(BIT(EVT_NAND_CMD));
+	}
 }
 
 void IO_Free(CmdInfo* pCmd)
 {
+	gaKeys[pCmd - gaCmds] = NUM_IOCB;
 	gNCmdPool.PushTail(pCmd);
 }
 
-CmdInfo* IO_Alloc()
+CmdInfo* IO_Alloc(CbKey eKey)
 {
 	if (gNCmdPool.Count() > 0)
 	{
 		CmdInfo* pRet = gNCmdPool.PopHead();
 		pRet->nDbgSN = SIM_GetSeqNo();
+		gaKeys[pRet - gaCmds] = eKey;
 		return pRet;
 	}
 	return nullptr;
@@ -48,13 +53,19 @@ CmdInfo* IO_Alloc()
 
 void IO_WaitDone(CmdInfo* pCmd)
 {
-	CmdInfo* pDone = IO_GetDone(true);
+	CbKey eKey = gaKeys[pCmd - gaCmds];
+	CmdInfo* pDone = gaDone[eKey].PopHead();
+	while (nullptr == pDone)
+	{
+		pDone = gaDone[0].PopHead();
+		SIM_CpuTimePass(10);
+	}
 	assert(pDone == pCmd);
 }
 
 CmdInfo* IO_Read(uint16 nPBN, uint16 nPage, uint16 nBufId)
 {
-	CmdInfo* pstCmd = IO_Alloc();
+	CmdInfo* pstCmd = IO_Alloc(IOCB_User);
 	pstCmd->eCmd = NCmd::NC_READ;
 	pstCmd->nDie = 0;
 	pstCmd->nWL = nPage;
@@ -71,7 +82,7 @@ CmdInfo* IO_Read(uint16 nPBN, uint16 nPage, uint16 nBufId)
 
 CmdInfo* IO_Program(uint16 nPBN, uint16 nPage, uint16 nBufId)
 {
-	CmdInfo* pstCmd = IO_Alloc();
+	CmdInfo* pstCmd = IO_Alloc(IOCB_User);
 	pstCmd->eCmd = NCmd::NC_PGM;
 	pstCmd->nDie = 0;
 	pstCmd->nWL = nPage;
@@ -88,7 +99,7 @@ CmdInfo* IO_Program(uint16 nPBN, uint16 nPage, uint16 nBufId)
 
 CmdInfo* IO_Erase(uint16 nPBN)
 {
-	CmdInfo* pstCmd = IO_Alloc();
+	CmdInfo* pstCmd = IO_Alloc(IOCB_User);
 	pstCmd->eCmd = NCmd::NC_ERB;
 	pstCmd->nDie = 0;
 	pstCmd->nWL = 0;
@@ -100,12 +111,18 @@ CmdInfo* IO_Erase(uint16 nPBN)
 	return pstCmd;
 }
 
+void IO_RegCbf(CbKey eId, IoCbf pfCb)
+{
+	gaCbf[eId] = pfCb;
+}
+
+
 void IO_Init()
 {
 	NFC_Init(io_CbDone);
 	gNCmdPool.Init();
 	for (uint16 nIdx = 0; nIdx < NUM_NAND_CMD; nIdx++)
 	{
-		gNCmdPool.PushTail(gaCmds + nIdx);
+		IO_Free(gaCmds + nIdx);
 	}
 }
