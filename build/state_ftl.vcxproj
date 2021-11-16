@@ -122,6 +122,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>../com;../ftl;../hw;../test</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,9 +152,7 @@
     <ClCompile Include="..\ftl\ftl.cpp" />
     <ClCompile Include="..\ftl\io.cpp" />
     <ClCompile Include="..\ftl\map_block.cpp" />
-    <ClCompile Include="..\ftl\map_hybrid.cpp" />
     <ClCompile Include="..\ftl\map_log.cpp" />
-    <ClCompile Include="..\ftl\map_sector.cpp" />
     <ClCompile Include="..\ftl\meta_manager.cpp" />
     <ClCompile Include="..\ftl\req_handler.cpp" />
     <ClCompile Include="..\hw\buf.cpp" />

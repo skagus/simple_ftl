@@ -18,13 +18,7 @@
     <ClCompile Include="..\ftl\map_block.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\map_hybrid.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
     <ClCompile Include="..\ftl\map_log.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\map_sector.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
     <ClCompile Include="..\ftl\io.cpp">

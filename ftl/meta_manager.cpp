@@ -58,9 +58,8 @@ struct FormatCtx
 	uint16 nBN;
 };
 
-BootStep meta_Format(void* pCtx)
+BootStep meta_Format(FormatCtx* pFmtCtx)
 {
-	FormatCtx* pFmtCtx = (FormatCtx*)pCtx;
 	BootStep eRet;
 	switch (pFmtCtx->eStep)
 	{
@@ -94,6 +93,7 @@ BootStep meta_Format(void* pCtx)
 
 			pFmtCtx->eStep = FMT_Done;
 			eRet = Boot_Done;
+			break;
 		}
 		default:
 		{
@@ -224,9 +224,8 @@ struct OpenCtx
 	uint16 nWL;
 };
 
-BootStep meta_Open(void* pInCtx)
+BootStep meta_Open(OpenCtx* pCtx)
 {
-	OpenCtx* pCtx = (OpenCtx*)pInCtx;
 	BootStep eRet;
 	switch (pCtx->eOpenStep)
 	{
@@ -325,7 +324,7 @@ RETRY:
 		case Boot_Init:
 		{
 			MEMSET_PTR((gpBootCtx + 1), 0);
-			gpBootCtx->eStep = meta_Open((void*)(gpBootCtx + 1));
+			gpBootCtx->eStep = meta_Open((OpenCtx*)(gpBootCtx + 1));
 			if(Boot_Format == gpBootCtx->eStep)
 			{
 				goto RETRY;
@@ -334,7 +333,7 @@ RETRY:
 		}
 		case Boot_Open:
 		{
-			switch (meta_Open((void*)(gpBootCtx + 1)))
+			switch (meta_Open((OpenCtx*)(gpBootCtx + 1)))
 			{
 				case Boot_Open: // Open running.
 				{
@@ -349,7 +348,7 @@ RETRY:
 				case Boot_Format:
 				{
 					MEMSET_PTR((gpBootCtx + 1), 0);
-					meta_Format((void*)(gpBootCtx + 1));
+					meta_Format((FormatCtx*)(gpBootCtx + 1));
 					gpBootCtx->eStep = Boot_Format;
 					break;
 				}
@@ -358,7 +357,7 @@ RETRY:
 		}
 		case Boot_Format:
 		{
-			switch (meta_Format((void*)(gpBootCtx + 1)))
+			switch (meta_Format((FormatCtx*)(gpBootCtx + 1)))
 			{
 				case Boot_Format:	// Continue....
 				{

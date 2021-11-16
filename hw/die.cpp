@@ -31,7 +31,7 @@ struct PBlk
 	void Erase()
 	{
 		nNextPgm = 0;
-		MEMSET_ARRAY(astWL, 0x00, sizeof(astWL));
+		MEMSET_ARRAY(astWL, 0x00);
 	}
 };
 
@@ -45,9 +45,9 @@ class MyDie : public Die
 public:
 	MyDie()
 	{
-		MEMSET_ARRAY(ap4DOut, 0, sizeof(ap4DOut));
-		MEMSET_ARRAY(a4DIn, 0, sizeof(a4DIn));
-		MEMSET_ARRAY(astPBlk, 0, sizeof(astPBlk));
+		MEMSET_ARRAY(ap4DOut, 0);
+		MEMSET_ARRAY(a4DIn, 0);
+		MEMSET_ARRAY(astPBlk, 0);
 	}
 
 	bool DoErase(uint16 anBBN[NUM_PLN], uint8 bmPln) override

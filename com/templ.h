@@ -1,5 +1,5 @@
 #pragma once
-
+#include "types.h"
 
 /*************************************************************
 Queue는 pool로서 사용할 수도 있고, 
@@ -14,7 +14,7 @@ class Queue
 	int tail;
 
 public:
-	bool Count(){ return (head + SIZE - tail) % SIZE; }
+	int Count(){ return (head + SIZE - tail) % SIZE; }
 	bool IsEmpty(){ return head == tail; }
 	bool IsFull(){ return (Count() == SIZE); }
 	T GetHead()

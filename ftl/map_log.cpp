@@ -59,7 +59,7 @@ void migrate(LogMap* pVictim)
 			IO_Free(pCmd);
 		}
 		PRINTF("Mig: %X\n", *pSpare);
-		if (*pSpare & 0xF == nPO)
+		if ((*pSpare & 0xF) == nPO)
 		{
 			assert((*pMain & 0xF) == nPO);
 		}
