@@ -1,3 +1,4 @@
+
 #include <string.h>
 #include "macro.h"
 #include "die.h"

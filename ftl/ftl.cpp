@@ -1,4 +1,3 @@
-
 #include "templ.h"
 #include "sim.h"
 #include "buf.h"
