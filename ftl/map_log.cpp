@@ -1,3 +1,4 @@
+
 #include "types.h"
 #include "config.h"
 #include "map_log.h"
@@ -40,21 +41,22 @@ void migrate(LogMap* pVictim)
 	uint16 nDstBN = META_GetFreePBN();
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf4Copy);
 	uint32* pMain = (uint32*)BM_GetMain(nBuf4Copy);
-	CmdInfo* pCmd;
-	pCmd = IO_Erase(nDstBN);	// Erase before program.
+	CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
+	IO_Erase(pCmd, nDstBN, 0);	// Erase before program.
 	IO_WaitDone(pCmd);
 	IO_Free(pCmd);
 	for (uint16 nPO = 0; nPO < NUM_WL; nPO++)
 	{
+		pCmd = IO_Alloc(IOCB_Mig);
 		if (0xFFFFFFFF != pVictim->anMap[nPO])
 		{
-			pCmd = IO_Read(nLogBN, pVictim->anMap[nPO], nBuf4Copy);
+			IO_Read(pCmd, nLogBN, pVictim->anMap[nPO], nBuf4Copy, 0);
 			IO_WaitDone(pCmd);
 			IO_Free(pCmd);
 		}
 		else
 		{
-			pCmd = IO_Read(nOrgBN, nPO, nBuf4Copy);
+			IO_Read(pCmd, nOrgBN, nPO, nBuf4Copy, 0);
 			IO_WaitDone(pCmd);
 			IO_Free(pCmd);
 		}
@@ -64,8 +66,8 @@ void migrate(LogMap* pVictim)
 			assert((*pMain & 0xF) == nPO);
 		}
 		assert(*pSpare == *(uint32*)BM_GetMain(nBuf4Copy));
-
-		pCmd = IO_Program(nDstBN, nPO, nBuf4Copy);
+		pCmd = IO_Alloc(IOCB_Mig);
+		IO_Program(pCmd, nDstBN, nPO, nBuf4Copy, 0);
 		IO_WaitDone(pCmd);
 		IO_Free(pCmd);
 	}
@@ -91,14 +93,15 @@ LogMap* makeNewLog(uint16 nLBN, LogMap* pSrcLog)
 	META_GetBlkMap(nLBN)->bLog = 1;
 	pSrcLog->nLBN = nLBN;
 	pSrcLog->nCPO = 0;
-	CmdInfo* pCmd = IO_Erase(pSrcLog->nPBN);
+	CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
+	IO_Erase(pCmd, pSrcLog->nPBN, 0);
 	IO_WaitDone(pCmd);
 	IO_Free(pCmd);
 	META_Save();
 	return pSrcLog;
 }
 
-void FTL_Write(uint32 nLPN, uint16 nNewBuf)
+void FTL_Write(uint32 nLPN, uint16 nNewBuf, uint8 nTag)
 {
 	uint16 nLBN = nLPN / CHUNK_PER_PBLK;
 	uint16 nLPO = nLPN % CHUNK_PER_PBLK;
@@ -110,12 +113,13 @@ void FTL_Write(uint32 nLPN, uint16 nNewBuf)
 	}
 	*(uint32*)BM_GetSpare(nNewBuf) = nLPN;
 	assert(nLPN == *(uint32*)BM_GetMain(nNewBuf));
-	IO_Program(pMap->nPBN, pMap->nCPO, nNewBuf);
+	CmdInfo* pCmd = IO_Alloc(IOCB_User);
+	IO_Program(pCmd, pMap->nPBN, pMap->nCPO, nNewBuf, nTag);
 	pMap->anMap[nLPO] = pMap->nCPO;
 	pMap->nCPO++;
 }
 
-void FTL_Read(uint32 nLPN, uint16 nBufId)
+void FTL_Read(uint32 nLPN, uint16 nBufId, uint8 nTag)
 {
 	uint16 nLBN = nLPN / CHUNK_PER_PBLK;
 	uint16 nLPO = nLPN % CHUNK_PER_PBLK;
@@ -126,15 +130,15 @@ void FTL_Read(uint32 nLPN, uint16 nBufId)
 	{
 		nPPO = pMap->anMap[nLPO];
 	}
-
+	CmdInfo* pCmd = IO_Alloc(IOCB_User);
 	if (0xFFFF != nPPO)	// in Log block.
 	{
-		IO_Read(pMap->nPBN, nPPO, nBufId);
+		IO_Read(pCmd, pMap->nPBN, nPPO, nBufId, nTag);
 	}
 	else
 	{
 		BlkMap* pBMap = META_GetBlkMap(nLBN);
-		IO_Read(pBMap->nPBN, nLPO, nBufId);
+		IO_Read(pCmd, pBMap->nPBN, nLPO, nBufId, nTag);
 	}
 
 	SIM_CpuTimePass(3);

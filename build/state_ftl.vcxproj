@@ -151,7 +151,6 @@
     <ClCompile Include="..\com\scheduler.cpp" />
     <ClCompile Include="..\ftl\ftl.cpp" />
     <ClCompile Include="..\ftl\io.cpp" />
-    <ClCompile Include="..\ftl\map_block.cpp" />
     <ClCompile Include="..\ftl\map_log.cpp" />
     <ClCompile Include="..\ftl\meta_manager.cpp" />
     <ClCompile Include="..\ftl\req_handler.cpp" />

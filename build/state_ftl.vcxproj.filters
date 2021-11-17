@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ftl\map_block.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
     <ClCompile Include="..\ftl\map_log.cpp">
       <Filter>ftl</Filter>
     </ClCompile>

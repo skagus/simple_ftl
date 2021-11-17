@@ -27,6 +27,7 @@ typedef enum
 typedef enum
 {
 	TID_REQ,
+	TID_REQ_RESP,
 	TID_GC,
 	TID_GC_RESP,
 	TID_META,

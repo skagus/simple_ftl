@@ -57,6 +57,7 @@ struct CmdInfo
 		ErbInfo stErb;
 	};
 	uint32 nDbgSN;
+	uint32 nTag;
 	struct CmdInfo* pNext;
 };
 
