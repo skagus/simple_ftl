@@ -68,6 +68,23 @@ TaskBtm sched_HandleEvt(Evts bmEvt, uint16 nTick)
 }
 
 /**
+* for debug.
+*/
+bool Sched_WillRun()
+{
+	if (bmRdyTask & BIT(nCurTask))
+	{
+		return true;
+	}
+	TaskInfo* pTI = astTask + nCurTask;
+	if (pTI->bmWaitEvt || pTI->nTimeOut)
+	{
+		return true;
+	}
+}
+
+
+/**
 * This function is called by ISR.
 * Just set async event.
 */

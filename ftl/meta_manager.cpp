@@ -9,7 +9,7 @@
 #include "map_log.h"
 #include "meta_manager.h"
 
-#define PRINTF				SIM_Print
+#define PRINTF			//	SIM_Print
 
 struct Meta
 {
@@ -148,7 +148,6 @@ LogMap* META_SearchLogMap(uint16 nLBN)
 
 void META_Save()
 {
-	PRINTF("MetaSave\n");
 	CmdInfo* pCmd;
 	////// Save Meta data. ////////
 	if (0 == gstMetaCtx.nNextWL)
@@ -168,6 +167,7 @@ void META_Save()
 	IO_Free(pCmd);
 	BM_Free(nBuf);
 
+	PRINTF("[MT] Save (%X,%X)\n", gstMetaCtx.nCurBN, gstMetaCtx.nNextWL);
 	/////// Setup Next Address ///////////
 	gstMetaCtx.nAge++;
 	gstMetaCtx.nNextWL++;
@@ -214,7 +214,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 		if (0xFFFFFFFF != *pnSpare)
 		{
 			uint32 nLPO = (*pnSpare) % CHUNK_PER_PBLK;
-			PRINTF("Open MapUpdate: %X (%X, %X)\n", *pnSpare, pLMap->nPBN, nPO);
+			PRINTF("[Open] MapUpdate: LPN:%X to PHY:(%X, %X)\n", *pnSpare, pLMap->nPBN, nPO);
 			pLMap->anMap[nLPO] = nPO;
 		}
 		else if (false == pCtx->bErsFound)
@@ -248,7 +248,6 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 			bRet = true;
 		}
 	}
-
 
 	if ((false == pCtx->bErsFound)
 		&& (pCtx->nIssue < NUM_WL)
@@ -292,7 +291,7 @@ bool meta_PageScan(MtPageScanCtx* pCtx, bool b1st)
 		uint16 nBuf = BM_Alloc();
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
 		IO_Read(pCmd, pCtx->nMaxBN, pCtx->nIssued, nBuf, pCtx->nIssued);
-		PRINTF("[OPEN] PageScan Issue %X\n", pCtx->nIssued);
+		PRINTF("[OPEN] PageScan Issue (%X,%X)\n", pCmd->anBBN[0], pCmd->nWL);
 		pCtx->nIssued++;
 		Sched_Wait(BIT(EVT_NAND_CMD), 100);
 	}
@@ -316,12 +315,13 @@ bool meta_PageScan(MtPageScanCtx* pCtx, bool b1st)
 		}
 		BM_Free(nBuf);
 		IO_Free(pDone);
+		PRINTF("[OPEN] PageScan Done (%X,%X)\n", pDone->anBBN[0], pDone->nWL);
 
 		if ((pCtx->nDone == pCtx->nIssued)
 			&& ((pCtx->nCPO > 0) || (pCtx->nDone >= NUM_WL)))
 		{
 			bRet = true;
-			PRINTF("[OPEN] MetaPage CPO:%X\n", pCtx->nCPO);
+			PRINTF("[OPEN] Clean MtPage (%X,%X))\n", pCtx->nMaxBN, pCtx->nCPO);
 			if (pCtx->nCPO < NUM_WL)
 			{
 				gstMetaCtx.nCurBN = pCtx->nMaxBN;
@@ -531,6 +531,8 @@ RETRY:
 			assert(false);
 		}
 	}
+
+	assert(Sched_WillRun() || (Boot_Done == gpBootCtx->eStep));
 }
 
 
