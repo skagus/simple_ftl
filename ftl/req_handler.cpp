@@ -48,7 +48,7 @@ struct ReqRunCtx
 
 static uint8 anContext[4096];		///< Stack like meta context.
 ReqRunCtx* pCtx;
-void req_Run(Evts bmEvt)
+void req_Run(void* pParam)
 {
 	pCtx = (ReqRunCtx*)anContext;
 
@@ -128,7 +128,7 @@ RETRY:
 	}
 }
 
-void reqResp_Run(Evts bmEvt)
+void reqResp_Run(void* pParam)
 {
 RETRY:
 
@@ -167,6 +167,6 @@ void REQ_Init()
 	{
 		gstReqInfoPool.PushTail(nIdx);
 	}
-	Sched_Register(TID_REQ, req_Run, BIT(MODE_NORMAL));
-	Sched_Register(TID_REQ_RESP, reqResp_Run, BIT(MODE_NORMAL));
+	Sched_Register(TID_REQ, req_Run, anContext, BIT(MODE_NORMAL));
+	Sched_Register(TID_REQ_RESP, reqResp_Run, nullptr, BIT(MODE_NORMAL));
 }

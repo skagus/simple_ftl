@@ -11,6 +11,7 @@ typedef struct
 	Entry	pfTask;
 	uint16  nTimeOut;
 	Evts    bmWaitEvt;         // Events to wait...
+	void*	pParam;
 } TaskInfo;
 
 TaskInfo astTask[MAX_TASK];
@@ -121,10 +122,11 @@ void Sched_Wait(Evts bmEvt, uint16 nTime)
 * Register Task.
 * Task ID is pre-defined.
 */
-void Sched_Register(uint8 nTaskID, Entry task, uint8 bmRunMode) ///< Register tasks.
+void Sched_Register(uint8 nTaskID, Entry task, void* pParam, uint8 bmRunMode) ///< Register tasks.
 {
 	TaskInfo* pTI = astTask + nTaskID;
 	pTI->pfTask = task;
+	pTI->pParam = pParam;
 	bmRdyTask |= BIT(nTaskID);
 
 	for (uint8 eMode = 0; eMode < NUM_MODE; eMode++)
@@ -188,7 +190,7 @@ void Sched_Run()
 			TaskInfo* pTask = astTask + nCurTask;
 			Evts bmEvt = pTask->bmWaitEvt;
 			pTask->bmWaitEvt = 0;
-			pTask->pfTask(bmEvt);	// paramter is triggered event.
+			pTask->pfTask(pTask->pParam);	// paramter is triggered event.
 #if DBG_SCHEDULER
 			ASSERT(pTask->bmWaitEvt || pTask->nTimeOut || (bmRdy & BIT(nCurTask)));
 #endif

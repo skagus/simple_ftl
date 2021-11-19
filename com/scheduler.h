@@ -22,10 +22,10 @@ typedef uint16 Evts;
 typedef uint32 Evts;
 #endif
 
-typedef void(*Entry)(Evts nEvt);
+typedef void(*Entry)(void* pParam);
 
 Cbf Sched_Init();
-void Sched_Register(uint8 nTaskID, Entry pfTask, uint8 bmRunMode); ///< Register tasks.
+void Sched_Register(uint8 nTaskID, Entry pfTask, void* pParam, uint8 bmRunMode); ///< Register tasks.
 void Sched_SetMode(RunMode eMode);
 RunMode Sched_GetMode();
 void Sched_Run();

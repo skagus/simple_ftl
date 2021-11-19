@@ -480,10 +480,8 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 }
 
 
-void meta_Run(Evts bmEvt)
+void meta_Run(void* pParam)
 {
-RETRY:
-
 	switch (gpBootCtx->eStep)
 	{
 		case Boot_Init:
@@ -542,5 +540,5 @@ void META_Init()
 	MEMSET_OBJ(gstMeta, 0);
 	MEMSET_OBJ(gstMetaCtx, 0);
 	MEMSET_ARRAY(anContext, 0);
-	Sched_Register(TID_META, meta_Run, BIT(MODE_NORMAL));
+	Sched_Register(TID_META, meta_Run, anContext, BIT(MODE_NORMAL));
 }
