@@ -82,6 +82,7 @@ bool Sched_WillRun()
 	{
 		return true;
 	}
+	return false;
 }
 
 

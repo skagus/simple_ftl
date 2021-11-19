@@ -5,6 +5,7 @@
 #include "ftl.h"
 #include "io.h"
 #include "test.h"
+#include "gc.h"
 #include "meta_manager.h"
 #include "req_handler.h"
 #include "scheduler.h"
@@ -36,7 +37,6 @@ enum ReqState
 {
 	RS_WaitOpen,
 	RS_WaitUser,
-	RS_WaitMerge,
 	RS_WaitIssue,
 };
 
@@ -46,11 +46,99 @@ struct ReqRunCtx
 	uint8 nCurSlot;
 };
 
-static uint8 anContext[4096];		///< Stack like meta context.
-ReqRunCtx* pCtx;
+enum ReqStep
+{
+	RS_Init,
+	RS_BlkWait,
+};
+
+struct ReqCtx
+{
+	ReqStep eStep;
+	ReqInfo* pReq;	// input.
+	uint32 nTag;
+	uint16 nIssued;
+	uint16 nDone;
+};
+
+bool req_Write(ReqCtx* pCtx, bool b1st)
+{
+	if (b1st)
+	{
+		pCtx->eStep = RS_Init;
+		pCtx->nDone = 0;
+		pCtx->nIssued = 0;
+	}
+	ReqInfo* pReq = pCtx->pReq;
+	uint16 nLBN = pReq->nLPN / CHUNK_PER_PBLK;
+	uint16 nLPO = pReq->nLPN % CHUNK_PER_PBLK;
+	bool bRet = false;
+	switch (pCtx->eStep)
+	{
+		case RS_Init:
+		{
+			LogMap* pMap = META_SearchLogMap(nLBN);
+			if (nullptr == pMap || pMap->nCPO >= CHUNK_PER_PBLK)
+			{
+				pMap = GC_MakeNewLog(nLBN, pMap);
+			}
+			pCtx->eStep = RS_BlkWait;
+			Sched_Wait(0, 1);
+			break;
+		}
+		case RS_BlkWait:
+		{
+			LogMap* pMap = META_SearchLogMap(nLBN);
+			*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
+			assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
+			CmdInfo* pCmd = IO_Alloc(IOCB_User);
+			IO_Program(pCmd, pMap->nPBN, pMap->nCPO, pReq->nBuf, pCtx->nTag);
+			pMap->anMap[nLPO] = pMap->nCPO;
+			pMap->nCPO++;
+			bRet = true;
+			break;
+		}
+	}
+	return bRet;
+}
+
+bool req_Read(ReqCtx* pCtx, bool b1st)
+{
+	if (b1st)
+	{
+		pCtx->eStep = RS_Init;
+		pCtx->nDone = 0;
+		pCtx->nIssued = 0;
+	}
+	ReqInfo* pReq = pCtx->pReq;
+	uint16 nLBN = pReq->nLPN / CHUNK_PER_PBLK;
+	uint16 nLPO = pReq->nLPN % CHUNK_PER_PBLK;
+	uint16 nPPO = 0xFFFF;
+
+	LogMap* pMap = META_SearchLogMap(nLBN);
+	if (nullptr != pMap)
+	{
+		nPPO = pMap->anMap[nLPO];
+	}
+	CmdInfo* pCmd = IO_Alloc(IOCB_User);
+	if (0xFFFF != nPPO)	// in Log block.
+	{
+		IO_Read(pCmd, pMap->nPBN, nPPO, pReq->nBuf, pCtx->nTag);
+	}
+	else
+	{
+		BlkMap* pBMap = META_GetBlkMap(nLBN);
+		IO_Read(pCmd, pBMap->nPBN, nLPO, pReq->nBuf, pCtx->nTag);
+	}
+
+	SIM_CpuTimePass(3);
+	return true;
+}
+
+
 void req_Run(void* pParam)
 {
-	pCtx = (ReqRunCtx*)anContext;
+	ReqRunCtx*  pCtx = (ReqRunCtx*)pParam;
 
 RETRY:
 
@@ -77,29 +165,62 @@ RETRY:
 				break;
 			}
 			pCtx->nCurSlot = gstReqInfoPool.PopHead();
-			pCtx->eState = RS_WaitIssue;
 			RunInfo* pRun = gaIssued + pCtx->nCurSlot;
 			pRun->pReq = gstReqQ.PopHead();
 			pRun->nDone = 0;
 			pRun->nIssued = 0;
 			pRun->nTotal = 1; //
-			Sched_Wait(0, 1);	// Call me without Event.
+			pCtx->eState = RS_WaitIssue;
+			
+			ReqCtx* pChild = (ReqCtx*)(pCtx + 1);
+			pChild->nTag = pCtx->nCurSlot;
+			pChild->pReq = pRun->pReq;
+			switch (pRun->pReq->eCmd)
+			{
+				case CMD_READ:
+				{
+					if (req_Read(pChild, true))
+					{
+						pCtx->eState = RS_WaitUser;
+						Sched_Wait(0, 1); // do Next.
+					}
+					break;
+				}
+				case CMD_WRITE:
+				{
+					if (req_Write(pChild, true))
+					{
+						pCtx->eState = RS_WaitUser;
+						Sched_Wait(0, 1); // do Next.
+					}
+					break;
+				}
+			}
 			break;
 		}
 		case RS_WaitIssue:
 		{
 			RunInfo* pRun = gaIssued + pCtx->nCurSlot;
 			ReqInfo* pReq = pRun->pReq;
+			ReqCtx* pChild = (ReqCtx*)(pCtx + 1);
 			switch (pReq->eCmd)
 			{
 				case CMD_WRITE:
 				{
-					FTL_Write(pReq->nLPN, pReq->nBuf, pCtx->nCurSlot);
+					if (req_Write(pChild, false))
+					{
+						pCtx->eState = RS_WaitUser;
+						Sched_Wait(0, 1);
+					}
 					break;
 				}
 				case CMD_READ:
 				{
-					FTL_Read(pReq->nLPN, pReq->nBuf, pCtx->nCurSlot);
+					if (req_Read(pChild, false))
+					{
+						pCtx->eState = RS_WaitUser;
+						Sched_Wait(0, 1);
+					}
 					break;
 				}
 				default:
@@ -107,25 +228,15 @@ RETRY:
 					assert(false);
 				}
 			}
-			pRun->nIssued++;
-			if (pRun->nIssued == pRun->nTotal)
-			{
-				pCtx->eState = RS_WaitUser;
-				goto RETRY;
-			}
-			else
-			{
-				assert(false);
-				goto RETRY;
-			}
+
 			break;
 		}
-		case RS_WaitMerge:
 		default:
 		{
 			break;
 		}
 	}
+	assert(Sched_WillRun());
 }
 
 void reqResp_Run(void* pParam)
@@ -158,6 +269,8 @@ RETRY:
 		goto RETRY;
 	}
 }
+
+static uint8 anContext[4096];		///< Stack like meta context.
 
 void REQ_Init()
 {

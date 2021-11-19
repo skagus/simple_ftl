@@ -34,7 +34,6 @@ struct BootCtx
 {
 	BootStep eStep;
 };
-static uint8 anContext[4096];		///< Stack like meta context.
 BootCtx* gpBootCtx;
 
 enum FormatStep
@@ -476,31 +475,33 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 
 void meta_Run(void* pParam)
 {
-	switch (gpBootCtx->eStep)
+	BootCtx* pCtx = (BootCtx*)pParam;
+
+	switch (pCtx->eStep)
 	{
 		case Boot_Init:
 		{
-			OpenCtx* pChildCtx = (OpenCtx*)(gpBootCtx + 1);
-			meta_Open((OpenCtx*)(gpBootCtx + 1), true);
-			gpBootCtx->eStep = Boot_Open;
+			OpenCtx* pChildCtx = (OpenCtx*)(pCtx + 1);
+			meta_Open((OpenCtx*)(pCtx + 1), true);
+			pCtx->eStep = Boot_Open;
 			break;
 		}
 
 		case Boot_Open:
 		{
-			OpenCtx* pChildCtx = (OpenCtx*)(gpBootCtx + 1);
+			OpenCtx* pChildCtx = (OpenCtx*)(pCtx + 1);
 			if (meta_Open(pChildCtx, false))
 			{
 				if (0xFFFF == pChildCtx->nMaxBN)
 				{
-					FormatCtx* pNextCtx = (FormatCtx*)(gpBootCtx + 1);
+					FormatCtx* pNextCtx = (FormatCtx*)(pCtx + 1);
 					meta_Format(pNextCtx, true);
-					gpBootCtx->eStep = Boot_Format;
+					pCtx->eStep = Boot_Format;
 					Sched_Wait(0, 1);
 				}
 				else
 				{
-					gpBootCtx->eStep = Boot_Done;
+					pCtx->eStep = Boot_Done;
 					Sched_TrigSyncEvt(BIT(EVT_OPEN));
 				}
 			}
@@ -508,10 +509,10 @@ void meta_Run(void* pParam)
 		}
 		case Boot_Format:
 		{
-			FormatCtx* pChildCtx = (FormatCtx*)(gpBootCtx + 1);
+			FormatCtx* pChildCtx = (FormatCtx*)(pCtx + 1);
 			if(meta_Format(pChildCtx, false))
 			{
-				gpBootCtx->eStep = Boot_Done;
+				pCtx->eStep = Boot_Done;
 				Sched_TrigSyncEvt(BIT(EVT_OPEN));
 				break;
 			}
@@ -524,10 +525,11 @@ void meta_Run(void* pParam)
 		}
 	}
 
-	assert(Sched_WillRun() || (Boot_Done == gpBootCtx->eStep));
+	assert(Sched_WillRun() || (Boot_Done == pCtx->eStep));
 }
 
 
+static uint8 anContext[4096];		///< Stack like meta context.
 void META_Init()
 {
 	gpBootCtx = (BootCtx*)anContext;

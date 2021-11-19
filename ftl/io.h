@@ -15,9 +15,6 @@ typedef void (*IoCbf) (CmdInfo* pDone);
 void FTL_Init();
 void IO_RegCbf(CbKey eId, IoCbf pfCb);
 
-void FTL_Write(uint32 nLPN, uint16 nBufId, uint8 nTag);
-void FTL_Read(uint32 nLPN, uint16 nBufId, uint8 nTag);
-
 void io_CbDone(uint32 nDie, uint32 nTag);
 
 void IO_Free(CmdInfo* pCmd);
