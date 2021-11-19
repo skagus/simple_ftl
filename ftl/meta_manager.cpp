@@ -11,13 +11,8 @@
 
 #define PRINTF			//	SIM_Print
 
-struct Meta
-{
-	BlkMap astMap[NUM_USER_BLK];
-	LogMap astLog[NUM_LOG_BLK];
-	uint16 nFreePBN;
-};
-static_assert(sizeof(Meta) <= BYTE_PER_CHUNK);
+
+Meta gstMeta;
 
 struct MetaCtx
 {
@@ -26,7 +21,6 @@ struct MetaCtx
 	uint32 nAge;
 };
 
-Meta gstMeta;
 MetaCtx gstMetaCtx;
 
 enum BootStep

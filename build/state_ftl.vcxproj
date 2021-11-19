@@ -150,6 +150,7 @@
   <ItemGroup>
     <ClCompile Include="..\com\scheduler.cpp" />
     <ClCompile Include="..\ftl\ftl.cpp" />
+    <ClCompile Include="..\ftl\gc.cpp" />
     <ClCompile Include="..\ftl\io.cpp" />
     <ClCompile Include="..\ftl\map_log.cpp" />
     <ClCompile Include="..\ftl\meta_manager.cpp" />
@@ -171,6 +172,7 @@
     <ClInclude Include="..\com\templ.h" />
     <ClInclude Include="..\com\types.h" />
     <ClInclude Include="..\ftl\ftl.h" />
+    <ClInclude Include="..\ftl\gc.h" />
     <ClInclude Include="..\ftl\io.h" />
     <ClInclude Include="..\ftl\map_log.h" />
     <ClInclude Include="..\ftl\meta_manager.h" />

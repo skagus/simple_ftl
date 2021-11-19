@@ -21,3 +21,13 @@ struct BlkMap
 	uint16 bLog : 1;
 	uint16 nPBN : 15;
 };
+
+
+struct Meta
+{
+	BlkMap astMap[NUM_USER_BLK];
+	LogMap astLog[NUM_LOG_BLK];
+	uint16 nFreePBN;
+};
+static_assert(sizeof(Meta) <= BYTE_PER_CHUNK);
+extern Meta gstMeta;

@@ -55,6 +55,9 @@
     <ClCompile Include="..\ftl\meta_manager.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
+    <ClCompile Include="..\ftl\gc.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ftl\ftl.h">
@@ -109,6 +112,9 @@
       <Filter>ftl</Filter>
     </ClInclude>
     <ClInclude Include="..\ftl\map_log.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\gc.h">
       <Filter>ftl</Filter>
     </ClInclude>
   </ItemGroup>
