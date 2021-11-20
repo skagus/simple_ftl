@@ -9,6 +9,7 @@
 #include "io.h"
 #include "ftl.h"
 #include "io.h"
+#include "gc.h"
 #include "req_handler.h"
 #include "meta_manager.h"
 
@@ -42,6 +43,7 @@ void FTL_Main(void* pParam)
 	IO_Init();
 	REQ_Init();
 	META_Init();
+	GC_Init();
 
 	while (true)
 	{

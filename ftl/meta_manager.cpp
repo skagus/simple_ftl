@@ -71,7 +71,7 @@ bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 			}
 			pFmtCtx->eStep = FMT_LogMap;
 			pFmtCtx->nBN = nBN;
-			Sched_Wait(0, 1);
+			Sched_Yield();
 			break;
 		}
 		case FMT_LogMap:
@@ -129,9 +129,11 @@ LogMap* META_SearchLogMap(uint16 nLBN)
 	{
 		for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
 		{
-			if (gstMeta.astLog[nIdx].nLBN == nLBN)
+			LogMap* pLMap = gstMeta.astLog + nIdx;
+			if ((pLMap->nLBN == nLBN)
+				&& (true == pLMap->bReady))
 			{
-				return gstMeta.astLog + nIdx;
+				return pLMap;
 			}
 		}
 	}
@@ -222,9 +224,10 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 	if((pCtx->nDone == pCtx->nIssue)
 		&& (pCtx->bErsFound || (pCtx->nDone >= NUM_WL)))
 	{
+		LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
+		pLMap->bReady = true;
 		if (NOT(pCtx->bErsFound))
 		{
-			LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
 			pLMap->nCPO = NUM_WL;
 		}
 		pCtx->nLogIdx++;
@@ -234,7 +237,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 			pCtx->bErsFound = false;
 			pCtx->nDone = pLMap->nCPO;
 			pCtx->nIssue = pLMap->nCPO;
-			Sched_Wait(0, 1);
+			Sched_Yield();
 		}
 		else
 		{
@@ -251,9 +254,11 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
 		IO_Read(pCmd, pLMap->nPBN, pCtx->nIssue, nBuf, pCtx->nIssue);
 		pCtx->nIssue++;
+	}
+	if (pCtx->nIssue != pCtx->nDone)
+	{
 		Sched_Wait(BIT(EVT_NAND_CMD), 100);
 	}
-
 	return bRet;
 }
 // =================== Meta Page Scan ========================
@@ -360,6 +365,10 @@ bool meta_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 		IO_Read(pCmd, pCtx->nIssued, 0, nBuf, pCtx->nIssued);
 		PRINTF("[OPEN] BlkScan Issue %X\n", pCtx->nIssued);
 		pCtx->nIssued++;
+		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+	}
+	else
+	{
 		Sched_Wait(BIT(EVT_NAND_CMD), 100);
 	}
 	// Check phase.
@@ -497,12 +506,13 @@ void meta_Run(void* pParam)
 					FormatCtx* pNextCtx = (FormatCtx*)(pCtx + 1);
 					meta_Format(pNextCtx, true);
 					pCtx->eStep = Boot_Format;
-					Sched_Wait(0, 1);
+					Sched_Yield();
 				}
 				else
 				{
 					pCtx->eStep = Boot_Done;
 					Sched_TrigSyncEvt(BIT(EVT_OPEN));
+					Sched_Wait(0, 100000000);	// Don't run after bootup.
 				}
 			}
 			break;
@@ -514,18 +524,20 @@ void meta_Run(void* pParam)
 			{
 				pCtx->eStep = Boot_Done;
 				Sched_TrigSyncEvt(BIT(EVT_OPEN));
-				break;
+				Sched_Wait(0, 100000000);	// Don't run after bootup.
 			}
 			break;
 		}
 		case Boot_Done:
+		{
+			Sched_Wait(0, 100000000);	// Don't run after bootup.
+			break;
+		}
 		default:
 		{
 			assert(false);
 		}
 	}
-
-	assert(Sched_WillRun() || (Boot_Done == pCtx->eStep));
 }
 
 

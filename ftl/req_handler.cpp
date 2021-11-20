@@ -10,7 +10,7 @@
 #include "req_handler.h"
 #include "scheduler.h"
 
-#define PRINTF		//	SIM_Print
+#define PRINTF			SIM_Print
 
 extern Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
@@ -80,22 +80,30 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 			LogMap* pMap = META_SearchLogMap(nLBN);
 			if (nullptr == pMap || pMap->nCPO >= CHUNK_PER_PBLK)
 			{
-				pMap = GC_MakeNewLog(nLBN, pMap);
+				GC_ReqLog(nLBN);
+//				pMap = GC_MakeNewLog(nLBN, pMap);
 			}
 			pCtx->eStep = RS_BlkWait;
-			Sched_Wait(0, 1);
+			Sched_Wait(BIT(EVT_BLOCK), 100);
 			break;
 		}
 		case RS_BlkWait:
 		{
 			LogMap* pMap = META_SearchLogMap(nLBN);
-			*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
-			assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
-			CmdInfo* pCmd = IO_Alloc(IOCB_User);
-			IO_Program(pCmd, pMap->nPBN, pMap->nCPO, pReq->nBuf, pCtx->nTag);
-			pMap->anMap[nLPO] = pMap->nCPO;
-			pMap->nCPO++;
-			bRet = true;
+			if ((nullptr != pMap) && (pMap->nCPO < CHUNK_PER_PBLK))
+			{
+				*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
+				assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
+				CmdInfo* pCmd = IO_Alloc(IOCB_User);
+				IO_Program(pCmd, pMap->nPBN, pMap->nCPO, pReq->nBuf, pCtx->nTag);
+				pMap->anMap[nLPO] = pMap->nCPO;
+				pMap->nCPO++;
+				bRet = true;
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_BLOCK), 100);
+			}
 			break;
 		}
 	}
@@ -153,7 +161,7 @@ RETRY:
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_OPEN), 0);
+				Sched_Wait(BIT(EVT_OPEN), 100);
 			}
 			break;
 		}
@@ -182,7 +190,7 @@ RETRY:
 					if (req_Read(pChild, true))
 					{
 						pCtx->eState = RS_WaitUser;
-						Sched_Wait(0, 1); // do Next.
+						Sched_Yield();
 					}
 					break;
 				}
@@ -191,7 +199,7 @@ RETRY:
 					if (req_Write(pChild, true))
 					{
 						pCtx->eState = RS_WaitUser;
-						Sched_Wait(0, 1); // do Next.
+						Sched_Yield();
 					}
 					break;
 				}
@@ -210,7 +218,7 @@ RETRY:
 					if (req_Write(pChild, false))
 					{
 						pCtx->eState = RS_WaitUser;
-						Sched_Wait(0, 1);
+						Sched_Yield();
 					}
 					break;
 				}
@@ -219,7 +227,7 @@ RETRY:
 					if (req_Read(pChild, false))
 					{
 						pCtx->eState = RS_WaitUser;
-						Sched_Wait(0, 1);
+						Sched_Yield();
 					}
 					break;
 				}
@@ -236,7 +244,6 @@ RETRY:
 			break;
 		}
 	}
-	assert(Sched_WillRun());
 }
 
 void reqResp_Run(void* pParam)
@@ -254,7 +261,14 @@ RETRY:
 		ReqInfo* pReq = pRun->pReq;
 		uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
 		pRun->nDone++;
-		PRINTF("Read: %X, %X\n", pReq->nLPN, *pnVal);
+		if (NC_READ == pCmd->eCmd)
+		{
+			PRINTF("[REQ] Read: LPN:%X == %X from {%X, %X}\n", pReq->nLPN, *pnVal, pCmd->anBBN[0], pCmd->nWL);
+		}
+		else
+		{
+			PRINTF("[REQ] Write: LPN:%X (%X) to {%X, %X}\n", pReq->nLPN, *pnVal, pCmd->anBBN[0], pCmd->nWL);
+		}
 		if (0xFFFFFFFF != *pnVal)
 		{
 			assert(pReq->nLPN == *pnVal);

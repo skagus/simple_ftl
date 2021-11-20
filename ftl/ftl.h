@@ -6,8 +6,8 @@
 #define NUM_USER_BLK		(PBLK_PER_DIE - 5)
 #define LPN_PER_USER_BLK	(CHUNK_PER_PBLK)
 
-#define SIZE_REQ_QUE	(16)
-
+#define SIZE_REQ_QUE		(16)
+#define INV_BN				(0xFFFF)
 
 enum Cmd
 {

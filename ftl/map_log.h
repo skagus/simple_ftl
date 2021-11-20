@@ -10,6 +10,7 @@ static_assert(NUM_LOG_BLK > 1);
 
 struct LogMap
 {
+	bool bReady;
 	uint16 nLBN;
 	uint16 nPBN;
 	uint16 nCPO;
