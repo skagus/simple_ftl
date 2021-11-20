@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define NUM_EVENT				(NUM_HW * 3)	// HW의 개수에 비례하도록...
+#define NUM_EVENT				(NUM_HW * 2)	// NFC는 Die개수에 비례하는 값이 필요함.
 #define CPU_STACK_SIZE			(4096)
 
 struct CpuContext
@@ -202,10 +202,11 @@ void SIM_Run()
 {
 	ghEngine = ConvertThreadToFiber(nullptr);
 	gRand.seed(10);
-
+	uint32 nCycle = 0;
 	while (true)
 	{
 		sim_PowerUp();
+		SIM_Print("[SIM] ============== Power up %d =================\n", nCycle);
 		while (gbPowerOn)
 		{
 			for (uint32 nCpu = 0; nCpu < NUM_CPU; nCpu++)
@@ -219,5 +220,6 @@ void SIM_Run()
 			uint64 nCpuTick = sim_GetMinCpuTime();
 			sim_ProcEvt(nCpuTick);	// 내부에서 gnHwTick을 update한다.
 		}
+		nCycle++;
 	}
 }
