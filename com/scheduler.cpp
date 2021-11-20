@@ -1,5 +1,6 @@
 
 #include <atomic>
+#include "sim.h"
 #include "types.h"
 #include "macro.h"
 #include "scheduler.h"
@@ -66,23 +67,6 @@ TaskBtm sched_HandleEvt(Evts bmEvt, uint16 nTick)
 		}
 	}
 	return bmNewRdy;
-}
-
-/**
-* for debug.
-*/
-bool Sched_WillRun()
-{
-	if (bmRdyTask & BIT(nCurTask))
-	{
-		return true;
-	}
-	TaskInfo* pTI = astTask + nCurTask;
-	if (pTI->bmWaitEvt || pTI->nTimeOut)
-	{
-		return true;
-	}
-	return false;
 }
 
 
@@ -193,12 +177,13 @@ void Sched_Run()
 			pTask->bmWaitEvt = 0;
 			pTask->pfTask(pTask->pParam);	// paramter is triggered event.
 #if DBG_SCHEDULER
-			ASSERT(pTask->bmWaitEvt || pTask->nTimeOut || (bmRdy & BIT(nCurTask)));
+			ASSERT(pTask->bmWaitEvt || pTask->nTimeOut || (bmRdyTask & BIT(nCurTask)));
 #endif
 			bmRdy &= ~BIT(nCurTask);
 		}
 		nCurTask = (nCurTask + 1) % MAX_TASK;
 	}
+	SIM_CpuTimePass(1);
 	// Mode에 따라 실행되지 않은 task는 이후에 mode가 복귀했을 때 실행할 것.
 	bmRdyTask |= bmRdy;
 }

@@ -68,28 +68,35 @@ class Queue
 	T data[SIZE];
 	int head;
 	int tail;
+	int count;
 
 public:
-	int Count(){ return (head + SIZE - tail) % SIZE; }
-	bool IsEmpty(){ return head == tail; }
-	bool IsFull(){ return (Count() == SIZE); }
+	int Count() { return count; }
+	bool IsEmpty() { return 0 == count; }
+	bool IsFull(){ return (count == SIZE); }
 	T GetHead()
 	{
+		assert(count > 0);
 		return data[head];
 	}
 	T PopHead()
 	{
+		assert(count > 0);
 		T entry = data[head];
 		head = (head + 1) % SIZE;
+		count--;
 		return entry;
 	}
 	void PushTail(T entry)
 	{
 		data[tail] = entry;
 		tail = (tail + 1) % SIZE;
+		count++;
+		assert(count <= SIZE);
 	}
 	void Init()
 	{
+		count = 0;
 		head = 0;
 		tail = 0;
 	}

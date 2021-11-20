@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define NUM_EVENT				(NUM_HW * 2)	// HW의 개수에 비례하도록...
+#define NUM_EVENT				(NUM_HW * 3)	// HW의 개수에 비례하도록...
 #define CPU_STACK_SIZE			(4096)
 
 struct CpuContext
@@ -25,7 +25,8 @@ struct Evt
 public:
 	uint64	nTick;			///< Event발생할 시간.
 	HwID	nOwner;			///< Event발생한 HW.
-	uint8	params[BYTE_PER_EVT];		///< Event information for each HW.
+	uint32	nSeqNo;
+	uint8	aParams[BYTE_PER_EVT];		///< Event information for each HW.
 
 	/// sorting을 위해서 comparator필요함.
 	bool operator()(const Evt* lhs, const Evt* rhs) const
@@ -81,12 +82,12 @@ void sim_StartCPU()
 
 void* SIM_NewEvt(HwID eOwn, uint32 nTick)
 {
-	Evt* evt = gEvtPool.PopHead();
-	evt->nTick = gnHwTick + nTick;
-	evt->nOwner = eOwn;
-
-	gEvtQue.push(evt);
-	return evt->params;
+	Evt* pEvt = gEvtPool.PopHead();
+	pEvt->nTick = gnHwTick + nTick;
+	pEvt->nOwner = eOwn;
+	pEvt->nSeqNo = SIM_GetSeqNo();
+	gEvtQue.push(pEvt);
+	return pEvt->aParams;
 }
 
 uint64 SIM_GetTick()
@@ -153,15 +154,15 @@ static void sim_ProcEvt(uint64 nEndTick)
 	gnHwTick = nEndTick;
 	while (!gEvtQue.empty())
 	{
-		Evt* evt = gEvtQue.top();
-		if (evt->nTick > gnHwTick)
+		Evt* pEvt = gEvtQue.top();
+		if (pEvt->nTick > gnHwTick)
 		{
 			break;
 		}
-		gnHwTick = evt->nTick;
+		gnHwTick = pEvt->nTick;
 		gEvtQue.pop();
-		gfEvtHdr[evt->nOwner](evt->params);
-		gEvtPool.PushTail(evt);
+		gfEvtHdr[pEvt->nOwner](pEvt->aParams);
+		gEvtPool.PushTail(pEvt);
 	}
 }
 
