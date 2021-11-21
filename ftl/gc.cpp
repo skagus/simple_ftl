@@ -66,7 +66,7 @@ LogMap* getVictim()
 			return pLogMap;
 		}
 	}
-	// free°¡ ¾øÀ¸¸é, random victim.
+	// freeê°€ ì—†ìœ¼ë©´, random victim.
 	return META_GetLogMap(SIM_GetRand(NUM_LOG_BLK));
 }
 
@@ -133,7 +133,7 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 				uint32* pMain = (uint32*)BM_GetMain(nBuf);
 				assert((*pMain & 0xF) == pDone->nTag);
 			}
-			BM_Free(pDone->stPgm.anBufId[0]);
+			BM_Free(nBuf);
 		}
 		else // Read done --> Pgm.
 		{
@@ -218,8 +218,8 @@ bool gc_Erase(GcErsCtx* pCtx, bool b1st)
 
 
 /**
-* GC move´Â 
-* Victim LBNÀÇ Log¿Í mainÀ» Free·Î mergeÇÑ ÈÄ, 
+* GC moveëŠ” 
+* Victim LBNì˜ Logì™€ mainì„ Freeë¡œ mergeí•œ í›„, 
 * Free --> main blk.
 * Log PBN --> Free.
 * Main --> New Log PBN.
@@ -240,6 +240,7 @@ struct GcCtx
 	LogMap* pSrcLog;	///< Orignally dirty.
 	BlkMap* pSrcBM;		///< 
 	uint16 nDstPBN;		///< Orignally Free block.
+	uint32 nMtAge;		///< Metaì €ìž¥ í™•ì¸ìš© Ageê°’.
 	uint32 nSeqNo;
 };
 
@@ -272,9 +273,12 @@ void gc_Run(void* pParam)
 					MEMSET_ARRAY(pNewLog->anMap, 0xFF);
 					BlkMap* pReqBM = META_GetBlkMap(pCtx->nReqLBN);
 					pReqBM->bLog = 1;
-					pCtx->eState = GS_MetaSave;
 					PRINTF("[GC] Free Log : %X\n", pNewLog->nPBN);
-					Sched_Yield();
+
+					pCtx->nMtAge = META_GetAge();
+					pCtx->eState = GS_MetaSave;
+					META_ReqSave();
+					Sched_Wait(BIT(EVT_META), 100);
 				}
 				else
 				{
@@ -331,18 +335,28 @@ void gc_Run(void* pParam)
 				pSrcBM->nPBN = pCtx->nDstPBN;				// Free to BM.
 				BlkMap* pReqBM = META_GetBlkMap(pCtx->nReqLBN);
 				pReqBM->bLog = 1;
+				
+				pCtx->nMtAge = META_GetAge();
 				pCtx->eState = GS_MetaSave;
-				Sched_Yield();
+				META_ReqSave();
+				Sched_Wait(BIT(EVT_META), 100);
 			}
 			break;
 		}
 		case GS_MetaSave:
 		{
-			META_Save();
-			GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
-			pChild->nBN = pCtx->pSrcLog->nPBN;
-			gc_Erase(pChild, true);
-			pCtx->eState = GS_ErsNewLog;
+			if (pCtx->nMtAge < META_GetAge())
+			{
+				PRINTF("[GC] Mt Save done: %X\n", pCtx->nMtAge);
+				GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
+				pChild->nBN = pCtx->pSrcLog->nPBN;
+				gc_Erase(pChild, true);
+				pCtx->eState = GS_ErsNewLog;
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_META), 100);
+			}
 			break;
 		}
 		case GS_ErsNewLog:
