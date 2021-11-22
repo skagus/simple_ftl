@@ -160,6 +160,7 @@
     <ClCompile Include="..\hw\nfc.cpp" />
     <ClCompile Include="..\hw\power.cpp" />
     <ClCompile Include="..\hw\sim.cpp" />
+    <ClCompile Include="..\hw\sim_util.cpp" />
     <ClCompile Include="..\hw\timer.cpp" />
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\test\test.cpp" />

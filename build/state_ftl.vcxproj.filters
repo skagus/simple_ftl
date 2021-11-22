@@ -58,6 +58,9 @@
     <ClCompile Include="..\ftl\gc.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
+    <ClCompile Include="..\hw\sim_util.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ftl\ftl.h">

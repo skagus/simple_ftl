@@ -15,7 +15,7 @@ typedef struct
 	void*	pParam;
 } TaskInfo;
 
-TaskInfo astTask[MAX_TASK];
+TaskInfo astTask[NUM_TASK];
 
 uint8 nCurTask;		///< Current running task.
 TaskBtm bmRdyTask;	///< Ready to run.
@@ -181,7 +181,7 @@ void Sched_Run()
 #endif
 			bmRdy &= ~BIT(nCurTask);
 		}
-		nCurTask = (nCurTask + 1) % MAX_TASK;
+		nCurTask = (nCurTask + 1) % NUM_TASK;
 	}
 	SIM_CpuTimePass(1);
 	// Mode에 따라 실행되지 않은 task는 이후에 mode가 복귀했을 때 실행할 것.

@@ -3,22 +3,19 @@
 #include "types.h"
 #include "scheduler_conf.h"
 
-#define MAX_TASK			(8)
-#define MAX_EVT				(16)
-
-#if (MAX_TASK <= 8)
+#if (NUM_TASK <= 8)
 typedef uint8 TaskBtm;
-#elif (MAX_TASK <= 16)
+#elif (NUM_TASK <= 16)
 typedef uint16 TaskBtm;
-#elif (MAX_TASK <= 32)
+#elif (NUM_TASK <= 32)
 typedef uint32 TaskBtm;
 #endif
 
-#if (MAX_EVT <= 8)
+#if (NUM_EVT <= 8)
 typedef uint8 Evts;
-#elif (MAX_EVT <= 16)
+#elif (NUM_EVT <= 16)
 typedef uint16 Evts;
-#elif (MAX_EVT <= 32)
+#elif (NUM_EVT <= 32)
 typedef uint32 Evts;
 #endif
 
@@ -32,6 +29,5 @@ void Sched_Run();
 void Sched_Wait(Evts bmEvt, uint16 nTick);
 void Sched_TrigSyncEvt(Evts bmEvt);
 void Sched_TrigAsyncEvt(Evts bmEvt);
-bool Sched_WillRun();
 
 #define Sched_Yield()	Sched_Wait(0, 0)
