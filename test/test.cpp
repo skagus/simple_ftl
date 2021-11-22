@@ -36,7 +36,7 @@ void test_DoneCmd(ReqInfo* pReq)
 
 void tc_SeqWrite(uint32 nStart, uint32 nSize)
 {
-	PRINTF("=========== %s ==========\n", __FUNCTION__);
+	PRINTF("[TC] =========== %s ==========\n", __FUNCTION__);
 	ReqInfo stReq;
 	stReq.eCmd = CMD_WRITE;
 	uint32 nCur = nStart;
@@ -47,10 +47,10 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
 		FTL_Request(&stReq);
-//		PRINTF("Write Req: %d\n", nCur);
+		PRINTF("[TC] Write Req: %d\n", nCur);
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(10);
+			SIM_CpuTimePass(SIM_USEC(10));
 		}
 		BM_Free(stReq.nBuf);
 	}
@@ -58,7 +58,7 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 
 void tc_SeqRead(uint32 nStart, uint32 nSize)
 {
-	PRINTF("=========== %s ==========\n", __FUNCTION__);
+	PRINTF("[TC] =========== %s ==========\n", __FUNCTION__);
 	ReqInfo stReq;
 	stReq.eCmd = CMD_READ;
 	uint32 nCur = nStart;
@@ -68,10 +68,10 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
 		FTL_Request(&stReq);
-		// PRINTF("Read Req: %d\n", nCur);
+		PRINTF("[TC] Read Req: %d\n", nCur);
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(10);
+			SIM_CpuTimePass(SIM_USEC(10));
 		}
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);
@@ -81,7 +81,7 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 
 void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 {
-	PRINTF("=========== %s ==========\n", __FUNCTION__);
+	PRINTF("[TC] =========== %s ==========\n", __FUNCTION__);
 	ReqInfo stReq;
 	stReq.eCmd = CMD_WRITE;
 	while(nCount--)
@@ -91,10 +91,10 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
 		FTL_Request(&stReq);
-//		PRINTF("Write Req: %d\n", stReq.nLPN);
+		PRINTF("[TC] Write Req\n");
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(10);
+			SIM_CpuTimePass(SIM_USEC(10));
 		}
 		BM_Free(stReq.nBuf);
 	}
@@ -103,7 +103,7 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 
 void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 {
-	PRINTF("=========== %s ==========\n", __FUNCTION__);
+	PRINTF("[TC] =========== %s ==========\n", __FUNCTION__);
 	ReqInfo stReq;
 	stReq.eCmd = CMD_READ;
 
@@ -113,10 +113,10 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
 		FTL_Request(&stReq);
-//		PRINTF("Read Req: %d\n", stReq.nLPN);
+		PRINTF("[TC] Read Req\n");
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(10);
+			SIM_CpuTimePass(SIM_USEC(10));
 		}
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);

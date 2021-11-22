@@ -26,7 +26,7 @@ void FTL_Request(ReqInfo* pReq)
 uint32 FTL_GetNumLPN(CbfReq pfCbf)
 {
 	REQ_SetCbf(pfCbf);
-	SIM_CpuTimePass(100);	// Wait open time.
+	SIM_CpuTimePass(SIM_MSEC(1000));	// Wait open time.
 	return NUM_USER_BLK * LPN_PER_USER_BLK;
 }
 
@@ -37,7 +37,7 @@ void FTL_Main(void* pParam)
 	NFC_Init(io_CbDone);
 
 	Cbf pfTickIsr = Sched_Init();
-	TMR_Add(0, 100, pfTickIsr, true);
+	TMR_Add(0, SIM_MSEC(MS_PER_TICK), pfTickIsr, true);
 
 	gstReqQ.Init();
 	IO_Init();
@@ -48,7 +48,6 @@ void FTL_Main(void* pParam)
 	while (true)
 	{
 		Sched_Run();
-		SIM_CpuTimePass(10);
 	}
 }
 

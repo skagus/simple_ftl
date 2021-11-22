@@ -2,6 +2,7 @@
 
 #define MS_PER_TICK     (1)
 #define SCHED_MSEC(x)	((x)/MS_PER_TICK)
+#define LONG_TIME		(SCHED_MSEC(3000))	// 3 sec.
 
 typedef enum
 {

@@ -2,12 +2,12 @@
 #include "sim.h"
 #include "config.h"
 
-#define TIME_CMD_GAB			(3)	///< Command간의 시간차.
-#define TIME_CMD_ISSUE			(5)
-#define TIME_CHUNK_DMA			(30)
-#define TIME_READ_BUSY			(60)
-#define TIME_PGM_BUSY			(800)
-#define TIME_ERASE_BUSY			(1000)
+#define TIME_CMD_GAB			SIM_USEC(3)	///< Command간의 시간차.
+#define TIME_CMD_ISSUE			SIM_USEC(5)
+#define TIME_CHUNK_DMA			SIM_USEC(30)
+#define TIME_READ_BUSY			SIM_USEC(60)
+#define TIME_PGM_BUSY			SIM_USEC(800)
+#define TIME_ERASE_BUSY			SIM_USEC(1000)
 
 enum NCmd
 {

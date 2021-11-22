@@ -167,7 +167,6 @@ void Sched_Run()
 	bmSyncEvt = 0;
 	TaskBtm bmRdy = bmRdyTask | sched_HandleEvt(bmEvt, nTick);
 	bmRdyTask = 0;
-
 	while (bmRdy & gabmModeRun[geRunMode])
 	{
 		if (BIT(nCurTask) & bmRdy & gabmModeRun[geRunMode])
@@ -183,7 +182,7 @@ void Sched_Run()
 		}
 		nCurTask = (nCurTask + 1) % NUM_TASK;
 	}
-	SIM_CpuTimePass(1);
+	SIM_CpuTimePass(SIM_USEC(10));
 	// Mode에 따라 실행되지 않은 task는 이후에 mode가 복귀했을 때 실행할 것.
 	bmRdyTask |= bmRdy;
 }

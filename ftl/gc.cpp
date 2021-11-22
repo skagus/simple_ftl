@@ -173,7 +173,7 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 
 	if (pCtx->nReadIssue != pCtx->nPgmDone)
 	{
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	return bRet;
 }
@@ -196,7 +196,7 @@ bool gc_Erase(GcErsCtx* pCtx, bool b1st)
 		CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
 		IO_Erase(pCmd, pCtx->nBN, 0);
 		pCtx->bIssued = true;
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	else
 	{
@@ -210,7 +210,7 @@ bool gc_Erase(GcErsCtx* pCtx, bool b1st)
 		}
 		else
 		{
-			Sched_Wait(BIT(EVT_NAND_CMD), 100);
+			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 		}
 	}
 	return bRet;
@@ -278,7 +278,7 @@ void gc_Run(void* pParam)
 					pCtx->nMtAge = META_GetAge();
 					pCtx->eState = GS_MetaSave;
 					META_ReqSave();
-					Sched_Wait(BIT(EVT_META), 100);
+					Sched_Wait(BIT(EVT_META), LONG_TIME);
 				}
 				else
 				{
@@ -290,7 +290,7 @@ void gc_Run(void* pParam)
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_BLOCK), 100);
+				Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
 			}
 			break;
 		}
@@ -339,7 +339,7 @@ void gc_Run(void* pParam)
 				pCtx->nMtAge = META_GetAge();
 				pCtx->eState = GS_MetaSave;
 				META_ReqSave();
-				Sched_Wait(BIT(EVT_META), 100);
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
 			}
 			break;
 		}
@@ -355,7 +355,7 @@ void gc_Run(void* pParam)
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_META), 100);
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
 			}
 			break;
 		}
@@ -379,7 +379,7 @@ void GC_ReqLog(uint16 nLBN)
 	PRINTF("[GC] Request Log Blk: %X\n", nLBN);
 	gnNewLBN = nLBN;
 	Sched_TrigSyncEvt(BIT(EVT_BLOCK));
-	Sched_Wait(BIT(EVT_BLOCK), 100);
+	Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
 }
 
 static uint8 anContext[4096];		///< Stack like meta context.

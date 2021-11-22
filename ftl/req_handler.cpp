@@ -89,7 +89,6 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 				Sched_Yield();
 			}
 			pCtx->eStep = RS_BlkWait;
-			Sched_Wait(BIT(EVT_BLOCK), 100);
 			break;
 		}
 		case RS_BlkWait:
@@ -107,7 +106,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_BLOCK), 100);
+				Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
 			}
 			break;
 		}
@@ -144,7 +143,7 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 		IO_Read(pCmd, pBMap->nPBN, nLPO, pReq->nBuf, pCtx->nTag);
 	}
 
-	SIM_CpuTimePass(3);
+	SIM_CpuTimePass(SIM_USEC(3));
 	return true;
 }
 
@@ -153,8 +152,6 @@ void req_Run(void* pParam)
 {
 	ReqRunCtx*  pCtx = (ReqRunCtx*)pParam;
 
-RETRY:
-
 	switch (pCtx->eState)
 	{
 		case RS_WaitOpen:
@@ -162,11 +159,11 @@ RETRY:
 			if (META_Ready())
 			{
 				pCtx->eState = RS_WaitUser;
-				goto RETRY;
+				Sched_Yield();
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_OPEN), 100);
+				Sched_Wait(BIT(EVT_OPEN), LONG_TIME);
 			}
 			break;
 		}
@@ -174,9 +171,11 @@ RETRY:
 		{
 			if (gstReqQ.Count() <= 0)
 			{
-				Sched_Wait(BIT(EVT_USER_CMD), 100);
+				Sched_Wait(BIT(EVT_USER_CMD), LONG_TIME);
 				break;
 			}
+			PRINTF("[REQ] Req Rcv\n");
+
 			pCtx->nCurSlot = gstReqInfoPool.PopHead();
 			RunInfo* pRun = gaIssued + pCtx->nCurSlot;
 			pRun->pReq = gstReqQ.PopHead();
@@ -251,14 +250,15 @@ RETRY:
 	}
 }
 
+/**
+* Error는 response task에서 처리하도록 하자.
+*/
 void reqResp_Run(void* pParam)
 {
-RETRY:
-
 	CmdInfo* pCmd = IO_GetDone(IOCB_User);
 	if (nullptr == pCmd)
 	{
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	else
 	{
@@ -285,7 +285,7 @@ RETRY:
 			gfCbf(pReq);
 			gstReqInfoPool.PushTail(pCmd->nTag);
 		}
-		goto RETRY;
+		Sched_Yield();
 	}
 }
 

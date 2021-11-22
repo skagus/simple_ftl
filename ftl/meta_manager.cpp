@@ -260,7 +260,7 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 	}
 	if (pCtx->nWaiting)
 	{
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 
 	return bRet;
@@ -346,7 +346,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 	}
 	if (pCtx->nIssue != pCtx->nDone)
 	{
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	return bRet;
 }
@@ -380,7 +380,7 @@ bool open_PageScan(MtPageScanCtx* pCtx, bool b1st)
 		IO_Read(pCmd, pCtx->nMaxBN, pCtx->nIssued, nBuf, pCtx->nIssued);
 		PRINTF("[OPEN] PageScan Issue (%X,%X)\n", pCmd->anBBN[0], pCmd->nWL);
 		pCtx->nIssued++;
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	// Check phase.
 	CmdInfo* pDone = IO_GetDone(CbKey::IOCB_Meta);
@@ -454,11 +454,11 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 		IO_Read(pCmd, pCtx->nIssued, 0, nBuf, pCtx->nIssued);
 		PRINTF("[OPEN] BlkScan Issue %X\n", pCtx->nIssued);
 		pCtx->nIssued++;
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	else
 	{
-		Sched_Wait(BIT(EVT_NAND_CMD), 100);
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	// Check phase.
 	CmdInfo* pDone = IO_GetDone(CbKey::IOCB_Meta);
@@ -628,7 +628,7 @@ void meta_Run(void* pParam)
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_META), 100);
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
 			}
 			break;
 		}
