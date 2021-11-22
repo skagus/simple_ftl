@@ -82,6 +82,11 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 			{
 				GC_ReqLog(nLBN);
 //				pMap = GC_MakeNewLog(nLBN, pMap);
+				Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
+			}
+			else
+			{
+				Sched_Yield();
 			}
 			pCtx->eStep = RS_BlkWait;
 			Sched_Wait(BIT(EVT_BLOCK), 100);
