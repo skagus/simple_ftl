@@ -8,6 +8,27 @@
 #include "test.h"
 #include "ftl.h"
 
+#if EN_COROUTINE
+void WRP_Test(stack_t* token, user_t arg)
+{
+	TEST_Main(arg);
+}
+
+void WRP_Ftl(stack_t* token, user_t arg)
+{
+	FTL_Main(arg);
+}
+
+void TEST_InitSim()
+{
+	SIM_AddCPU(CPU_WORK, WRP_Test, (void*)4);
+}
+
+void FTL_InitSim()
+{
+	SIM_AddCPU(CPU_FTL, WRP_Ftl, (void*)4);
+}
+#else
 void TEST_InitSim()
 {
 	SIM_AddCPU(CPU_WORK, TEST_Main, (void*)4);
@@ -17,6 +38,8 @@ void FTL_InitSim()
 {
 	SIM_AddCPU(CPU_FTL, FTL_Main, (void*)4);
 }
+
+#endif
 
 int main()
 {

@@ -7,6 +7,7 @@
 #include "power.h"
 
 #define PRINTF			SIM_Print
+#define CMD_PRINTF		// SIM_Print
 static uint32* gaDict;
 static bool gbDone;
 
@@ -47,7 +48,7 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
 		FTL_Request(&stReq);
-		PRINTF("[TC] Write Req: %d\n", nCur);
+		CMD_PRINTF("[TC] Write Req: %d\n", nCur);
 		while (false == gbDone)
 		{
 			SIM_CpuTimePass(SIM_USEC(10));
@@ -68,7 +69,7 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
 		FTL_Request(&stReq);
-		PRINTF("[TC] Read Req: %d\n", nCur);
+		CMD_PRINTF("[TC] Read Req: %d\n", nCur);
 		while (false == gbDone)
 		{
 			SIM_CpuTimePass(SIM_USEC(10));
@@ -91,7 +92,7 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
 		FTL_Request(&stReq);
-		PRINTF("[TC] Write Req\n");
+		CMD_PRINTF("[TC] Write Req\n");
 		while (false == gbDone)
 		{
 			SIM_CpuTimePass(SIM_USEC(10));
@@ -113,7 +114,7 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
 		FTL_Request(&stReq);
-		PRINTF("[TC] Read Req\n");
+		CMD_PRINTF("[TC] Read Req\n");
 		while (false == gbDone)
 		{
 			SIM_CpuTimePass(SIM_USEC(10));

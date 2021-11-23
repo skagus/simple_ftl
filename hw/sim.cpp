@@ -38,7 +38,9 @@ public:
 static CpuContext gaCpu[NUM_CPU];	///< CPU(FW) information.
 static uint32 gnCurCpu;		///< Current running CPU.
 
+#if (0 == EN_COROUTINE)
 static HANDLE ghEngine;		///< Engine용 Task.
+#endif
 static uint64 gnHwTick;		///< HW tick time.
 static EvtHdr gfEvtHdr[NUM_HW];	///< HW별 Event handler.
 static bool gbPowerOn;			///< Power on state.
@@ -63,10 +65,15 @@ void SIM_AddCPU(CpuID eID, CpuEntry pfEntry, void* pParam)
 	gaCpu[eID].pParam = pParam;
 }
 
-void sim_StartCPU()
+static void sim_StartCPU()
 {
 	for (uint32 nIdx = 0; nIdx < CpuID::NUM_CPU; nIdx++)
 	{
+#if EN_COROUTINE
+		gaCpu[nIdx].nRunTime = 0;
+		gnCurCpu = nIdx;
+		CO_Start(nIdx, gaCpu[nIdx].pfEntry);
+#else
 		if (nullptr != gaCpu[nIdx].pfTask)
 		{
 			DeleteFiber(gaCpu[nIdx].pfTask);
@@ -74,6 +81,7 @@ void sim_StartCPU()
 		}
 		gaCpu[nIdx].pfTask = CreateFiber(CPU_STACK_SIZE, 
 			(LPFIBER_START_ROUTINE)gaCpu[nIdx].pfEntry, gaCpu[nIdx].pParam);
+#endif
 	}
 }
 
@@ -102,18 +110,34 @@ void SIM_Print(const char *szFormat, ...)
 	va_end(stAP);
 	fprintf(stdout, "%8lld: %s", gnHwTick, aBuf);
 }
-
-inline void sim_Switch(HANDLE hFiber)
+#if EN_COROUTINE
+inline void sim_SwitchToCpu(uint32 nCpu)
 {
-	SwitchToFiber(hFiber);
+	CO_Switch(nCpu);
 }
+
+inline void sim_SwitchToEngine()
+{
+	CO_Yield();
+}
+#else
+inline void sim_SwitchToCpu(uint32 nCpu)
+{
+	SwitchToFiber(gaCpu[nCpu].pfTask);
+}
+
+inline void sim_SwitchToEngine()
+{
+	SwitchToFiber(ghEngine);
+}
+#endif
 
 void SIM_CpuTimePass(uint32 nTick)
 {
 	gaCpu[gnCurCpu].nRunTime += nTick;
 	if (gaCpu[gnCurCpu].nRunTime > gnHwTick)
 	{
-		sim_Switch(ghEngine);
+		sim_SwitchToEngine();
 	}
 }
 
@@ -158,7 +182,7 @@ Simulation engine을 처음으로 되돌린다.
 반드시 Simulator fiber에서 호출되어야 한다. 
 (권장: HW event에서 호출하면 좋을 듯..)
 */
-void sim_PowerUp()
+static void sim_PowerUp()
 {
 	gbPowerOn = true;
 	while (gEvtQue.size())
@@ -186,8 +210,17 @@ sim의 실행 방법은,
 */
 void SIM_Run()
 {
+#if (0 == EN_COROUTINE)
 	ghEngine = ConvertThreadToFiber(nullptr);
+#endif
 	SIM_UtilInit();
+
+#if	EN_BENCHMARK
+	LARGE_INTEGER stBegin;
+	LARGE_INTEGER stEnd;
+	QueryPerformanceCounter(&stBegin);
+#endif
+
 	uint32 nCycle = 0;
 	while (true)
 	{
@@ -200,7 +233,7 @@ void SIM_Run()
 				gnCurCpu = nCpu;
 				while (gaCpu[nCpu].nRunTime <= gnHwTick)
 				{	// HW 시간까지 계속 실행함.
-					sim_Switch(gaCpu[nCpu].pfTask);
+					sim_SwitchToCpu(nCpu);
 				}
 			}
 			uint64 nCpuTick = sim_GetMinCpuTime();
@@ -208,4 +241,8 @@ void SIM_Run()
 		}
 		nCycle++;
 	}
+#if	EN_BENCHMARK
+	QueryPerformanceCounter(&stEnd);
+	printf("Time: %lld\n", stEnd.QuadPart - stBegin.QuadPart);
+#endif
 }

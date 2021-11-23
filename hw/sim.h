@@ -3,10 +3,15 @@
 
 #include "types.h"
 #include "macro.h"
+#include "coroutine.h"
 
-#define TICK_PER_SEC	(1000000LL)		// us unit.
 #define BYTE_PER_EVT	(20)
+#define SIM_USEC(x)		(x)
+#define SIM_MSEC(x)		SIM_USEC(1000)
+#define SIM_SEC(x)		SIM_MSEC(1000)
 
+#define EN_COROUTINE	(1)		// Selection between coroutine vs fiber.
+#define EN_BENCHMARK	(0)		///< Simulation performance benchmark.
 /**
 HW ID: 같은 handler를 사용하게 된다.
 */
@@ -30,7 +35,12 @@ enum CpuID
 typedef void(*CbFunc)(uint32 nParam, uint32 nTag);	/// for Callback.
 
 typedef void (*EvtHdr)(void* pEvt);
+#if EN_COROUTINE
+typedef void(*CpuEntry)(stack_t* token, user_t arg);
+#else
 typedef void(*CpuEntry)(void* pParam);
+#endif
+
 //////////////////////
 // CPU는 running이 끝나면 안되므로, 마지막에 END_RUN을 추가해주는게 좋다.
 #define END_RUN			while(true){SIM_CpuTimePass(100000000);}

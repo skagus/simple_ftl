@@ -13,7 +13,7 @@
 #include "req_handler.h"
 #include "meta_manager.h"
 
-#define PRINTF			SIM_Print
+#define PRINTF		//	SIM_Print
 
 Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
@@ -45,6 +45,7 @@ void FTL_Main(void* pParam)
 	META_Init();
 	GC_Init();
 
+	PRINTF("[FTL] Init done\n");
 	while (true)
 	{
 		Sched_Run();

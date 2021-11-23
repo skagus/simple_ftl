@@ -61,6 +61,9 @@
     <ClCompile Include="..\hw\sim_util.cpp">
       <Filter>hw</Filter>
     </ClCompile>
+    <ClCompile Include="..\hw\coroutine.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ftl\ftl.h">
@@ -120,5 +123,13 @@
     <ClInclude Include="..\ftl\gc.h">
       <Filter>ftl</Filter>
     </ClInclude>
+    <ClInclude Include="..\hw\coroutine.h">
+      <Filter>hw</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\hw\co_switch.asm">
+      <Filter>hw</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

@@ -10,7 +10,7 @@
 #include "req_handler.h"
 #include "scheduler.h"
 
-#define PRINTF			SIM_Print
+#define PRINTF		//	SIM_Print
 
 extern Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 

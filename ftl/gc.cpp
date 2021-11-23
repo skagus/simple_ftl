@@ -7,7 +7,7 @@
 #include "gc.h"
 #include "meta_manager.h"
 
-#define PRINTF				SIM_Print
+#define PRINTF			//	SIM_Print
 
 void migrate(LogMap* pVictim)
 {

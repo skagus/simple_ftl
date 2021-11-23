@@ -54,6 +54,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -156,6 +157,7 @@
     <ClCompile Include="..\ftl\meta_manager.cpp" />
     <ClCompile Include="..\ftl\req_handler.cpp" />
     <ClCompile Include="..\hw\buf.cpp" />
+    <ClCompile Include="..\hw\coroutine.cpp" />
     <ClCompile Include="..\hw\die.cpp" />
     <ClCompile Include="..\hw\nfc.cpp" />
     <ClCompile Include="..\hw\power.cpp" />
@@ -179,6 +181,7 @@
     <ClInclude Include="..\ftl\meta_manager.h" />
     <ClInclude Include="..\ftl\req_handler.h" />
     <ClInclude Include="..\hw\buf.h" />
+    <ClInclude Include="..\hw\coroutine.h" />
     <ClInclude Include="..\hw\die.h" />
     <ClInclude Include="..\hw\nfc.h" />
     <ClInclude Include="..\hw\power.h" />
@@ -186,7 +189,13 @@
     <ClInclude Include="..\hw\timer.h" />
     <ClInclude Include="..\test\test.h" />
   </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\hw\co_switch.asm">
+      <FileType>Document</FileType>
+    </MASM>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>
