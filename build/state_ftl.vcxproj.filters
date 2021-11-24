@@ -15,13 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ftl\map_log.cpp">
+    <ClCompile Include="..\ftl\log_map.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
     <ClCompile Include="..\ftl\io.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\ftl.cpp">
+    <ClCompile Include="..\ftl\log_ftl.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
     <ClCompile Include="..\hw\buf.cpp">
@@ -49,13 +49,13 @@
     <ClCompile Include="..\com\scheduler.cpp">
       <Filter>com</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\req_handler.cpp">
+    <ClCompile Include="..\ftl\log_req.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\meta_manager.cpp">
+    <ClCompile Include="..\ftl\log_meta.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\gc.cpp">
+    <ClCompile Include="..\ftl\log_gc.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
     <ClCompile Include="..\hw\sim_util.cpp">
@@ -111,16 +111,16 @@
     <ClInclude Include="..\com\scheduler_conf.h">
       <Filter>com</Filter>
     </ClInclude>
-    <ClInclude Include="..\ftl\req_handler.h">
+    <ClInclude Include="..\ftl\log_req.h">
       <Filter>ftl</Filter>
     </ClInclude>
-    <ClInclude Include="..\ftl\meta_manager.h">
+    <ClInclude Include="..\ftl\log_meta.h">
       <Filter>ftl</Filter>
     </ClInclude>
-    <ClInclude Include="..\ftl\map_log.h">
+    <ClInclude Include="..\ftl\log_map.h">
       <Filter>ftl</Filter>
     </ClInclude>
-    <ClInclude Include="..\ftl\gc.h">
+    <ClInclude Include="..\ftl\log_gc.h">
       <Filter>ftl</Filter>
     </ClInclude>
     <ClInclude Include="..\hw\coroutine.h">

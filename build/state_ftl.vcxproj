@@ -150,12 +150,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\com\scheduler.cpp" />
-    <ClCompile Include="..\ftl\ftl.cpp" />
-    <ClCompile Include="..\ftl\gc.cpp" />
+    <ClCompile Include="..\ftl\log_ftl.cpp" />
+    <ClCompile Include="..\ftl\log_gc.cpp" />
     <ClCompile Include="..\ftl\io.cpp" />
-    <ClCompile Include="..\ftl\map_log.cpp" />
-    <ClCompile Include="..\ftl\meta_manager.cpp" />
-    <ClCompile Include="..\ftl\req_handler.cpp" />
+    <ClCompile Include="..\ftl\log_map.cpp" />
+    <ClCompile Include="..\ftl\log_meta.cpp" />
+    <ClCompile Include="..\ftl\log_req.cpp" />
     <ClCompile Include="..\hw\buf.cpp" />
     <ClCompile Include="..\hw\coroutine.cpp" />
     <ClCompile Include="..\hw\die.cpp" />
@@ -175,11 +175,11 @@
     <ClInclude Include="..\com\templ.h" />
     <ClInclude Include="..\com\types.h" />
     <ClInclude Include="..\ftl\ftl.h" />
-    <ClInclude Include="..\ftl\gc.h" />
+    <ClInclude Include="..\ftl\log_gc.h" />
     <ClInclude Include="..\ftl\io.h" />
-    <ClInclude Include="..\ftl\map_log.h" />
-    <ClInclude Include="..\ftl\meta_manager.h" />
-    <ClInclude Include="..\ftl\req_handler.h" />
+    <ClInclude Include="..\ftl\log_map.h" />
+    <ClInclude Include="..\ftl\log_meta.h" />
+    <ClInclude Include="..\ftl\log_req.h" />
     <ClInclude Include="..\hw\buf.h" />
     <ClInclude Include="..\hw\coroutine.h" />
     <ClInclude Include="..\hw\die.h" />

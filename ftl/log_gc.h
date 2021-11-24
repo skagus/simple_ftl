@@ -1,7 +1,7 @@
 
 #pragma once
 #include "types.h"
-#include "map_log.h"
+#include "log_map.h"
 
 void GC_Init();
 LogMap* GC_GetLog(uint16 nLBN);

@@ -4,8 +4,8 @@
 #include "buf.h"
 #include "nfc.h"
 #include "io.h"
-#include "gc.h"
-#include "meta_manager.h"
+#include "log_gc.h"
+#include "log_meta.h"
 
 #define PRINTF			//	SIM_Print
 

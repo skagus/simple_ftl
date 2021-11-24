@@ -6,8 +6,8 @@
 #include "ftl.h"
 #include "buf.h"
 #include "io.h"
-#include "map_log.h"
-#include "meta_manager.h"
+#include "log_map.h"
+#include "log_meta.h"
 
 #define PRINTF			//	SIM_Print
 

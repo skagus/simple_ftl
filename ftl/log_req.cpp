@@ -5,9 +5,9 @@
 #include "ftl.h"
 #include "io.h"
 #include "test.h"
-#include "gc.h"
-#include "meta_manager.h"
-#include "req_handler.h"
+#include "log_gc.h"
+#include "log_meta.h"
+#include "log_req.h"
 #include "scheduler.h"
 
 #define PRINTF		//	SIM_Print

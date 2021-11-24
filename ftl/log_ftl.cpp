@@ -9,9 +9,9 @@
 #include "io.h"
 #include "ftl.h"
 #include "io.h"
-#include "gc.h"
-#include "req_handler.h"
-#include "meta_manager.h"
+#include "log_gc.h"
+#include "log_req.h"
+#include "log_meta.h"
 
 #define PRINTF		//	SIM_Print
 
@@ -54,8 +54,6 @@ void FTL_Main(void* pParam)
 
 
 #if 0 // Test..
-
-
 
 void _IssueErase(CmdInfo* pCmd, uint8 nDie, uint16 nPBN)
 {
