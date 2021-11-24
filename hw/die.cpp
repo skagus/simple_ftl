@@ -27,12 +27,14 @@ struct WordLine
 
 struct PBlk
 {
-	uint32 nNextPgm;	///< Erased index.(for debugging)
+	uint16 nNextPgm;	///< Erased index.(for debugging)
+	uint16 nEC;
 	WordLine astWL[NUM_WL];
 	void Erase()
 	{
 		nNextPgm = 0;
 		MEMSET_ARRAY(astWL, 0x00);
+		nEC++;
 	}
 };
 

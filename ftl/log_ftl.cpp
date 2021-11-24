@@ -19,6 +19,7 @@ Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
 void FTL_Request(ReqInfo* pReq)
 {
+	pReq->nSeqNo = SIM_GetSeqNo();
 	gstReqQ.PushTail(pReq);
 	Sched_TrigSyncEvt(BIT(EVT_USER_CMD));
 }

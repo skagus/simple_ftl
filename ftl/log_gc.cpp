@@ -29,13 +29,14 @@ static uint16 gc_GetFreePBN()
 }
 
 
-LogMap* getVictim()
+LogMap* gc_GetVictim()
 {
 	for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
 	{
 		LogMap* pLogMap = gc_GetLogMap(nIdx);
 		if (pLogMap->nLBN == INV_BN)
 		{
+			PRINTF("[GC] Victim: %X\n", nIdx);
 			return pLogMap;
 		}
 	}
@@ -212,7 +213,7 @@ void gc_Run(void* pParam)
 				pCtx->pSrcLog = META_SearchLogMap(pCtx->nReqLBN);
 				if (nullptr == pCtx->pSrcLog)
 				{
-					pCtx->pSrcLog = getVictim();
+					pCtx->pSrcLog = gc_GetVictim();
 				}
 				if (INV_BN == pCtx->pSrcLog->nLBN)  // Available Log block.
 				{

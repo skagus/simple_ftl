@@ -52,6 +52,7 @@ void SIM_AddHW(HwID id, EvtHdr pfEvtHandler);
 void SIM_AddCPU(CpuID eID, CpuEntry pfEntry, void* pParam);
 
 uint64 SIM_GetTick();
+uint32 SIM_GetCycle();
 void SIM_Print(const char *szFormat, ...);
 
 void* SIM_NewEvt(HwID eOwn, uint32 time);

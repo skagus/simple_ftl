@@ -274,7 +274,7 @@ void reqResp_Run(void* pParam)
 		{
 			PRINTF("[REQ] Write: LPN:%X (%X) to {%X, %X}\n", pReq->nLPN, *pnVal, pCmd->anBBN[0], pCmd->nWL);
 		}
-		if (INV_LPN != *pnVal)
+		if (MARK_ERS != *pnVal)
 		{
 			assert(pReq->nLPN == *pnVal);
 		}

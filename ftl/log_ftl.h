@@ -11,16 +11,16 @@ static_assert(NUM_LOG_BLK > 1);
 struct LogMap
 {
 	bool bReady;
-	uint16 nLBN;
-	uint16 nPBN;
-	uint16 nCPO;
-	uint16 anMap[CHUNK_PER_PBLK];
+	uint8 nLBN;
+	uint8 nPBN;
+	uint8 nCPO;
+	uint8 anMap[CHUNK_PER_PBLK];
 };
 
 struct BlkMap
 {
-	uint16 bLog : 1;
-	uint16 nPBN : 16;
+	uint8 bLog : 1;
+	uint8 nPBN : 7;
 };
 
 
@@ -30,6 +30,6 @@ struct Meta
 	LogMap astLog[NUM_LOG_BLK];
 	uint8 nFreePBN;
 };
-static_assert(sizeof(Meta) <= BYTE_PER_CHUNK);
+
 extern Meta gstMeta;
 

@@ -3,13 +3,14 @@
 #include "types.h"
 #include "config.h"
 
-#define NUM_USER_BLK		(PBLK_PER_DIE - 5)
+#define NUM_USER_BLK		(PBLK_PER_DIE - 7)
 #define LPN_PER_USER_BLK	(CHUNK_PER_PBLK)
 
 #define SIZE_REQ_QUE		(16)
-#define INV_BN				(0xFFFF)
-#define INV_LPN				(0xFFFFFFFF)
-#define INV_PPO				(0xFFFF)
+#define INV_BN				(0xFF)
+#define INV_LPN				(0xFFFF)
+#define INV_PPO				(0xFF)
+#define MARK_ERS			(0xFFFFFFFF)
 
 enum Cmd
 {
@@ -22,6 +23,7 @@ struct ReqInfo
 	Cmd eCmd;
 	uint32 nLPN;
 	uint16 nBuf;
+	uint32 nSeqNo;
 };
 
 typedef void (*CbfReq)(ReqInfo* pReq);

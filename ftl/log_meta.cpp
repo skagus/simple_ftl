@@ -11,6 +11,8 @@
 
 #define PRINTF			//	SIM_Print
 
+#define PAGE_PER_META	(4)
+static_assert(sizeof(Meta) <= BYTE_PER_PPG* PAGE_PER_META);
 
 Meta gstMeta;
 bool gbRequest;
@@ -104,8 +106,6 @@ bool META_Ready()
 	return gpMetaCtx->eStep == Mt_Ready;
 }
 
-
-
 BlkMap* META_GetBlkMap(uint16 nLBN)
 {
 	return gstMeta.astMap + nLBN;
@@ -139,13 +139,16 @@ enum MtSaveStep
 struct MtSaveCtx
 {
 	MtSaveStep eStep;
-	uint8 nWaiting;
+	uint8 nIssue;
+	uint8 nDone;
 };
 bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 {
 	if (b1st)
 	{
-		pCtx->nWaiting = 0;
+		pCtx->nIssue = 0;
+		pCtx->nDone = 0;
+
 		if (0 == gstMetaCtx.nNextWL)
 		{
 			pCtx->eStep = MS_Erase;
@@ -160,55 +163,71 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 	CmdInfo* pDone;
 	while (pDone = IO_GetDone(IOCB_Meta))
 	{
+		pCtx->nDone++;
 		if (NC_ERB == pDone->eCmd)
 		{
 			assert(MS_Erase == pCtx->eStep);
-			pCtx->nWaiting = 0;
+			pCtx->nIssue = 0;
+			pCtx->nDone = 0;
 			pCtx->eStep = MS_Program;
 		}
 		else // PGM done.
 		{
-			gstMetaCtx.nAge++;
-			gstMetaCtx.nNextWL++;
-			if (gstMetaCtx.nNextWL >= NUM_WL)
+			if (PAGE_PER_META == pCtx->nDone)
 			{
-				gstMetaCtx.nNextWL = 0;
-				gstMetaCtx.nCurBN++;
-				if (gstMetaCtx.nCurBN >= NUM_META_BLK)
+				gstMetaCtx.nAge++;
+				gstMetaCtx.nNextWL += PAGE_PER_META;
+				if (gstMetaCtx.nNextWL >= NUM_WL)
 				{
-					gstMetaCtx.nCurBN = 0;
+					gstMetaCtx.nNextWL = 0;
+					gstMetaCtx.nCurBN++;
+					if (gstMetaCtx.nCurBN >= NUM_META_BLK)
+					{
+						gstMetaCtx.nCurBN = 0;
+					}
 				}
+				pCtx->eStep = MS_Done;
+				bRet = true;
 			}
-
 			BM_Free(pDone->stPgm.anBufId[0]);
-			pCtx->nWaiting = 0;
-			pCtx->eStep = MS_Done;
-			bRet = true;
 		}
 		IO_Free(pDone);
 	}
 	
 	CmdInfo* pCmd;
-	if (0 == pCtx->nWaiting)
+	if (MS_Erase == pCtx->eStep)
 	{
-		if (MS_Erase == pCtx->eStep)
+		if (0 == pCtx->nIssue)
 		{
+			PRINTF("[MT] ERS %X\n", gstMetaCtx.nCurBN);
 			pCmd = IO_Alloc(IOCB_Meta);
 			IO_Erase(pCmd, gstMetaCtx.nCurBN, 0);
-			pCtx->nWaiting++;
+			pCtx->nIssue++;
 		}
-		else if (MS_Program == pCtx->eStep)
+	}
+	else if (MS_Program == pCtx->eStep)
+	{
+		if (PAGE_PER_META > pCtx->nIssue)
 		{
+			uint16 nWL = gstMetaCtx.nNextWL + pCtx->nIssue;
 			uint16 nBuf = BM_Alloc();
 			*(uint32*)BM_GetSpare(nBuf) = gstMetaCtx.nAge;
 			uint8* pMain = BM_GetMain(nBuf);
-			memcpy(pMain, &gstMeta, sizeof(gstMeta));
+			uint8* pSrc = (uint8*)(&gstMeta) + (pCtx->nIssue * BYTE_PER_PPG);
+			uint16 nRest = 0;
+			if (sizeof(gstMeta) >= (int16)(pCtx->nIssue * BYTE_PER_PPG))
+			{
+				nRest = sizeof(gstMeta) - (int16)(pCtx->nIssue * BYTE_PER_PPG);
+				nRest = nRest > BYTE_PER_PPG ? BYTE_PER_PPG : nRest;
+			}
+			memcpy(pMain, pSrc, nRest);
+			PRINTF("[MT] PGM (%X,%X) Age:%X\n", gstMetaCtx.nCurBN, nWL, gstMetaCtx.nAge);
 			pCmd = IO_Alloc(IOCB_Meta);
-			IO_Program(pCmd, gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf, 0);
-			pCtx->nWaiting++;
+			IO_Program(pCmd, gstMetaCtx.nCurBN, nWL, nBuf, 0);
+			pCtx->nIssue++;
 		}
 	}
-	if (pCtx->nWaiting)
+	if (pCtx->nIssue > pCtx->nDone)
 	{
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
@@ -245,7 +264,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 		uint16 nPO = pDone->nTag;
 		LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
 
-		if (INV_LPN != *pnSpare)
+		if (MARK_ERS != *pnSpare)
 		{
 			uint32 nLPO = (*pnSpare) % CHUNK_PER_PBLK;
 			PRINTF("[Open] MapUpdate: LPN:%X to PHY:(%X, %X)\n", *pnSpare, pLMap->nPBN, nPO);
@@ -304,9 +323,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 struct MtPageScanCtx
 {
 	uint16 nMaxBN;	// Input
-
 	uint16 nCPO;	// Output.
-
 	uint16 nIssued;	// Internal.
 	uint16 nDone;	// Internal.
 };
@@ -316,19 +333,20 @@ bool open_PageScan(MtPageScanCtx* pCtx, bool b1st)
 	bool bRet = false;
 	if (b1st)
 	{
-		pCtx->nCPO = 0;
+		pCtx->nCPO = NUM_WL;
 		pCtx->nIssued = 0;
 		pCtx->nDone = 0;
 	}
 
-	if ((0 == pCtx->nCPO)
-		&& (pCtx->nIssued < NUM_WL)
+	if ((NUM_WL == pCtx->nCPO)
+		&& (pCtx->nIssued < NUM_WL / PAGE_PER_META)
 		&& ((pCtx->nIssued - pCtx->nDone) < 2))
 	{
+		uint16 nWL = pCtx->nIssued * PAGE_PER_META;
 		uint16 nBuf = BM_Alloc();
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
-		IO_Read(pCmd, pCtx->nMaxBN, pCtx->nIssued, nBuf, pCtx->nIssued);
-		PRINTF("[OPEN] PageScan Issue (%X,%X)\n", pCmd->anBBN[0], pCmd->nWL);
+		IO_Read(pCmd, pCtx->nMaxBN, nWL, nBuf, pCtx->nIssued);
+		PRINTF("[OPEN] PageScan Issue (%X,%X)\n", pCmd->anBBN[0], nWL);
 		pCtx->nIssued++;
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
@@ -339,37 +357,78 @@ bool open_PageScan(MtPageScanCtx* pCtx, bool b1st)
 		pCtx->nDone++;
 		uint16 nBuf = pDone->stRead.anBufId[0];
 		uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
-		if (INV_LPN != *pnSpare)
+		if (MARK_ERS != *pnSpare)
 		{
-			assert(0 == pCtx->nCPO);
+			assert(NUM_WL == pCtx->nCPO);
 			uint8* pMain = BM_GetMain(nBuf);
 			gstMetaCtx.nAge = *pnSpare;
 			memcpy(&gstMeta, pMain, sizeof(gstMeta));
 		}
-		else if (0 == pCtx->nCPO)
+		else if (NUM_WL == pCtx->nCPO)
 		{
-			pCtx->nCPO = pDone->nTag;
+			pCtx->nCPO = pDone->nTag * PAGE_PER_META;
 		}
 		BM_Free(nBuf);
 		IO_Free(pDone);
 		PRINTF("[OPEN] PageScan Done (%X,%X)\n", pDone->anBBN[0], pDone->nWL);
 
 		if ((pCtx->nDone == pCtx->nIssued)
-			&& ((pCtx->nCPO > 0) || (pCtx->nDone >= NUM_WL)))
+			&& ((pCtx->nCPO != NUM_WL) || (pCtx->nDone >= NUM_WL / PAGE_PER_META)))
 		{
 			bRet = true;
 			PRINTF("[OPEN] Clean MtPage (%X,%X))\n", pCtx->nMaxBN, pCtx->nCPO);
-			if (pCtx->nCPO < NUM_WL)
-			{
-				gstMetaCtx.nCurBN = pCtx->nMaxBN;
-				gstMetaCtx.nNextWL = pCtx->nCPO;
-			}
-			else
-			{
-				gstMetaCtx.nNextWL = 0;
-				gstMetaCtx.nCurBN = (pCtx->nMaxBN + 1) % NUM_META_BLK;
-			}
 		}
+	}
+	return bRet;
+}
+
+bool open_MtLoad(MtPageScanCtx* pCtx, bool b1st)
+{
+	bool bRet = false;
+	if (b1st)
+	{
+		pCtx->nCPO -= PAGE_PER_META;
+		pCtx->nIssued = 0;
+		pCtx->nDone = 0;
+	}
+
+	// Check phase.
+	CmdInfo* pDone = IO_GetDone(CbKey::IOCB_Meta);
+	if (nullptr != pDone)
+	{
+		pCtx->nDone++;
+		uint16 nBuf = pDone->stRead.anBufId[0];
+		uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+		uint8* pMain = BM_GetMain(nBuf);
+		uint8* pDst = (uint8*)(&gstMeta) + (pDone->nTag * BYTE_PER_PPG);
+		uint16 nSize = 0;
+		if (sizeof(gstMeta) > (pDone->nTag * BYTE_PER_PPG))
+		{
+			nSize = sizeof(gstMeta) - (pDone->nTag * BYTE_PER_PPG);
+		}
+		memcpy(pDst, pMain, nSize);
+
+		if (pCtx->nDone >= PAGE_PER_META)
+		{
+			bRet = true;
+		}
+		BM_Free(nBuf);
+		IO_Free(pDone);
+	}
+	if (pCtx->nIssued < PAGE_PER_META)
+	{
+		uint16 nWL = pCtx->nCPO + pCtx->nIssued;
+		uint16 nBuf = BM_Alloc();
+		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
+		IO_Read(pCmd, pCtx->nMaxBN, nWL, nBuf, pCtx->nIssued);
+		PRINTF("[OPEN] PageScan Issue (%X,%X)\n", pCmd->anBBN[0], nWL);
+		pCtx->nIssued++;
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+	}
+
+	if (pCtx->nIssued > pCtx->nDone)
+	{
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	return bRet;
 }
@@ -420,7 +479,7 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 
 		PRINTF("[OPEN] BlkScan Done %X\n", pDone->nTag);
 
-		if ((*pnSpare > pCtx->nMaxAge) && (*pnSpare != INV_LPN))
+		if ((*pnSpare > pCtx->nMaxAge) && (*pnSpare != MARK_ERS))
 		{
 			pCtx->nMaxAge = *pnSpare;
 			pCtx->nMaxBN = pDone->nTag;
@@ -451,6 +510,7 @@ enum MetaStep
 	Open_Init,
 	Open_BlkScan,
 	Open_PageScan,
+	Open_MtLoad,
 	Open_DataScan,
 };
 
@@ -504,6 +564,26 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 		{
 			MtPageScanCtx* pChildCtx = (MtPageScanCtx*)(pCtx + 1);
 			if (open_PageScan(pChildCtx, false))
+			{
+				if (pChildCtx->nCPO != NUM_WL)
+				{
+					gstMetaCtx.nCurBN = pChildCtx->nMaxBN;
+					gstMetaCtx.nNextWL = pChildCtx->nCPO;
+				}
+				else
+				{
+					gstMetaCtx.nCurBN = (pChildCtx->nMaxBN + 1) % NUM_META_BLK;
+					gstMetaCtx.nNextWL = 0;
+				}
+				pCtx->eOpenStep = Open_MtLoad;
+				open_MtLoad(pChildCtx, true);
+			}
+			break;
+		}
+		case Open_MtLoad:
+		{
+			MtPageScanCtx* pChildCtx = (MtPageScanCtx*)(pCtx + 1);
+			if (open_MtLoad(pChildCtx, false))
 			{
 				pCtx->eOpenStep = Open_DataScan;
 				UserScanCtx* pNextChild = (UserScanCtx*)(pCtx + 1);

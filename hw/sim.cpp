@@ -44,6 +44,7 @@ static HANDLE ghEngine;		///< Engine용 Task.
 static uint64 gnHwTick;		///< HW tick time.
 static EvtHdr gfEvtHdr[NUM_HW];	///< HW별 Event handler.
 static bool gbPowerOn;			///< Power on state.
+static uint32 gnCycle;
 
 /// Event repository.
 static Evt gaEvts[NUM_EVENT];
@@ -98,6 +99,11 @@ void* SIM_NewEvt(HwID eOwn, uint32 nTick)
 uint64 SIM_GetTick()
 {
 	return gnHwTick;
+}
+
+uint32 SIM_GetCycle()
+{
+	return gnCycle;
 }
 
 #define MAX_BUF_SIZE	(128)
@@ -221,11 +227,10 @@ void SIM_Run()
 	QueryPerformanceCounter(&stBegin);
 #endif
 
-	uint32 nCycle = 0;
 	while (true)
 	{
 		sim_PowerUp();
-		SIM_Print("[SIM] ============== Power up %d =================\n", nCycle);
+		SIM_Print("[SIM] ============== Power up %d =================\n", gnCycle);
 		while (gbPowerOn)
 		{
 			for (uint32 nCpu = 0; nCpu < NUM_CPU; nCpu++)
@@ -239,7 +244,7 @@ void SIM_Run()
 			uint64 nCpuTick = sim_GetMinCpuTime();
 			sim_ProcEvt(nCpuTick);	// 내부에서 gnHwTick을 update한다.
 		}
-		nCycle++;
+		gnCycle++;
 	}
 #if	EN_BENCHMARK
 	QueryPerformanceCounter(&stEnd);

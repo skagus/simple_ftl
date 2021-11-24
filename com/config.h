@@ -7,14 +7,14 @@
 // BBLK : Big Block.
 // CHUNK : Map/Memory unit.
 
-#define BYTE_PER_CHUNK		(4096)
+#define BYTE_PER_CHUNK		(252)
 #define BYTE_PER_PPG		(BYTE_PER_CHUNK)
 #define BYTE_PER_SPARE		(8)		///< Chunk 당 spare크기.
 
 #define NUM_PLN				(1)
-#define NUM_WL				(16)
-#define PBLK_PER_DIE		(16)
-#define NUM_DIE				(4)
+#define NUM_WL				(128)
+#define PBLK_PER_DIE		(128)
+#define NUM_DIE				(1)
 
 #define CHUNK_PER_PPG		(BYTE_PER_PPG / BYTE_PER_CHUNK)
 #define CHUNK_PER_BPG		(CHUNK_PER_PPG * NUM_PLN)
