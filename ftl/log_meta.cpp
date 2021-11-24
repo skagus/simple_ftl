@@ -6,7 +6,7 @@
 #include "ftl.h"
 #include "buf.h"
 #include "io.h"
-#include "log_map.h"
+#include "log_ftl.h"
 #include "log_meta.h"
 
 #define PRINTF			//	SIM_Print
@@ -81,7 +81,7 @@ bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 			uint16 nBN = pFmtCtx->nBN;
 			for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
 			{
-				gstMeta.astLog[nIdx].nLBN = 0xFFFF;
+				gstMeta.astLog[nIdx].nLBN = INV_BN;
 				gstMeta.astLog[nIdx].nPBN = nBN;
 				nBN++;
 			}
@@ -105,20 +105,6 @@ bool META_Ready()
 }
 
 
-void META_SetFreePBN(uint16 nPBN)
-{
-	gstMeta.nFreePBN = nPBN;
-}
-
-uint16 META_GetFreePBN()
-{
-	return gstMeta.nFreePBN;
-}
-
-LogMap* META_GetLogMap(uint16 nIdx)
-{
-	return gstMeta.astLog + nIdx;
-}
 
 BlkMap* META_GetBlkMap(uint16 nLBN)
 {
@@ -142,42 +128,6 @@ LogMap* META_SearchLogMap(uint16 nLBN)
 	return nullptr;
 }
 
-
-void META_Save()
-{
-	CmdInfo* pCmd;
-	////// Save Meta data. ////////
-	if (0 == gstMetaCtx.nNextWL)
-	{
-		pCmd = IO_Alloc(IOCB_Meta);
-		IO_Erase(pCmd, gstMetaCtx.nCurBN, 0);
-		IO_WaitDone(pCmd);
-		IO_Free(pCmd);
-	}
-	uint16 nBuf = BM_Alloc();
-	*(uint32*)BM_GetSpare(nBuf) = gstMetaCtx.nAge;
-	uint8* pMain = BM_GetMain(nBuf);
-	memcpy(pMain, &gstMeta, sizeof(gstMeta));
-	pCmd = IO_Alloc(IOCB_Meta);
-	IO_Program(pCmd, gstMetaCtx.nCurBN, gstMetaCtx.nNextWL, nBuf, 0);
-	IO_WaitDone(pCmd);
-	IO_Free(pCmd);
-	BM_Free(nBuf);
-
-	PRINTF("[MT] Save (%X,%X)\n", gstMetaCtx.nCurBN, gstMetaCtx.nNextWL);
-	/////// Setup Next Address ///////////
-	gstMetaCtx.nAge++;
-	gstMetaCtx.nNextWL++;
-	if (gstMetaCtx.nNextWL >= NUM_WL)
-	{
-		gstMetaCtx.nNextWL = 0;
-		gstMetaCtx.nCurBN++;
-		if (gstMetaCtx.nCurBN >= NUM_META_BLK)
-		{
-			gstMetaCtx.nCurBN = 0;
-		}
-	}
-}
 
 enum MtSaveStep
 {
@@ -295,7 +245,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 		uint16 nPO = pDone->nTag;
 		LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
 
-		if (0xFFFFFFFF != *pnSpare)
+		if (INV_LPN != *pnSpare)
 		{
 			uint32 nLPO = (*pnSpare) % CHUNK_PER_PBLK;
 			PRINTF("[Open] MapUpdate: LPN:%X to PHY:(%X, %X)\n", *pnSpare, pLMap->nPBN, nPO);
@@ -389,7 +339,7 @@ bool open_PageScan(MtPageScanCtx* pCtx, bool b1st)
 		pCtx->nDone++;
 		uint16 nBuf = pDone->stRead.anBufId[0];
 		uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
-		if (0xFFFFFFFF != *pnSpare)
+		if (INV_LPN != *pnSpare)
 		{
 			assert(0 == pCtx->nCPO);
 			uint8* pMain = BM_GetMain(nBuf);
@@ -439,7 +389,7 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 	bool bRet = false;
 	if (b1st)
 	{
-		pCtx->nMaxBN = 0xFFFF;
+		pCtx->nMaxBN = INV_BN;
 		pCtx->nIssued = 0;
 		pCtx->nDone = 0;
 		pCtx->nMaxAge = 0;
@@ -470,7 +420,7 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 
 		PRINTF("[OPEN] BlkScan Done %X\n", pDone->nTag);
 
-		if ((*pnSpare > pCtx->nMaxAge) && (*pnSpare != 0xFFFFFFFF))
+		if ((*pnSpare > pCtx->nMaxAge) && (*pnSpare != INV_LPN))
 		{
 			pCtx->nMaxAge = *pnSpare;
 			pCtx->nMaxBN = pDone->nTag;
@@ -481,7 +431,7 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 		if (NUM_META_BLK == pCtx->nDone)	// All done.
 		{
 			bRet = true;
-			if (0xFFFF != pCtx->nMaxBN)
+			if (INV_BN != pCtx->nMaxBN)
 			{
 				PRINTF("[OPEN] BlkScan Latest BN: %X\n", pCtx->nMaxBN);
 			}
@@ -524,7 +474,7 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 		case Open_Init:
 		{
 			pCtx->eOpenStep = Open_BlkScan;
-			pCtx->nMaxBN = 0xFFFF;
+			pCtx->nMaxBN = INV_BN;
 			MtBlkScanCtx* pChildCtx = (MtBlkScanCtx*)(pCtx + 1);
 			bRet = open_BlkScan(pChildCtx, true);
 			break;
@@ -535,7 +485,7 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 			if (open_BlkScan(pChildCtx, false))
 			{
 				pCtx->nMaxBN = pChildCtx->nMaxBN;
-				if (0xFFFF != pCtx->nMaxBN)
+				if (INV_BN != pCtx->nMaxBN)
 				{
 					pCtx->eOpenStep = Open_PageScan;
 					MtPageScanCtx* pNextChild = (MtPageScanCtx*)(pCtx + 1);
@@ -590,7 +540,7 @@ void meta_Run(void* pParam)
 			OpenCtx* pChildCtx = (OpenCtx*)(pCtx + 1);
 			if (meta_Open(pChildCtx, false))
 			{
-				if (0xFFFF == pChildCtx->nMaxBN)
+				if (INV_BN == pChildCtx->nMaxBN)
 				{
 					FormatCtx* pNextCtx = (FormatCtx*)(pCtx + 1);
 					meta_Format(pNextCtx, true);

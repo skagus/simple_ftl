@@ -8,7 +8,7 @@
 // CHUNK : Map/Memory unit.
 
 #define BYTE_PER_CHUNK		(4096)
-#define BYTE_PER_PPG		(4096)
+#define BYTE_PER_PPG		(BYTE_PER_CHUNK)
 #define BYTE_PER_SPARE		(8)		///< Chunk 당 spare크기.
 
 #define NUM_PLN				(1)

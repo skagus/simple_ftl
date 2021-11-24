@@ -14,13 +14,13 @@ struct LogMap
 	uint16 nLBN;
 	uint16 nPBN;
 	uint16 nCPO;
-	uint32 anMap[CHUNK_PER_PBLK];
+	uint16 anMap[CHUNK_PER_PBLK];
 };
 
 struct BlkMap
 {
 	uint16 bLog : 1;
-	uint16 nPBN : 15;
+	uint16 nPBN : 16;
 };
 
 
@@ -28,7 +28,8 @@ struct Meta
 {
 	BlkMap astMap[NUM_USER_BLK];
 	LogMap astLog[NUM_LOG_BLK];
-	uint16 nFreePBN;
+	uint8 nFreePBN;
 };
 static_assert(sizeof(Meta) <= BYTE_PER_CHUNK);
 extern Meta gstMeta;
+

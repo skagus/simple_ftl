@@ -15,15 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ftl\log_map.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\io.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\log_ftl.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
     <ClCompile Include="..\hw\buf.cpp">
       <Filter>hw</Filter>
     </ClCompile>
@@ -49,29 +40,29 @@
     <ClCompile Include="..\com\scheduler.cpp">
       <Filter>com</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\log_req.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\log_meta.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\log_gc.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
     <ClCompile Include="..\hw\sim_util.cpp">
       <Filter>hw</Filter>
     </ClCompile>
     <ClCompile Include="..\hw\coroutine.cpp">
       <Filter>hw</Filter>
     </ClCompile>
+    <ClCompile Include="..\ftl\io.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\log_ftl.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\log_gc.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\log_meta.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\log_req.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ftl\ftl.h">
-      <Filter>ftl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ftl\io.h">
-      <Filter>ftl</Filter>
-    </ClInclude>
     <ClInclude Include="..\hw\buf.h">
       <Filter>hw</Filter>
     </ClInclude>
@@ -111,20 +102,26 @@
     <ClInclude Include="..\com\scheduler_conf.h">
       <Filter>com</Filter>
     </ClInclude>
+    <ClInclude Include="..\hw\coroutine.h">
+      <Filter>hw</Filter>
+    </ClInclude>
     <ClInclude Include="..\ftl\log_req.h">
       <Filter>ftl</Filter>
     </ClInclude>
-    <ClInclude Include="..\ftl\log_meta.h">
+    <ClInclude Include="..\ftl\ftl.h">
       <Filter>ftl</Filter>
     </ClInclude>
-    <ClInclude Include="..\ftl\log_map.h">
+    <ClInclude Include="..\ftl\io.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\log_ftl.h">
       <Filter>ftl</Filter>
     </ClInclude>
     <ClInclude Include="..\ftl\log_gc.h">
       <Filter>ftl</Filter>
     </ClInclude>
-    <ClInclude Include="..\hw\coroutine.h">
-      <Filter>hw</Filter>
+    <ClInclude Include="..\ftl\log_meta.h">
+      <Filter>ftl</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

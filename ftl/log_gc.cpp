@@ -4,55 +4,28 @@
 #include "buf.h"
 #include "nfc.h"
 #include "io.h"
+#include "log_ftl.h"
 #include "log_gc.h"
 #include "log_meta.h"
 
 #define PRINTF			//	SIM_Print
+uint16 gnNewLBN;
 
-void migrate(LogMap* pVictim)
+
+static void gc_SetFreePBN(uint16 nPBN)
 {
-	BlkMap* pVictimMap = META_GetBlkMap(pVictim->nLBN);
-	uint16 nOrgBN = pVictimMap->nPBN;
-	uint16 nLogBN = pVictim->nPBN;
-	uint16 nBuf4Copy = BM_Alloc();
-	uint16 nDstBN = META_GetFreePBN();
-	uint32* pSpare = (uint32*)BM_GetSpare(nBuf4Copy);
-	uint32* pMain = (uint32*)BM_GetMain(nBuf4Copy);
-	CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-	IO_Erase(pCmd, nDstBN, 0);	// Erase before program.
-	IO_WaitDone(pCmd);
-	IO_Free(pCmd);
-	for (uint16 nPO = 0; nPO < NUM_WL; nPO++)
-	{
-		pCmd = IO_Alloc(IOCB_Mig);
-		if (0xFFFFFFFF != pVictim->anMap[nPO])
-		{
-			IO_Read(pCmd, nLogBN, pVictim->anMap[nPO], nBuf4Copy, 0);
-			IO_WaitDone(pCmd);
-			IO_Free(pCmd);
-		}
-		else
-		{
-			IO_Read(pCmd, nOrgBN, nPO, nBuf4Copy, 0);
-			IO_WaitDone(pCmd);
-			IO_Free(pCmd);
-		}
-		PRINTF("Mig: %X\n", *pSpare);
-		if ((*pSpare & 0xF) == nPO)
-		{
-			assert((*pMain & 0xF) == nPO);
-		}
-		assert(*pSpare == *(uint32*)BM_GetMain(nBuf4Copy));
-		pCmd = IO_Alloc(IOCB_Mig);
-		IO_Program(pCmd, nDstBN, nPO, nBuf4Copy, 0);
-		IO_WaitDone(pCmd);
-		IO_Free(pCmd);
-	}
-	META_SetFreePBN(pVictimMap->nPBN);
-	pVictimMap->bLog = 0;
-	pVictimMap->nPBN = nDstBN;
-	BM_Free(nBuf4Copy);
-	//	META_Save();
+	gstMeta.nFreePBN = nPBN;
+}
+
+
+static LogMap* gc_GetLogMap(uint16 nIdx)
+{
+	return gstMeta.astLog + nIdx;
+}
+
+static uint16 gc_GetFreePBN()
+{
+	return gstMeta.nFreePBN;
 }
 
 
@@ -60,40 +33,16 @@ LogMap* getVictim()
 {
 	for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
 	{
-		LogMap* pLogMap = META_GetLogMap(nIdx);
-		if (pLogMap->nLBN == 0xFFFF)
+		LogMap* pLogMap = gc_GetLogMap(nIdx);
+		if (pLogMap->nLBN == INV_BN)
 		{
 			return pLogMap;
 		}
 	}
 	// free가 없으면, random victim.
-	return META_GetLogMap(SIM_GetRand(NUM_LOG_BLK));
+	return gc_GetLogMap(SIM_GetRand(NUM_LOG_BLK));
 }
 
-uint16 gnNewLBN;
-
-LogMap* GC_MakeNewLog(uint16 nLBN, LogMap* pSrcLog)
-{
-	if (nullptr == pSrcLog)
-	{
-		pSrcLog = getVictim();
-	}
-	if (pSrcLog->nCPO > 0)
-	{
-		// Migrate.
-		migrate(pSrcLog);
-	}
-	memset(pSrcLog->anMap, 0xFF, sizeof(pSrcLog->anMap));
-	META_GetBlkMap(nLBN)->bLog = 1;
-	pSrcLog->nLBN = nLBN;
-	pSrcLog->nCPO = 0;
-	CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-	IO_Erase(pCmd, pSrcLog->nPBN, 0);
-	IO_WaitDone(pCmd);
-	IO_Free(pCmd);
-	META_Save();
-	return pSrcLog;
-}
 
 struct GcMoveCtx
 {
@@ -155,7 +104,7 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		uint16 nLPO = pCtx->nReadIssue;
 		uint16 nBuf4Copy = BM_Alloc();
 		CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-		if (0xFFFFFFFF != pVictim->anMap[nLPO])
+		if (INV_PPO != pVictim->anMap[nLPO])
 		{
 			IO_Read(pCmd, pVictim->nPBN, pVictim->anMap[nLPO], nBuf4Copy, nLPO);
 		}
@@ -253,19 +202,19 @@ void gc_Run(void* pParam)
 	{
 		case GS_WaitReq:
 		{
-			if (0xFFFF != gnNewLBN)
+			if (INV_BN != gnNewLBN)
 			{
 				pCtx->nSeqNo = SIM_GetSeqNo();
 				GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
 				pCtx->nReqLBN = gnNewLBN;
-				gnNewLBN = 0xFFFF;
-				pCtx->nDstPBN = META_GetFreePBN();
+				gnNewLBN = INV_BN;
+				pCtx->nDstPBN = gc_GetFreePBN();
 				pCtx->pSrcLog = META_SearchLogMap(pCtx->nReqLBN);
 				if (nullptr == pCtx->pSrcLog)
 				{
 					pCtx->pSrcLog = getVictim();
 				}
-				if (0xFFFF == pCtx->pSrcLog->nLBN)  // Available Log block.
+				if (INV_BN == pCtx->pSrcLog->nLBN)  // Available Log block.
 				{
 					LogMap* pNewLog = pCtx->pSrcLog;
 					pNewLog->nLBN = pCtx->nReqLBN;		// 
@@ -303,7 +252,7 @@ void gc_Run(void* pParam)
 				pMoveCtx->nDst = pCtx->nDstPBN;
 				pMoveCtx->pSrcLog = pCtx->pSrcLog;
 				pMoveCtx->nSrcBlk = pCtx->pSrcBM->nPBN;
-				if (0xFFFF != pMoveCtx->pSrcLog->nLBN)
+				if (INV_BN != pMoveCtx->pSrcLog->nLBN)
 				{
 					gc_Move(pMoveCtx, true);
 					pCtx->eState = GS_Move;
@@ -325,7 +274,7 @@ void gc_Run(void* pParam)
 			{
 				BlkMap* pSrcBM = pCtx->pSrcBM;
 				LogMap* pNewLog = pCtx->pSrcLog;
-				META_SetFreePBN(pNewLog->nPBN);		// Log to Free.
+				gc_SetFreePBN(pNewLog->nPBN);		// Log to Free.
 				pNewLog->bReady = false;
 				pNewLog->nLBN = pCtx->nReqLBN;		// 
 				pNewLog->nPBN = pSrcBM->nPBN;			// BM to Log.
@@ -386,7 +335,7 @@ static uint8 anContext[4096];		///< Stack like meta context.
 
 void GC_Init()
 {
-	gnNewLBN = 0xFFFF;
+	gnNewLBN = INV_BN;
 	GcCtx* pCtx = (GcCtx*)anContext;
 	MEMSET_PTR(pCtx, 0);
 	Sched_Register(TID_GC, gc_Run, anContext, BIT(MODE_NORMAL));

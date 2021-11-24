@@ -125,7 +125,7 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 	ReqInfo* pReq = pCtx->pReq;
 	uint16 nLBN = pReq->nLPN / CHUNK_PER_PBLK;
 	uint16 nLPO = pReq->nLPN % CHUNK_PER_PBLK;
-	uint16 nPPO = 0xFFFF;
+	uint16 nPPO = INV_PPO;
 
 	LogMap* pMap = META_SearchLogMap(nLBN);
 	if (nullptr != pMap)
@@ -133,7 +133,7 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 		nPPO = pMap->anMap[nLPO];
 	}
 	CmdInfo* pCmd = IO_Alloc(IOCB_User);
-	if (0xFFFF != nPPO)	// in Log block.
+	if (INV_PPO != nPPO)	// in Log block.
 	{
 		IO_Read(pCmd, pMap->nPBN, nPPO, pReq->nBuf, pCtx->nTag);
 	}
@@ -274,7 +274,7 @@ void reqResp_Run(void* pParam)
 		{
 			PRINTF("[REQ] Write: LPN:%X (%X) to {%X, %X}\n", pReq->nLPN, *pnVal, pCmd->anBBN[0], pCmd->nWL);
 		}
-		if (0xFFFFFFFF != *pnVal)
+		if (INV_LPN != *pnVal)
 		{
 			assert(pReq->nLPN == *pnVal);
 		}

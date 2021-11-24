@@ -8,6 +8,8 @@
 
 #define SIZE_REQ_QUE		(16)
 #define INV_BN				(0xFFFF)
+#define INV_LPN				(0xFFFFFFFF)
+#define INV_PPO				(0xFFFF)
 
 enum Cmd
 {
@@ -27,6 +29,4 @@ typedef void (*CbfReq)(ReqInfo* pReq);
 uint32 FTL_GetNumLPN(CbfReq pfCbf);
 void FTL_Request(ReqInfo* pReq);
 
-#ifdef EN_SIM
 void FTL_Main(void* pParam);
-#endif
