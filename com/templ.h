@@ -1,12 +1,45 @@
 
 #pragma once
 #include <assert.h>
+#include <string.h>
 #include "types.h"
 
 /*************************************************************
 Queue는 pool로서 사용할 수도 있고, 
 communication channel로 사용할 수도 있다.
 *************************************************************/
+
+template <typename T, int SIZE>
+class LRU
+{
+	T nAge;
+	T anAge[SIZE];
+public:
+	void Init()
+	{
+		memset(anAge, 0x0, sizeof(anAge));
+		nAge = 0;
+	}
+	void Touch(int nIdx)
+	{
+		anAge[nIdx] = nAge;
+		nAge++;
+	}
+	int GetOld()
+	{
+		int nOldIdx = 0;
+		int nOldAge = anAge[0];
+		for (int nIdx = 1; nIdx < SIZE; nIdx++)
+		{
+			if (nOldAge > anAge[nIdx])
+			{
+				nOldAge = anAge[nIdx];
+				nOldIdx = nIdx;
+			}
+		}
+		return nOldIdx;
+	}
+};
 
 template <typename T>
 class LinkedQueue

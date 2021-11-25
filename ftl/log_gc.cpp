@@ -11,23 +11,20 @@
 #define PRINTF			//	SIM_Print
 uint16 gnNewLBN;
 
-
-static void gc_SetFreePBN(uint16 nPBN)
+inline void gc_SetFreePBN(uint16 nPBN)
 {
 	gstMeta.nFreePBN = nPBN;
 }
 
-
-static LogMap* gc_GetLogMap(uint16 nIdx)
+inline LogMap* gc_GetLogMap(uint16 nIdx)
 {
 	return gstMeta.astLog + nIdx;
 }
 
-static uint16 gc_GetFreePBN()
+inline uint16 gc_GetFreePBN()
 {
 	return gstMeta.nFreePBN;
 }
-
 
 LogMap* gc_GetVictim()
 {
@@ -41,10 +38,11 @@ LogMap* gc_GetVictim()
 		}
 	}
 	// free가 없으면, random victim.
+//	return META_GetOldLog();
 	return gc_GetLogMap(SIM_GetRand(NUM_LOG_BLK));
 }
 
-
+// ////// Move sub state machine ////////////////
 struct GcMoveCtx
 {
 	uint16 nDst;	// Input.
@@ -128,6 +126,8 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 	return bRet;
 }
 
+
+//-----------------------------------------
 struct GcErsCtx
 {
 	bool bIssued;
@@ -210,7 +210,7 @@ void gc_Run(void* pParam)
 				pCtx->nReqLBN = gnNewLBN;
 				gnNewLBN = INV_BN;
 				pCtx->nDstPBN = gc_GetFreePBN();
-				pCtx->pSrcLog = META_SearchLogMap(pCtx->nReqLBN);
+				pCtx->pSrcLog = META_FindLog(pCtx->nReqLBN, false);
 				if (nullptr == pCtx->pSrcLog)
 				{
 					pCtx->pSrcLog = gc_GetVictim();
@@ -250,10 +250,11 @@ void gc_Run(void* pParam)
 			if (gc_Erase(pChild, false)) // End.
 			{
 				GcMoveCtx* pMoveCtx = (GcMoveCtx*)(pCtx + 1);
+				LogMap* pSrc = pCtx->pSrcLog;
 				pMoveCtx->nDst = pCtx->nDstPBN;
-				pMoveCtx->pSrcLog = pCtx->pSrcLog;
+				pMoveCtx->pSrcLog = pSrc;
 				pMoveCtx->nSrcBlk = pCtx->pSrcBM->nPBN;
-				if (INV_BN != pMoveCtx->pSrcLog->nLBN)
+				if (INV_BN != pSrc->nLBN)
 				{
 					gc_Move(pMoveCtx, true);
 					pCtx->eState = GS_Move;

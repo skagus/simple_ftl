@@ -1,6 +1,7 @@
 
 #include "types.h"
 #include "config.h"
+#include "templ.h"
 #include "scheduler.h"
 #include "nfc.h"
 #include "ftl.h"
@@ -16,6 +17,7 @@ static_assert(sizeof(Meta) <= BYTE_PER_PPG* PAGE_PER_META);
 
 Meta gstMeta;
 bool gbRequest;
+LRU<uint8, NUM_LOG_BLK> gLRU;
 
 struct MetaCtx
 {
@@ -111,7 +113,13 @@ BlkMap* META_GetBlkMap(uint16 nLBN)
 	return gstMeta.astMap + nLBN;
 }
 
-LogMap* META_SearchLogMap(uint16 nLBN)
+LogMap* META_GetOldLog()
+{
+	int nIdx = gLRU.GetOld();
+	return gstMeta.astLog + nIdx;
+}
+
+LogMap* META_FindLog(uint16 nLBN, bool bForUpdate)
 {
 	if (gstMeta.astMap[nLBN].bLog)
 	{
@@ -121,6 +129,10 @@ LogMap* META_SearchLogMap(uint16 nLBN)
 			if ((pLMap->nLBN == nLBN)
 				&& (true == pLMap->bReady))
 			{
+				if (bForUpdate)
+				{
+					gLRU.Touch(nIdx);
+				}
 				return pLMap;
 			}
 		}
@@ -319,6 +331,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 	}
 	return bRet;
 }
+
 // =================== Meta Page Scan ========================
 struct MtPageScanCtx
 {
@@ -699,4 +712,5 @@ void META_Init()
 	MEMSET_OBJ(gstMetaCtx, 0);
 	MEMSET_ARRAY(anContext, 0);
 	Sched_Register(TID_META, meta_Run, anContext, BIT(MODE_NORMAL));
+	gLRU.Init();
 }

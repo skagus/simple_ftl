@@ -7,7 +7,7 @@
 #include "power.h"
 
 #define PRINTF			SIM_Print
-#define CMD_PRINTF		// SIM_Print
+#define CMD_PRINTF		//SIM_Print
 static uint32* gaDict;
 static bool gbDone;
 
@@ -124,6 +124,37 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 	}
 }
 
+void tc_StreamWrite(uint32 nMaxLPN)
+{
+	PRINTF("[TC] =========== %s ==========\n", __FUNCTION__);
+	uint32 anLPN[3];
+	anLPN[0] = 0;
+	anLPN[1] = nMaxLPN / 4;
+	anLPN[2] = nMaxLPN / 2;
+
+	ReqInfo stReq;
+	stReq.eCmd = CMD_READ;
+	uint32 nCnt = nMaxLPN / 4;
+	for (uint32 nCur = 0; nCur < nCnt; nCur++)
+	{
+		for (uint32 nStream = 0; nStream < 3; nStream++)
+		{
+			stReq.nLPN = anLPN[nStream];
+			anLPN[nStream]++;
+			stReq.nBuf = BM_Alloc();
+			_FillData(stReq.nBuf, stReq.nLPN);
+			gbDone = false;
+			FTL_Request(&stReq);
+			CMD_PRINTF("[TC] Write Req: %d\n", nCur);
+			while (false == gbDone)
+			{
+				SIM_CpuTimePass(SIM_USEC(10));
+			}
+			BM_Free(stReq.nBuf);
+		}
+	}
+}
+
 /**
 Workload 생성역할.
 */
@@ -145,6 +176,7 @@ void TEST_Main(void* pParam)
 		tc_RandRead(0, nNumUserLPN, nNumUserLPN * 2);
 		tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 128);
 	}
+	tc_StreamWrite(nNumUserLPN);
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();
 	END_RUN;

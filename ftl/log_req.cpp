@@ -77,11 +77,10 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 	{
 		case RS_Init:
 		{
-			LogMap* pMap = META_SearchLogMap(nLBN);
+			LogMap* pMap = META_FindLog(nLBN, false);
 			if (nullptr == pMap || pMap->nCPO >= CHUNK_PER_PBLK)
 			{
 				GC_ReqLog(nLBN);
-//				pMap = GC_MakeNewLog(nLBN, pMap);
 				Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
 			}
 			else
@@ -93,7 +92,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		}
 		case RS_BlkWait:
 		{
-			LogMap* pMap = META_SearchLogMap(nLBN);
+			LogMap* pMap = META_FindLog(nLBN, true);
 			if ((nullptr != pMap) && (pMap->nCPO < CHUNK_PER_PBLK))
 			{
 				*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
@@ -127,7 +126,7 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 	uint16 nLPO = pReq->nLPN % CHUNK_PER_PBLK;
 	uint16 nPPO = INV_PPO;
 
-	LogMap* pMap = META_SearchLogMap(nLBN);
+	LogMap* pMap = META_FindLog(nLBN, false);
 	if (nullptr != pMap)
 	{
 		nPPO = pMap->anMap[nLPO];
