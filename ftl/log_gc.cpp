@@ -38,8 +38,8 @@ LogMap* gc_GetVictim()
 		}
 	}
 	// free가 없으면, random victim.
-//	return META_GetOldLog();
-	return gc_GetLogMap(SIM_GetRand(NUM_LOG_BLK));
+	return META_GetOldLog();
+//	return gc_GetLogMap(SIM_GetRand(NUM_LOG_BLK));
 }
 
 // ////// Move sub state machine ////////////////
@@ -205,25 +205,51 @@ void gc_Run(void* pParam)
 		{
 			if (INV_BN != gnNewLBN)
 			{
+				LogMap* pSrc;
 				pCtx->nSeqNo = SIM_GetSeqNo();
 				GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
 				pCtx->nReqLBN = gnNewLBN;
 				gnNewLBN = INV_BN;
 				pCtx->nDstPBN = gc_GetFreePBN();
-				pCtx->pSrcLog = META_FindLog(pCtx->nReqLBN, false);
-				if (nullptr == pCtx->pSrcLog)
+				pSrc = META_FindLog(pCtx->nReqLBN, false);
+				if (nullptr == pSrc)
 				{
-					pCtx->pSrcLog = gc_GetVictim();
+					pSrc = gc_GetVictim();
 				}
-				if (INV_BN == pCtx->pSrcLog->nLBN)  // Available Log block.
+				pCtx->pSrcLog = pSrc;
+
+				if (INV_BN == pSrc->nLBN)  // Available Log block.
 				{
-					LogMap* pNewLog = pCtx->pSrcLog;
-					pNewLog->nLBN = pCtx->nReqLBN;		// 
-					pNewLog->nCPO = 0;
-					MEMSET_ARRAY(pNewLog->anMap, 0xFF);
+					pSrc->nLBN = pCtx->nReqLBN;		// 
+					pSrc->nCPO = 0;
+					pSrc->bInPlace = true;
+
+					MEMSET_ARRAY(pSrc->anMap, 0xFF);
 					BlkMap* pReqBM = META_GetBlkMap(pCtx->nReqLBN);
 					pReqBM->bLog = 1;
-					PRINTF("[GC] Free Log : %X\n", pNewLog->nPBN);
+					PRINTF("[GC] Free Log : %X\n", pSrc->nPBN);
+
+					pCtx->nMtAge = META_GetAge();
+					pCtx->eState = GS_MetaSave;
+					META_ReqSave();
+					Sched_Wait(BIT(EVT_META), LONG_TIME);
+				}
+				else if ((NUM_WL == pSrc->nCPO) && pSrc->bInPlace)	// Swap case.
+				{
+					BlkMap* pBM = META_GetBlkMap(pSrc->nLBN);
+					uint16 nOrg = pBM->nPBN;
+					pBM->nPBN = pSrc->nPBN;
+					pBM->bLog = 0;
+					pSrc->nPBN = nOrg;
+					PRINTF("[GC] Inplace PBN : %X\n", pBM->nPBN);
+
+					pSrc->bReady = false;
+					pSrc->nLBN = pCtx->nReqLBN;		// 
+					pSrc->nCPO = 0;
+					pSrc->bInPlace = true;
+					MEMSET_ARRAY(pSrc->anMap, 0xFF);
+					BlkMap* pReqBM = META_GetBlkMap(pCtx->nReqLBN);
+					pReqBM->bLog = 1;
 
 					pCtx->nMtAge = META_GetAge();
 					pCtx->eState = GS_MetaSave;
@@ -232,7 +258,7 @@ void gc_Run(void* pParam)
 				}
 				else
 				{
-					pCtx->pSrcBM = META_GetBlkMap(pCtx->pSrcLog->nLBN);
+					pCtx->pSrcBM = META_GetBlkMap(pSrc->nLBN);
 					pChild->nBN = pCtx->nDstPBN;
 					gc_Erase(pChild, true);	// Erase dest blk.
 					pCtx->eState = GS_ErsDst;
@@ -281,6 +307,7 @@ void gc_Run(void* pParam)
 				pNewLog->nLBN = pCtx->nReqLBN;		// 
 				pNewLog->nPBN = pSrcBM->nPBN;			// BM to Log.
 				pNewLog->nCPO = 0;
+				pNewLog->bInPlace = true;
 				MEMSET_ARRAY(pNewLog->anMap, 0xFF);
 				pSrcBM->bLog = 0;
 				pSrcBM->nPBN = pCtx->nDstPBN;				// Free to BM.

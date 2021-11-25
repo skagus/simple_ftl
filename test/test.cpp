@@ -133,7 +133,7 @@ void tc_StreamWrite(uint32 nMaxLPN)
 	anLPN[2] = nMaxLPN / 2;
 
 	ReqInfo stReq;
-	stReq.eCmd = CMD_READ;
+	stReq.eCmd = CMD_WRITE;
 	uint32 nCnt = nMaxLPN / 4;
 	for (uint32 nCur = 0; nCur < nCnt; nCur++)
 	{
@@ -145,7 +145,7 @@ void tc_StreamWrite(uint32 nMaxLPN)
 			_FillData(stReq.nBuf, stReq.nLPN);
 			gbDone = false;
 			FTL_Request(&stReq);
-			CMD_PRINTF("[TC] Write Req: %d\n", nCur);
+			CMD_PRINTF("[TC] Write Req: %d\n", stReq.nLPN);
 			while (false == gbDone)
 			{
 				SIM_CpuTimePass(SIM_USEC(10));

@@ -17,7 +17,7 @@ static_assert(sizeof(Meta) <= BYTE_PER_PPG* PAGE_PER_META);
 
 Meta gstMeta;
 bool gbRequest;
-LRU<uint8, NUM_LOG_BLK> gLRU;
+LRU<uint32, NUM_LOG_BLK> gLRU;
 
 struct MetaCtx
 {
@@ -131,7 +131,14 @@ LogMap* META_FindLog(uint16 nLBN, bool bForUpdate)
 			{
 				if (bForUpdate)
 				{
-					gLRU.Touch(nIdx);
+					if (pLMap->nCPO == (NUM_WL - 1))
+					{
+						gLRU.SetOld(nIdx);
+					}
+					else
+					{
+						gLRU.Touch(nIdx);
+					}
 				}
 				return pLMap;
 			}
@@ -281,6 +288,10 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 			uint32 nLPO = (*pnSpare) % CHUNK_PER_PBLK;
 			PRINTF("[Open] MapUpdate: LPN:%X to PHY:(%X, %X)\n", *pnSpare, pLMap->nPBN, nPO);
 			pLMap->anMap[nLPO] = nPO;
+			if (nLPO != nPO)
+			{
+				pLMap->bInPlace = false;
+			}
 		}
 		else if (false == pCtx->bErsFound)
 		{

@@ -20,6 +20,10 @@ public:
 		memset(anAge, 0x0, sizeof(anAge));
 		nAge = 0;
 	}
+	void SetOld(int nIdx)
+	{
+		anAge[nIdx] = (nAge > 1000) ? (nAge - 1000) : 0;
+	}
 	void Touch(int nIdx)
 	{
 		anAge[nIdx] = nAge;

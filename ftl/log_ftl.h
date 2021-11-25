@@ -11,6 +11,7 @@ static_assert(NUM_LOG_BLK > 1);
 struct LogMap
 {
 	bool bReady;
+	bool bInPlace;
 	uint8 nLBN;
 	uint8 nPBN;
 	uint8 nCPO;

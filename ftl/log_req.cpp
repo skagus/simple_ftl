@@ -100,6 +100,10 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 				CmdInfo* pCmd = IO_Alloc(IOCB_User);
 				IO_Program(pCmd, pMap->nPBN, pMap->nCPO, pReq->nBuf, pCtx->nTag);
 				pMap->anMap[nLPO] = pMap->nCPO;
+				if (nLPO != pMap->nCPO)
+				{
+					pMap->bInPlace = false;
+				}
 				pMap->nCPO++;
 				bRet = true;
 			}
