@@ -146,7 +146,7 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 		IO_Read(pCmd, pBMap->nPBN, nLPO, pReq->nBuf, pCtx->nTag);
 	}
 
-	SIM_CpuTimePass(SIM_USEC(3));
+	CPU_TimePass(SIM_USEC(3));
 	return true;
 }
 
@@ -287,6 +287,7 @@ void reqResp_Run(void* pParam)
 		{
 			gfCbf(pReq);
 			gstReqInfoPool.PushTail(pCmd->nTag);
+			CPU_Wakeup(CPU_WORK);
 		}
 		Sched_Yield();
 	}

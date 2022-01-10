@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "sim.h"
+#include "cpu.h"
 #include "coroutine.h"
 
 #define STK_SIZE	(16 * 1024)

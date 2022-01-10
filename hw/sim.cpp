@@ -5,20 +5,12 @@
 
 #include "templ.h"
 #include "sim.h"
+#include "cpu.h"
 
 using namespace std;
 
 #define NUM_EVENT				(NUM_HW * 2)	// NFC는 Die개수에 비례하는 값이 필요함.
-#define CPU_STACK_SIZE			(4096)
 
-struct CpuContext
-{
-	CpuEntry pfEntry;
-	void* pParam;
-
-	HANDLE pfTask;		///< CPU entry point.
-	uint64 nRunTime;	///< Run time accumulation.
-};
 
 struct Evt
 {
@@ -35,13 +27,11 @@ public:
 	}
 };
 
-static CpuContext gaCpu[NUM_CPU];	///< CPU(FW) information.
-static uint32 gnCurCpu;		///< Current running CPU.
 
 #if (0 == EN_COROUTINE)
 static HANDLE ghEngine;		///< Engine용 Task.
 #endif
-static uint64 gnHwTick;		///< HW tick time.
+static uint64 gnTick;			///< Simulation time.
 static EvtHdr gfEvtHdr[NUM_HW];	///< HW별 Event handler.
 static bool gbPowerOn;			///< Power on state.
 static uint32 gnCycle;
@@ -50,6 +40,8 @@ static uint32 gnCycle;
 static Evt gaEvts[NUM_EVENT];
 static std::priority_queue<Evt*, std::vector<Evt*>, Evt> gEvtQue;
 static Queue<Evt*, NUM_EVENT + 1> gEvtPool;
+
+void sim_CpuHandler(void* pEvt);
 
 /**
 HW는 event driven으로만 동작하며,
@@ -60,36 +52,11 @@ void SIM_AddHW(HwID id, EvtHdr pfEvtHandler)
 	gfEvtHdr[id] = pfEvtHandler;
 }
 
-void SIM_AddCPU(CpuID eID, CpuEntry pfEntry, void* pParam)
-{
-	gaCpu[eID].pfEntry = pfEntry;
-	gaCpu[eID].pParam = pParam;
-}
-
-static void sim_StartCPU()
-{
-	for (uint32 nIdx = 0; nIdx < CpuID::NUM_CPU; nIdx++)
-	{
-#if EN_COROUTINE
-		gaCpu[nIdx].nRunTime = 0;
-		gnCurCpu = nIdx;
-		CO_Start(nIdx, gaCpu[nIdx].pfEntry);
-#else
-		if (nullptr != gaCpu[nIdx].pfTask)
-		{
-			DeleteFiber(gaCpu[nIdx].pfTask);
-			gaCpu[nIdx].nRunTime = 0;
-		}
-		gaCpu[nIdx].pfTask = CreateFiber(CPU_STACK_SIZE, 
-			(LPFIBER_START_ROUTINE)gaCpu[nIdx].pfEntry, gaCpu[nIdx].pParam);
-#endif
-	}
-}
 
 void* SIM_NewEvt(HwID eOwn, uint32 nTick)
 {
 	Evt* pEvt = gEvtPool.PopHead();
-	pEvt->nTick = gnHwTick + nTick;
+	pEvt->nTick = gnTick + nTick;
 	pEvt->nOwner = eOwn;
 	pEvt->nSeqNo = SIM_GetSeqNo();
 	gEvtQue.push(pEvt);
@@ -98,7 +65,7 @@ void* SIM_NewEvt(HwID eOwn, uint32 nTick)
 
 uint64 SIM_GetTick()
 {
-	return gnHwTick;
+	return gnTick;
 }
 
 uint32 SIM_GetCycle()
@@ -114,72 +81,32 @@ void SIM_Print(const char *szFormat, ...)
 	va_start(stAP, szFormat);
 	vsprintf_s(aBuf, MAX_BUF_SIZE, szFormat, stAP);
 	va_end(stAP);
-	fprintf(stdout, "%8lld: %s", gnHwTick, aBuf);
+	fprintf(stdout, "%8lld: %s", gnTick, aBuf);
 }
+
+void SIM_SwitchToEngine()
+{
 #if EN_COROUTINE
-inline void sim_SwitchToCpu(uint32 nCpu)
-{
-	CO_Switch(nCpu);
-}
-
-inline void sim_SwitchToEngine()
-{
 	CO_Yield();
-}
 #else
-inline void sim_SwitchToCpu(uint32 nCpu)
-{
-	SwitchToFiber(gaCpu[nCpu].pfTask);
-}
-
-inline void sim_SwitchToEngine()
-{
 	SwitchToFiber(ghEngine);
-}
 #endif
-
-void SIM_CpuTimePass(uint32 nTick)
-{
-	gaCpu[gnCurCpu].nRunTime += nTick;
-	if (gaCpu[gnCurCpu].nRunTime > gnHwTick)
-	{
-		sim_SwitchToEngine();
-	}
 }
 
-static uint64 sim_GetMinCpuTime()
-{
-	uint64 nTime = (uint64)(-1);
-	for (uint32 nCpu = 0; nCpu < NUM_CPU; nCpu++)
-	{
-		if (gaCpu[nCpu].nRunTime <= nTime)
-		{
-			nTime = gaCpu[nCpu].nRunTime;
-		}
-	}
-	return nTime;
-}
 
 /**
 nEndTick 이내의 최근 tick의 event를 실행한다.
 최근 event중에 가장 빠른 미래의 event를 실행하는데,
 일반적으로 한개이지만, 동시에 발생될 event라면 한번에 실행한다.
 */
-static void sim_ProcEvt(uint64 nEndTick)
+static void sim_ProcEvt()
 {
-	gnHwTick = nEndTick;
-	while (!gEvtQue.empty())
-	{
-		Evt* pEvt = gEvtQue.top();
-		if (pEvt->nTick > gnHwTick)
-		{
-			break;
-		}
-		gnHwTick = pEvt->nTick;
-		gEvtQue.pop();
-		gfEvtHdr[pEvt->nOwner](pEvt->aParams);
-		gEvtPool.PushTail(pEvt);
-	}
+	assert(!gEvtQue.empty());
+	Evt* pEvt = gEvtQue.top();
+	gnTick = pEvt->nTick;
+	gEvtQue.pop();
+	gfEvtHdr[pEvt->nOwner](pEvt->aParams);
+	gEvtPool.PushTail(pEvt);
 }
 
 /**
@@ -200,8 +127,8 @@ static void sim_PowerUp()
 	{
 		gEvtPool.PushTail(gaEvts + nIdx);
 	}
-	gnHwTick = 0;
-	sim_StartCPU();
+	gnTick = 0;
+	CPU_Start();
 }
 
 void SIM_PowerDown()
@@ -223,30 +150,21 @@ void SIM_Run()
 
 #if	EN_BENCHMARK
 	LARGE_INTEGER stBegin;
-	LARGE_INTEGER stEnd;
 	QueryPerformanceCounter(&stBegin);
 #endif
-
-	while (true)
+	uint32 nCnt = 10;
+	while (nCnt-- > 0)
 	{
 		sim_PowerUp();
 		SIM_Print("[SIM] ============== Power up %d =================\n", gnCycle);
 		while (gbPowerOn)
 		{
-			for (uint32 nCpu = 0; nCpu < NUM_CPU; nCpu++)
-			{
-				gnCurCpu = nCpu;
-				while (gaCpu[nCpu].nRunTime <= gnHwTick)
-				{	// HW 시간까지 계속 실행함.
-					sim_SwitchToCpu(nCpu);
-				}
-			}
-			uint64 nCpuTick = sim_GetMinCpuTime();
-			sim_ProcEvt(nCpuTick);	// 내부에서 gnHwTick을 update한다.
+			sim_ProcEvt();	// 내부에서 gnHwTick을 update한다.
 		}
 		gnCycle++;
 	}
 #if	EN_BENCHMARK
+	LARGE_INTEGER stEnd;
 	QueryPerformanceCounter(&stEnd);
 	printf("Time: %lld\n", stEnd.QuadPart - stBegin.QuadPart);
 #endif

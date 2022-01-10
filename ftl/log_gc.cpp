@@ -1,5 +1,5 @@
 
-#include "sim.h"
+#include "cpu.h"
 #include "scheduler.h"
 #include "buf.h"
 #include "nfc.h"

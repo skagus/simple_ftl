@@ -1,5 +1,5 @@
 
-#include "sim.h"
+#include "cpu.h"
 #include "timer.h"
 #include "buf.h"
 #include "ftl.h"
@@ -49,9 +49,10 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 		gbDone = false;
 		FTL_Request(&stReq);
 		CMD_PRINTF("[TC] Write Req: %d\n", nCur);
+		CPU_TimePass(SIM_USEC(4));
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(SIM_USEC(10));
+			CPU_Sleep();
 		}
 		BM_Free(stReq.nBuf);
 	}
@@ -70,9 +71,10 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 		gbDone = false;
 		FTL_Request(&stReq);
 		CMD_PRINTF("[TC] Read Req: %d\n", nCur);
+		CPU_TimePass(SIM_USEC(3));
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(SIM_USEC(10));
+			CPU_Sleep();
 		}
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);
@@ -93,9 +95,10 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 		gbDone = false;
 		FTL_Request(&stReq);
 		CMD_PRINTF("[TC] Write Req\n");
+		CPU_TimePass(SIM_USEC(6));
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(SIM_USEC(10));
+			CPU_Sleep();
 		}
 		BM_Free(stReq.nBuf);
 	}
@@ -115,9 +118,10 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 		gbDone = false;
 		FTL_Request(&stReq);
 		CMD_PRINTF("[TC] Read Req\n");
+		CPU_TimePass(SIM_USEC(4));
 		while (false == gbDone)
 		{
-			SIM_CpuTimePass(SIM_USEC(10));
+			CPU_Sleep();
 		}
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);
@@ -146,9 +150,10 @@ void tc_StreamWrite(uint32 nMaxLPN)
 			gbDone = false;
 			FTL_Request(&stReq);
 			CMD_PRINTF("[TC] Write Req: %d\n", stReq.nLPN);
+			CPU_TimePass(SIM_USEC(5));
 			while (false == gbDone)
 			{
-				SIM_CpuTimePass(SIM_USEC(10));
+				CPU_Sleep();
 			}
 			BM_Free(stReq.nBuf);
 		}

@@ -1,6 +1,7 @@
 
 #include "sim.h"
 #include "templ.h"
+#include "cpu.h"
 #include "buf.h"
 #include "die.h"
 #include "nfc.h"
@@ -43,6 +44,7 @@ Queue<CmdInfo*, 100> gstDoneQue;
 
 CbFunc gfCbDone;
 CurRun gastRun[NUM_DIE];
+CpuID geMasterCpu;
 
 /**
 Start new command if available.
@@ -69,6 +71,7 @@ void nfc_DoneCmd(CmdInfo* pCmd)
 	if (nullptr != gfCbDone)
 	{
 		gfCbDone(pCmd->nDie, 0);
+		CPU_Wakeup(geMasterCpu);
 	}
 }
 
@@ -323,6 +326,7 @@ void NFC_Init(CbFunc pfCbfDone)
 {
 	MEMSET_ARRAY(gastRun, 0);
 	gfCbDone = pfCbfDone;
+	geMasterCpu = CPU_GetCpuId();
 	for (uint32 nId = 0; nId < NUM_DIE; nId++)
 	{
 		gaDies[nId]->Reset();

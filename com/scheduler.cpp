@@ -1,6 +1,6 @@
 
 #include <atomic>
-#include "sim.h"
+#include "cpu.h"
 #include "types.h"
 #include "macro.h"
 #include "scheduler.h"
@@ -167,24 +167,31 @@ void Sched_Run()
 	bmSyncEvt = 0;
 	TaskBtm bmRdy = bmRdyTask | sched_HandleEvt(bmEvt, nTick);
 	bmRdyTask = 0;
-	while (bmRdy & gabmModeRun[geRunMode])
+	if (bmRdy != 0)
 	{
-		if (BIT(nCurTask) & bmRdy & gabmModeRun[geRunMode])
+		while (bmRdy & gabmModeRun[geRunMode])
 		{
-			TaskInfo* pTask = astTask + nCurTask;
-			Evts bmEvt = pTask->bmWaitEvt;
-			pTask->bmWaitEvt = 0;
-			pTask->pfTask(pTask->pParam);	// paramter is triggered event.
+			if (BIT(nCurTask) & bmRdy & gabmModeRun[geRunMode])
+			{
+				TaskInfo* pTask = astTask + nCurTask;
+				Evts bmEvt = pTask->bmWaitEvt;
+				pTask->bmWaitEvt = 0;
+				pTask->pfTask(pTask->pParam);	// paramter is triggered event.
 #if DBG_SCHEDULER
-			ASSERT(pTask->bmWaitEvt || pTask->nTimeOut || (bmRdyTask & BIT(nCurTask)));
+				ASSERT(pTask->bmWaitEvt || pTask->nTimeOut || (bmRdyTask & BIT(nCurTask)));
 #endif
-			bmRdy &= ~BIT(nCurTask);
+				bmRdy &= ~BIT(nCurTask);
+			}
+			nCurTask = (nCurTask + 1) % NUM_TASK;
 		}
-		nCurTask = (nCurTask + 1) % NUM_TASK;
+		CPU_TimePass(SIM_USEC(10));
+		// Mode에 따라 실행되지 않은 task는 이후에 mode가 복귀했을 때 실행할 것.
+		bmRdyTask |= bmRdy;
 	}
-	SIM_CpuTimePass(SIM_USEC(10));
-	// Mode에 따라 실행되지 않은 task는 이후에 mode가 복귀했을 때 실행할 것.
-	bmRdyTask |= bmRdy;
+	else
+	{
+		CPU_Sleep();
+	}
 }
 
 

@@ -157,6 +157,7 @@
     <ClCompile Include="..\ftl\log_req.cpp" />
     <ClCompile Include="..\hw\buf.cpp" />
     <ClCompile Include="..\hw\coroutine.cpp" />
+    <ClCompile Include="..\hw\cpu.cpp" />
     <ClCompile Include="..\hw\die.cpp" />
     <ClCompile Include="..\hw\nfc.cpp" />
     <ClCompile Include="..\hw\power.cpp" />
@@ -181,10 +182,12 @@
     <ClInclude Include="..\ftl\log_req.h" />
     <ClInclude Include="..\hw\buf.h" />
     <ClInclude Include="..\hw\coroutine.h" />
+    <ClInclude Include="..\hw\cpu.h" />
     <ClInclude Include="..\hw\die.h" />
     <ClInclude Include="..\hw\nfc.h" />
     <ClInclude Include="..\hw\power.h" />
     <ClInclude Include="..\hw\sim.h" />
+    <ClInclude Include="..\hw\sim_conf.h" />
     <ClInclude Include="..\hw\timer.h" />
     <ClInclude Include="..\test\test.h" />
   </ItemGroup>

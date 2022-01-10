@@ -1,5 +1,5 @@
 #include "templ.h"
-#include "sim.h"
+#include "cpu.h"
 #include "buf.h"
 #include "nfc.h"
 #include "timer.h"
@@ -21,13 +21,14 @@ void FTL_Request(ReqInfo* pReq)
 {
 	pReq->nSeqNo = SIM_GetSeqNo();
 	gstReqQ.PushTail(pReq);
-	Sched_TrigSyncEvt(BIT(EVT_USER_CMD));
+	Sched_TrigAsyncEvt(BIT(EVT_USER_CMD));
+	CPU_Wakeup(CPU_FTL);
 }
 
 uint32 FTL_GetNumLPN(CbfReq pfCbf)
 {
 	REQ_SetCbf(pfCbf);
-	SIM_CpuTimePass(SIM_MSEC(1000));	// Wait open time.
+	CPU_TimePass(SIM_MSEC(1000));	// Wait open time.
 	return NUM_USER_BLK * LPN_PER_USER_BLK;
 }
 

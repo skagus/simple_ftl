@@ -1,4 +1,5 @@
 
+#include "cpu.h"
 #include "timer.h"
 
 struct TmrEvt
@@ -14,6 +15,7 @@ struct TimerInfo
 	uint32 nTimeout;
 	Cbf pfCbf;
 	TmrEvt* pstEvt;
+	CpuID eCpu;
 };
 
 TimerInfo gaTimer[NUM_TIMER];
@@ -41,6 +43,7 @@ void tmr_HandleEvt(void* pEvt)
 			pTI->nTimeout = 0;
 		}
 		pTI->pfCbf(0, 0);
+		CPU_Wakeup(pTI->eCpu);
 	}
 }
 
@@ -57,6 +60,7 @@ void TMR_Add(uint32 nTimerId, uint32 nTimeout, Cbf pfCbf, bool bRepeat)
 	pTimer->nTimeout = nTimeout;
 	pTimer->pfCbf = pfCbf;
 	pTimer->bRepeat = bRepeat;
+	pTimer->eCpu = CPU_GetCpuId();
 	if (nullptr != pTimer->pstEvt)
 	{
 		pTimer->pstEvt->bValid = false;

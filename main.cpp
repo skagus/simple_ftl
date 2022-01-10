@@ -1,5 +1,6 @@
 
 #include "sim.h"
+#include "cpu.h"
 //// HW..
 #include "nfc.h"
 #include "timer.h"
@@ -21,22 +22,22 @@ void WRP_Ftl(stack_t* token, user_t arg)
 
 void TEST_InitSim()
 {
-	SIM_AddCPU(CPU_WORK, WRP_Test, (void*)4);
+	CPU_Add(CPU_WORK, WRP_Test, (void*)4);
 }
 
 void FTL_InitSim()
 {
-	SIM_AddCPU(CPU_FTL, WRP_Ftl, (void*)4);
+	CPU_Add(CPU_FTL, WRP_Ftl, (void*)4);
 }
 #else
 void TEST_InitSim()
 {
-	SIM_AddCPU(CPU_WORK, TEST_Main, (void*)4);
+	CPU_Add(CPU_WORK, TEST_Main, (void*)4);
 }
 
 void FTL_InitSim()
 {
-	SIM_AddCPU(CPU_FTL, FTL_Main, (void*)4);
+	CPU_Add(CPU_FTL, FTL_Main, (void*)4);
 }
 
 #endif
