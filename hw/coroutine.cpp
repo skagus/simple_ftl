@@ -1,5 +1,4 @@
 ﻿#include <stdio.h>
-#include "cpu.h"
 #include "coroutine.h"
 
 
@@ -16,7 +15,7 @@ struct RoutineInfo
 };
 
 static HANDLE ghEngine;		///< Engine용 Task.
-static RoutineInfo gaRoutines[NUM_CPU];
+static RoutineInfo gaRoutines[MAX_ROUTINE];
 
 void CO_RegTask(int nIdx, Routine pfEntry, void* pParam)
 {
@@ -30,7 +29,7 @@ void CO_Start()
 	{
 		ghEngine = ConvertThreadToFiber(nullptr);
 	}
-	for (uint32 nIdx = 0; nIdx < CpuID::NUM_CPU; nIdx++)
+	for (uint32 nIdx = 0; nIdx < MAX_ROUTINE; nIdx++)
 	{
 		if (nullptr != gaRoutines[nIdx].hTask)
 		{
@@ -54,7 +53,6 @@ void CO_ToMain()
 #elif (OPT_CO == CO_SETJMP)
 #include <setjmp.h>
 
-#define NUM_ROUTINE		(NUM_CPU)
 #define PRINT_DBG		//printf 
 
 #if _M_AMD64
@@ -66,9 +64,9 @@ void CO_ToMain()
 #define TASK_STACK_SIZE (16 * 1024)
 
 typedef void(*routine)(void* nParam);
-volatile routine gaRoutines[NUM_ROUTINE];
-void* ganParam[NUM_ROUTINE];
-jmp_buf gaContext[NUM_ROUTINE];
+volatile routine gaRoutines[MAX_ROUTINE];
+void* ganParam[MAX_ROUTINE];
+jmp_buf gaContext[MAX_ROUTINE];
 
 jmp_buf gMainCtx;
 volatile int gnTaskId;
@@ -102,11 +100,11 @@ void CO_Start()
 	/**
 	stack 설정시 local변수가 보존되게 하려면, 깊은 stack을 먼저 할당해야 한다.
 	*/
-	for (int i = NUM_ROUTINE - 1; i >= 0; i--)
+	for (int i = MAX_ROUTINE - 1; i >= 0; i--)
 	{
 		co_Recusive(i + 1, i);
 	}
-	gnTaskId = NUM_ROUTINE;
+	gnTaskId = MAX_ROUTINE;
 }
 
 void CO_ToMain()
@@ -131,7 +129,7 @@ void CO_Switch(int nTaskId)
 		PRINT_DBG("To Task: %d\n", gnTaskId);
 		longjmp(gaContext[gnTaskId], 1);
 	}
-	gnTaskId = NUM_ROUTINE;
+	gnTaskId = MAX_ROUTINE;
 }
 
 void CO_RegTask(int nTaskId, routine pfTask, void* nParam)
@@ -154,7 +152,7 @@ void CO_Init(routine pfDummy)
 	{
 		pfDummy = co_DummyTask;
 	}
-	for (int i = 0; i < NUM_ROUTINE; i++)
+	for (int i = 0; i < MAX_ROUTINE; i++)
 	{
 		gaRoutines[i] = pfDummy;
 	}

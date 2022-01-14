@@ -6,7 +6,9 @@ struct CpuEvt
 {
 	CpuID eCpuId;
 };
+
 static_assert(sizeof(CpuEvt) < BYTE_PER_EVT);
+static_assert(MAX_ROUTINE >= NUM_CPU);
 
 struct CpuCtx
 {
@@ -105,11 +107,9 @@ void dummy_Routine(void* pParam)
 
 void CPU_InitSim()
 {
-#if (OPT_CO == CO_SETJMP)
 	// SET_JMP의 경우 처음 시작할 때, 1회 호출된다.
 	for(uint32 nIdx = 0; nIdx < NUM_CPU; nIdx++)
 	{
 		CO_RegTask(nIdx, dummy_Routine, nullptr);
 	}
-#endif
 }
