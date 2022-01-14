@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="tester">
+      <UniqueIdentifier>{b277c5df-fb91-48ea-ab22-4e264b455eb1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tested">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\hw\coroutine.cpp">
+      <Filter>tested</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\cpu.cpp">
+      <Filter>tested</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\sim.cpp">
+      <Filter>tested</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\sim_util.cpp">
+      <Filter>tested</Filter>
+    </ClCompile>
+    <ClCompile Include="tester.cpp">
+      <Filter>tester</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\power.cpp">
+      <Filter>tested</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\timer.cpp">
+      <Filter>tested</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\hw\coroutine.h">
+      <Filter>tested</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\cpu.h">
+      <Filter>tested</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\sim.h">
+      <Filter>tested</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\power.h">
+      <Filter>tested</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\timer.h">
+      <Filter>tested</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
