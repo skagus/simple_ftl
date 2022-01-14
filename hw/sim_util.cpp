@@ -1,7 +1,7 @@
 
 #include <random>
 
-#include "sim.h"
+#include "types.h"
 
 static std::mt19937_64 gRand;		///< Random number generator.
 static uint32 gnSeqNo;			///< Sequence number for debug.

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "types.h"
-#include "nfc.h"
+#include "config.h"
 
 enum NErr
 {

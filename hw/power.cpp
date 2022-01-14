@@ -1,4 +1,6 @@
 
+#include "types.h"
+#include "sim.h"
 #include "power.h"
 
 struct PowerEvt

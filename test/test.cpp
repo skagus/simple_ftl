@@ -1,10 +1,11 @@
 
+#include "sim.h"
 #include "cpu.h"
 #include "timer.h"
+#include "power.h"
 #include "buf.h"
 #include "ftl.h"
 #include "test.h"
-#include "power.h"
 
 #if EN_BENCHMARK
 #define PRINTF			// SIM_Print

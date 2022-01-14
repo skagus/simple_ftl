@@ -2,9 +2,7 @@
 #include "cpu.h"
 #include "scheduler.h"
 #include "buf.h"
-#include "nfc.h"
 #include "io.h"
-#include "log_ftl.h"
 #include "log_gc.h"
 #include "log_meta.h"
 

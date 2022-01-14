@@ -1,7 +1,8 @@
 
-#include "buf.h"
-#include "nfc.h"
 #include "templ.h"
+#include "config.h"
+#include "macro.h"
+#include "buf.h"
 
 #define NUM_BUF		(128)
 

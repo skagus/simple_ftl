@@ -1,5 +1,4 @@
 ﻿#include <stdio.h>
-#include "sim.h"
 #include "cpu.h"
 #include "coroutine.h"
 
@@ -7,6 +6,8 @@
 #define STK_SIZE	(16 * 1024)
 
 #if (OPT_CO == CO_FIBER)
+#include <windows.h>
+
 struct RoutineInfo
 {
 	HANDLE hTask;		///< CPU entry point.
@@ -71,8 +72,6 @@ jmp_buf gaContext[NUM_ROUTINE];
 
 jmp_buf gMainCtx;
 volatile int gnTaskId;
-
-#pragma optimize("", off)
 
 void co_Recusive(int nDepth, int nTaskId)
 {
@@ -140,7 +139,6 @@ void CO_RegTask(int nTaskId, routine pfTask, void* nParam)
 	gaRoutines[nTaskId] = pfTask;
 	ganParam[nTaskId] = nParam;
 }
-#pragma optimize("", on)
 
 void co_DummyTask(void* nParam)
 {

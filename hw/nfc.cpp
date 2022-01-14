@@ -1,7 +1,7 @@
 
 #include "sim.h"
-#include "templ.h"
-#include "cpu.h"
+#include "templ.h"	// Queue.
+#include "cpu.h"	// for CPU_Wakeup/CPU_GetCpuId;
 #include "buf.h"
 #include "die.h"
 #include "nfc.h"

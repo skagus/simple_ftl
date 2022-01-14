@@ -1,14 +1,11 @@
 
 #include "templ.h"
-#include "power.h"
+#include "cpu.h"
+#include "scheduler.h"
 #include "buf.h"
-#include "ftl.h"
 #include "io.h"
-#include "test.h"
 #include "log_gc.h"
 #include "log_meta.h"
-#include "log_req.h"
-#include "scheduler.h"
 
 #define PRINTF		//	SIM_Print
 

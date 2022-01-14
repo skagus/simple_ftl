@@ -1,5 +1,6 @@
 
-#include "cpu.h"
+#include "sim.h"
+#include "cpu.h"		// for CPU_Wakeup
 #include "timer.h"
 
 struct TmrEvt

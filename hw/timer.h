@@ -1,6 +1,5 @@
 #pragma once
 #include "types.h"
-#include "sim.h"
 
 #define NUM_TIMER	(5)
 

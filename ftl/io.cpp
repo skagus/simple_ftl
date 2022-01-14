@@ -1,5 +1,6 @@
 #include "types.h"
 #include "templ.h"
+#include "cpu.h"
 #include "scheduler.h"
 #include "config.h"
 #include "nfc.h"

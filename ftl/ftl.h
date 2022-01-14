@@ -2,7 +2,6 @@
 #pragma once
 #include "types.h"
 #include "config.h"
-#include "cpu.h"
 
 #define NUM_USER_BLK		(PBLK_PER_DIE - 7)
 #define LPN_PER_USER_BLK	(CHUNK_PER_PBLK)

@@ -1,7 +1,8 @@
 
 #include <atomic>
-#include "cpu.h"
 #include "types.h"
+#include "sim.h"
+#include "cpu.h"
 #include "macro.h"
 #include "scheduler.h"
 #include "scheduler_conf.h"

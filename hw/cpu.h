@@ -1,8 +1,6 @@
 #pragma once
 
 #include "types.h"
-#include "sim_conf.h"
-#include "sim.h"
 #include "coroutine.h"
 
 // CPU는 running이 끝나면 안되므로, 마지막에 END_RUN을 추가해주는게 좋다.
