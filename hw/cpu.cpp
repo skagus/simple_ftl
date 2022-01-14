@@ -1,8 +1,6 @@
 
 #include "sim.h"
 #include "cpu.h"
-#include <windows.h>
-
 
 struct CpuEvt
 {
@@ -12,32 +10,17 @@ static_assert(sizeof(CpuEvt) < BYTE_PER_EVT);
 
 struct CpuCtx
 {
-	CpuEntry pfEntry;
-	void* pParam;
-
-	HANDLE pfTask;		///< CPU entry point.
 	CpuEvt* pEvt;
 	uint64 nRunTime;
 };
 
-
-
 static CpuCtx gaCpu[NUM_CPU];	///< CPU(FW) information.
-static CpuID gnCurCpu;		///< Current running CPU.
-
-inline void sim_SwitchToCpu(uint32 nCpu)
-{
-#if EN_COROUTINE
-	CO_Switch(nCpu);
-#else
-	SwitchToFiber(gaCpu[nCpu].pfTask);
-#endif
-}
+CpuID gnCurCpu;		///< Current running CPU.
 
 /**
 CPU execution entry.
 */
-void sim_CpuHandler(void* pEvt)
+void cpu_HandleEvt(void* pEvt)
 {
 	CpuEvt* pCurEvt = (CpuEvt*)pEvt;
 	CpuID nCpuId = pCurEvt->eCpuId;
@@ -46,14 +29,13 @@ void sim_CpuHandler(void* pEvt)
 	assert(pEvt == pCpuCtx->pEvt);
 	//	printf("END %d, %X\n", gnCurCpu, pCurEvt);
 	pCpuCtx->pEvt = nullptr;
-	sim_SwitchToCpu(nCpuId);
+	CO_Switch(nCpuId);
 }
 
-void CPU_Add(CpuID eID, CpuEntry pfEntry, void* pParam)
+void CPU_Add(CpuID eID, Routine pfEntry, void* pParam)
 {
-	SIM_AddHW(HW_CPU, sim_CpuHandler);
-	gaCpu[eID].pfEntry = pfEntry;
-	gaCpu[eID].pParam = pParam;
+	SIM_AddHW(HW_CPU, cpu_HandleEvt);
+	CO_RegTask(eID, pfEntry, pParam);
 }
 
 
@@ -66,21 +48,21 @@ void CPU_TimePass(uint32 nTick)
 	pCpuCtx->nRunTime += nTick;
 	//	printf("NEW %d, %X\n", gnCurCpu, pEvt);
 	gnCurCpu = NUM_CPU;
-	SIM_SwitchToEngine();
+	CO_ToMain();
 }
 
 /**
-* CPU wait»óÅÂ...
+* CPU waitìƒíƒœ...
 */
 void CPU_Sleep()
 {
-	assert(nullptr == gapCpuEvt[gnCurCpu]);
+	assert(nullptr == gaCpu[gnCurCpu].pEvt);
 	gnCurCpu = NUM_CPU;
-	SIM_SwitchToEngine();
+	CO_ToMain();
 }
 
 /**
-* ISR µî¿¡¼­ CPU¸¦ ±ú¿ì´Â ÇÔ¼ö.
+* ISR ë“±ì—ì„œ CPUë¥¼ ê¹¨ìš°ëŠ” í•¨ìˆ˜.
 */
 void CPU_Wakeup(CpuID eCpu)
 {
@@ -98,27 +80,36 @@ CpuID CPU_GetCpuId()
 	return gnCurCpu;
 }
 
-#define CPU_STACK_SIZE			(4096)
 
 void CPU_Start()
 {
+	CO_Start();
 	for (uint32 nIdx = 0; nIdx < CpuID::NUM_CPU; nIdx++)
 	{
-#if EN_COROUTINE
-		gnCurCpu = (CpuID)nIdx;
-		CO_Start(nIdx, gaCpu[nIdx].pfEntry);
-#else
-		if (nullptr != gaCpu[nIdx].pfTask)
-		{
-			DeleteFiber(gaCpu[nIdx].pfTask);
-			gaCpu[nIdx].nRunTime = 0;
-		}
-		gaCpu[nIdx].pfTask = CreateFiber(CPU_STACK_SIZE,
-			(LPFIBER_START_ROUTINE)gaCpu[nIdx].pfEntry, gaCpu[nIdx].pParam);
-
 		CpuEvt* pEvt = (CpuEvt*)SIM_NewEvt(HW_CPU, 0);
 		gaCpu[nIdx].pEvt = pEvt;
+		gaCpu[nIdx].nRunTime = 0;
 		pEvt->eCpuId = (CpuID)nIdx;
-#endif
 	}
+}
+
+void dummy_Routine(void* pParam)
+{
+	while (true)
+	{
+		CPU_Sleep();
+		SIM_Print("Dummy CPU woken up!!!\n");
+	}
+	END_RUN
+}
+
+void CPU_InitSim()
+{
+#if (OPT_CO == CO_SETJMP)
+	// SET_JMPì˜ ê²½ìš° ì²˜ìŒ ì‹œì‘í•  ë•Œ, 1íšŒ í˜¸ì¶œëœë‹¤.
+	for(uint32 nIdx = 0; nIdx < NUM_CPU; nIdx++)
+	{
+		CO_RegTask(nIdx, dummy_Routine, nullptr);
+	}
+#endif
 }

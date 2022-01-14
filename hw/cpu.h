@@ -3,13 +3,10 @@
 #include "types.h"
 #include "sim_conf.h"
 #include "sim.h"
-
-#if EN_COROUTINE
 #include "coroutine.h"
-typedef void(*CpuEntry)(stack_t* token, user_t arg);
-#else
-typedef void(*CpuEntry)(void* pParam);
-#endif
+
+// CPUëŠ” runningì´ ëë‚˜ë©´ ì•ˆë˜ë¯€ë¡œ, ë§ˆì§€ë§‰ì— END_RUNì„ ì¶”ê°€í•´ì£¼ëŠ”ê²Œ ì¢‹ë‹¤.
+#define END_RUN			while(true){CPU_TimePass(100000000);}
 
 enum CpuID
 {
@@ -18,15 +15,13 @@ enum CpuID
 	NUM_CPU,
 };
 
-
-
-//////////////////////
-// CPU´Â runningÀÌ ³¡³ª¸é ¾ÈµÇ¹Ç·Î, ¸¶Áö¸·¿¡ END_RUNÀ» Ãß°¡ÇØÁÖ´Â°Ô ÁÁ´Ù.
-#define END_RUN			while(true){CPU_TimePass(100000000);}
-
-void CPU_Add(CpuID eID, CpuEntry pfEntry, void* pParam);
-CpuID CPU_GetCpuId();
+///// ì‹œì‘í•  ë•Œ, í˜¸ì¶œí•˜ëŠ” í•¨ìˆ˜ë“¤ //////
+void CPU_Add(CpuID eID, Routine pfEntry, void* pParam);
 void CPU_Start();	///< Initiate System. (normally called by simulator core)
+void CPU_InitSim();
+
+///// ì‹¤í–‰ ì¤‘ì— í˜¸ì¶œë˜ëŠ” í•¨ìˆ˜ë“¤ /////
+CpuID CPU_GetCpuId();
 void CPU_TimePass(uint32 nTick);
 void CPU_Sleep();
 void CPU_Wakeup(CpuID eCpu);			///< Wait timepass.

@@ -1,74 +1,165 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include "sim.h"
 #include "cpu.h"
 #include "coroutine.h"
 
+
 #define STK_SIZE	(16 * 1024)
 
-typedef unsigned long long u64;
-
-/* coroutine functions */
-extern "C" void yield_(stack_t *token);
-extern "C" void enter_(stack_t *token, user_t arg);
-
-stack_t* gpCurStack;
-
-struct Task
+#if (OPT_CO == CO_FIBER)
+struct RoutineInfo
 {
-	stack_t pStkTop;
-	char aStack[STK_SIZE];
+	HANDLE hTask;		///< CPU entry point.
+	Routine fEntry;
+	void* pParam;
 };
 
-Task gaTask[NUM_CPU];
+static HANDLE ghEngine;		///< Engineìš© Task.
+static RoutineInfo gaRoutines[NUM_CPU];
 
-/* prepare a coroutine stack */
-void prepare(stack_t *token, void *stack, u64 size, cofunc_t func)
+void CO_RegTask(int nIdx, Routine pfEntry, void* pParam)
 {
-	u64 *s64 = (u64*)((char*)stack + size);
-	s64 -= 10;                   // 10 items exist on stack
-	s64[0] = 15;                  // R15
-	s64[1] = 14;                  // R14
-	s64[2] = 13;                  // R13
-	s64[3] = 12;                  // R12
-	s64[4] = 11;                  // RSI
-	s64[5] = 10;                  // RDI
-	s64[6] = (u64)s64 + 64;      // RBP
-	s64[7] = 9;                  // RBX
-	s64[8] = (u64)func;          // return address
-	s64[9] = (u64)yield_;        // coroutine return address
-	*token = (stack_t)s64;       // save the stack for yield
+	gaRoutines[nIdx].fEntry = pfEntry;
+	gaRoutines[nIdx].pParam = pParam;
 }
 
-void CO_Start(int nIdx, cofunc_t pfEntry)
+void CO_Start()
 {
-	assert(nIdx < NUM_CPU);
-	/* prepare the stack */
-	prepare(&(gaTask[nIdx].pStkTop), gaTask[nIdx].aStack, STK_SIZE, pfEntry);
-	gpCurStack = &(gaTask[nIdx].pStkTop);
-	enter_(gpCurStack, (void*)0x11);
+	if (nullptr == ghEngine) // ëª‡ë²ˆ ë°˜ë³µí•  ìˆ˜ë„ ìžˆìœ¼ë‹ˆê¹Œ...
+	{
+		ghEngine = ConvertThreadToFiber(nullptr);
+	}
+	for (uint32 nIdx = 0; nIdx < CpuID::NUM_CPU; nIdx++)
+	{
+		if (nullptr != gaRoutines[nIdx].hTask)
+		{
+			DeleteFiber(gaRoutines[nIdx].hTask);
+		}
+		gaRoutines[nIdx].hTask = CreateFiber(STK_SIZE,
+			(LPFIBER_START_ROUTINE)gaRoutines[nIdx].fEntry, gaRoutines[nIdx].pParam);
+	}
 }
 
-/**
-* Return main thread.
-*/
-void CO_Yield()
-{
-	yield_(gpCurStack);
-}
-
-/**
-* Switch coroutine (indexed at start)
-*/
 void CO_Switch(int nIdx)
 {
-	/**
-	1. ³ÊÀÇ stack topÀ» pStkTop¿¡ ÀúÀåÇØ¼­ °Ç³»ÁÙ²²,
-	2. °Å±â¿¡ ³ªÀÇ stack topÀ» ÀúÀåÇÏ°í,
-		³ÊÀÇ stack topÀ¸·Î ½ÇÇàÀ» ÇØ.
-	3. ½ÇÇàÀ» ³¡³ª¸é,
-		³Ê°¡ ÀúÀåÇß´ø ³ªÀÇ stack topÀ¸·Î switchingÇÏ°í,
-		pStkTop¿¡´Â ³ÊÀÇ stack topÀ» ÀúÀåÇØÁà.
-	*/
-	gpCurStack = &(gaTask[nIdx].pStkTop);
-	yield_(gpCurStack);
+	SwitchToFiber(gaRoutines[nIdx].hTask);
 }
+
+void CO_ToMain()
+{
+	SwitchToFiber(ghEngine);
+}
+
+#elif (OPT_CO == CO_SETJMP)
+#include <setjmp.h>
+
+#define NUM_ROUTINE		(NUM_CPU)
+#define PRINT_DBG		//printf 
+
+#if _M_AMD64
+#define PATCH_SET_JMP(jbuf)			{((_JUMP_BUFFER*)&(jbuf))->Frame = 0;}
+#else
+#define PATCH_SET_JMP(jbuf)
+#endif
+
+#define TASK_STACK_SIZE (16 * 1024)
+
+typedef void(*routine)(void* nParam);
+volatile routine gaRoutines[NUM_ROUTINE];
+void* ganParam[NUM_ROUTINE];
+jmp_buf gaContext[NUM_ROUTINE];
+
+jmp_buf gMainCtx;
+volatile int gnTaskId;
+
+#pragma optimize("", off)
+
+void co_Recusive(int nDepth, int nTaskId)
+{
+	volatile char aStack[TASK_STACK_SIZE]; // Stacks for each Task. 
+	nDepth--;
+	if (0 == nDepth)
+	{
+		volatile int a = nTaskId * 10;
+		PRINT_DBG("Set Stack:%d: %X, %X, %d\n", nTaskId, aStack, &a, *&a);
+		size_t nRet = setjmp(gaContext[nTaskId]);
+		PATCH_SET_JMP(gaContext[gnTaskId]);
+		if (0 == nRet)
+		{
+			return;
+		}
+		PRINT_DBG("Start Task:%d, %X, %d\n", gnTaskId, &a, *&a);
+		gaRoutines[gnTaskId](ganParam[gnTaskId]);
+	}
+	else
+	{
+		co_Recusive(nDepth, nTaskId);
+	}
+	aStack[0] = 10; // to keep aStack from optimize. 
+}
+
+void CO_Start()
+{
+	/**
+	stack ì„¤ì •ì‹œ localë³€ìˆ˜ê°€ ë³´ì¡´ë˜ê²Œ í•˜ë ¤ë©´, ê¹Šì€ stackì„ ë¨¼ì € í• ë‹¹í•´ì•¼ í•œë‹¤.
+	*/
+	for (int i = NUM_ROUTINE - 1; i >= 0; i--)
+	{
+		co_Recusive(i + 1, i);
+	}
+	gnTaskId = NUM_ROUTINE;
+}
+
+void CO_ToMain()
+{
+	size_t nRet = setjmp(gaContext[gnTaskId]);
+	PATCH_SET_JMP(gMainCtx);
+	if (0 == nRet)
+	{
+		PRINT_DBG("To Main: %d\n", gnTaskId);
+		longjmp(gMainCtx, 1);
+	}
+	PRINT_DBG("From Main: %d\n", gnTaskId);
+}
+
+void CO_Switch(int nTaskId)
+{
+	gnTaskId = nTaskId;
+	size_t nRet = setjmp(gMainCtx);
+	PATCH_SET_JMP(gaContext[gnTaskId]);
+	if (0 == nRet)
+	{
+		PRINT_DBG("To Task: %d\n", gnTaskId);
+		longjmp(gaContext[gnTaskId], 1);
+	}
+	gnTaskId = NUM_ROUTINE;
+}
+
+void CO_RegTask(int nTaskId, routine pfTask, void* nParam)
+{
+	gaRoutines[nTaskId] = pfTask;
+	ganParam[nTaskId] = nParam;
+}
+#pragma optimize("", on)
+
+void co_DummyTask(void* nParam)
+{
+	while (true)
+	{
+		CO_ToMain();
+	}
+}
+
+void CO_Init(routine pfDummy)
+{
+	if (nullptr == pfDummy)
+	{
+		pfDummy = co_DummyTask;
+	}
+	for (int i = 0; i < NUM_ROUTINE; i++)
+	{
+		gaRoutines[i] = pfDummy;
+	}
+}
+
+#endif

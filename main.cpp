@@ -44,6 +44,7 @@ void FTL_InitSim()
 
 int main()
 {
+	CPU_InitSim();
 	NFC_InitSim();
 	TMR_InitSim();
 	POWER_InitSim();

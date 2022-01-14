@@ -133,9 +133,4 @@
       <Filter>hw</Filter>
     </ClInclude>
   </ItemGroup>
-  <ItemGroup>
-    <MASM Include="..\hw\co_switch.asm">
-      <Filter>hw</Filter>
-    </MASM>
-  </ItemGroup>
 </Project>

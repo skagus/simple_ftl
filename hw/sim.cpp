@@ -5,7 +5,7 @@
 
 #include "templ.h"
 #include "sim.h"
-#include "cpu.h"
+#include "cpu.h"	// for CPU_Start()
 
 using namespace std;
 
@@ -28,9 +28,6 @@ public:
 };
 
 
-#if (0 == EN_COROUTINE)
-static HANDLE ghEngine;		///< Engine용 Task.
-#endif
 static uint64 gnTick;			///< Simulation time.
 static EvtHdr gfEvtHdr[NUM_HW];	///< HW별 Event handler.
 static bool gbPowerOn;			///< Power on state.
@@ -41,8 +38,6 @@ static Evt gaEvts[NUM_EVENT];
 static std::priority_queue<Evt*, std::vector<Evt*>, Evt> gEvtQue;
 static Queue<Evt*, NUM_EVENT + 1> gEvtPool;
 
-void sim_CpuHandler(void* pEvt);
-
 /**
 HW는 event driven으로만 동작하며,
 SIM에 Event handler를 등록한다.
@@ -51,7 +46,6 @@ void SIM_AddHW(HwID id, EvtHdr pfEvtHandler)
 {
 	gfEvtHdr[id] = pfEvtHandler;
 }
-
 
 void* SIM_NewEvt(HwID eOwn, uint32 nTick)
 {
@@ -83,16 +77,6 @@ void SIM_Print(const char *szFormat, ...)
 	va_end(stAP);
 	fprintf(stdout, "%8lld: %s", gnTick, aBuf);
 }
-
-void SIM_SwitchToEngine()
-{
-#if EN_COROUTINE
-	CO_Yield();
-#else
-	SwitchToFiber(ghEngine);
-#endif
-}
-
 
 /**
 nEndTick 이내의 최근 tick의 event를 실행한다.
@@ -143,20 +127,21 @@ sim의 실행 방법은,
 */
 void SIM_Run()
 {
-#if (0 == EN_COROUTINE)
-	ghEngine = ConvertThreadToFiber(nullptr);
-#endif
 	SIM_UtilInit();
 
 #if	EN_BENCHMARK
 	LARGE_INTEGER stBegin;
 	QueryPerformanceCounter(&stBegin);
+	uint32 nCnt = 200;
+#else
+	uint32 nCnt = 10000000;
 #endif
-	uint32 nCnt = 10;
 	while (nCnt-- > 0)
 	{
 		sim_PowerUp();
+#if	(EN_BENCHMARK == 0)
 		SIM_Print("[SIM] ============== Power up %d =================\n", gnCycle);
+#endif
 		while (gbPowerOn)
 		{
 			sim_ProcEvt();	// 내부에서 gnHwTick을 update한다.
@@ -166,6 +151,6 @@ void SIM_Run()
 #if	EN_BENCHMARK
 	LARGE_INTEGER stEnd;
 	QueryPerformanceCounter(&stEnd);
-	printf("Time: %lld\n", stEnd.QuadPart - stBegin.QuadPart);
+	printf("Time: %.3e\n", float(stEnd.QuadPart - stBegin.QuadPart));
 #endif
 }

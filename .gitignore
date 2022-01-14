@@ -3,3 +3,5 @@ build/.vs/
 build/Debug/nfc.obj
 build/Debug/
 build/Release/
+test_code/x64/
+build/

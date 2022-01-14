@@ -25,6 +25,9 @@ void POWER_InitSim()
 	SIM_AddHW(HwID::HW_POWER, power_HandleEvt);
 }
 
+
+///////////// Power LLD ////////////////
+
 void POWER_SwitchOff()
 {
 	power_NewEvt(1);

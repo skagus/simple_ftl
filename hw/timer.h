@@ -4,7 +4,7 @@
 
 #define NUM_TIMER	(5)
 
-void TMR_InitSim();	// Sim ì „ìš©.
+void TMR_InitSim();	// Sim Àü¿ë.
 
 void TMR_Add(uint32 nTimerId, uint32 nTimeOut, Cbf pfCbf, bool bRepeat);
 void TMR_Remove(uint32 nTimerId);

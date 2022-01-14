@@ -16,7 +16,7 @@ uint32 SIM_GetRand(uint32 nMod)
 uint32 SIM_GetSeqNo()
 {
 	gnSeqNo++;
-	if (0 == gnSeqNo)
+	if ((0 == gnSeqNo) && (gnSeqNo != 0))
 	{
 		__debugbreak();
 	}

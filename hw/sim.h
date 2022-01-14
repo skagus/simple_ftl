@@ -5,10 +5,6 @@
 #include "types.h"
 #include "macro.h"
 
-#if EN_COROUTINE
-#include "coroutine.h"
-#endif
-
 #define SIM_USEC(x)		(x)
 #define SIM_MSEC(x)		SIM_USEC(1000)
 #define SIM_SEC(x)		SIM_MSEC(1000)
@@ -30,15 +26,6 @@ enum HwID
 typedef void(*CbFunc)(uint32 nParam, uint32 nTag);	/// for Callback.
 
 typedef void (*EvtHdr)(void* pEvt);
-#if EN_COROUTINE
-typedef void(*CpuEntry)(stack_t* token, user_t arg);
-#else
-typedef void(*CpuEntry)(void* pParam);
-#endif
-
-//////////////////////
-// CPU는 running이 끝나면 안되므로, 마지막에 END_RUN을 추가해주는게 좋다.
-#define END_RUN			while(true){CPU_TimePass(100000000);}
 
 //////////////////////////////////////
 
@@ -48,7 +35,6 @@ void SIM_AddHW(HwID id, EvtHdr pfEvtHandler);
 uint64 SIM_GetTick();
 uint32 SIM_GetCycle();
 void SIM_Print(const char *szFormat, ...);
-void SIM_SwitchToEngine();
 
 void* SIM_NewEvt(HwID eOwn, uint32 time);
 void SIM_Run();	// infinite running.
