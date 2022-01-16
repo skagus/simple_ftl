@@ -42,6 +42,8 @@ void FTL_InitSim()
 
 #endif
 
+#define EN_BENCHMARK	(1)		///< Simulation performance benchmark.
+
 int main()
 {
 	CPU_InitSim();
@@ -52,7 +54,20 @@ int main()
 	FTL_InitSim();
 	TEST_InitSim();
 
+#if	EN_BENCHMARK
+	LARGE_INTEGER stBegin;
+	QueryPerformanceCounter(&stBegin);
+	uint32 nCnt = 200;
+#endif
+
+	SIM_UtilInit();
 	SIM_Run();
+
+#if	EN_BENCHMARK
+	LARGE_INTEGER stEnd;
+	QueryPerformanceCounter(&stEnd);
+	printf("Time: %.3e\n", float(stEnd.QuadPart - stBegin.QuadPart));
+#endif
 
 	return 0;
 }

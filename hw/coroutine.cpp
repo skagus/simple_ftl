@@ -14,7 +14,7 @@ struct RoutineInfo
 	void* pParam;
 };
 
-static HANDLE ghEngine;		///< Engine용 Task.
+static HANDLE ghEngine;		///< Task for engine..
 static RoutineInfo gaRoutines[MAX_ROUTINE];
 
 void CO_RegTask(int nIdx, Routine pfEntry, void* pParam)
@@ -25,7 +25,7 @@ void CO_RegTask(int nIdx, Routine pfEntry, void* pParam)
 
 void CO_Start()
 {
-	if (nullptr == ghEngine) // 몇번 반복할 수도 있으니까...
+	if (nullptr == ghEngine) // to support multiple power cycle.
 	{
 		ghEngine = ConvertThreadToFiber(nullptr);
 	}
@@ -98,7 +98,7 @@ void co_Recusive(int nDepth, int nTaskId)
 void CO_Start()
 {
 	/**
-	stack 설정시 local변수가 보존되게 하려면, 깊은 stack을 먼저 할당해야 한다.
+	reserved deeper stack 1st to keep some local variable.(actually no meaning..  :) )
 	*/
 	for (int i = MAX_ROUTINE - 1; i >= 0; i--)
 	{

@@ -4,7 +4,8 @@
 
 struct CpuEvt
 {
-	CpuID eCpuId;
+	uint32 nCpuId;
+	uint32 nAddTick;	///< Additional processing time by ISR.
 };
 
 static_assert(sizeof(CpuEvt) < BYTE_PER_EVT);
@@ -17,7 +18,15 @@ struct CpuCtx
 };
 
 static CpuCtx gaCpu[NUM_CPU];	///< CPU(FW) information.
-CpuID gnCurCpu;		///< Current running CPU.
+uint32 gnCurCpu;		///< Current running CPU.
+
+static CpuEvt* cpu_NewEvent(uint32 nTick, uint32 nCpu)
+{
+	CpuEvt* pEvt = (CpuEvt*)SIM_NewEvt(HW_CPU, nTick);
+	pEvt->nCpuId = nCpu;
+	pEvt->nAddTick = (uint32)0;
+	return pEvt;
+}
 
 /**
 CPU execution entry.
@@ -25,36 +34,47 @@ CPU execution entry.
 void cpu_HandleEvt(void* pEvt)
 {
 	CpuEvt* pCurEvt = (CpuEvt*)pEvt;
-	CpuID nCpuId = pCurEvt->eCpuId;
-	gnCurCpu = nCpuId;
+	uint32 nCpuId = pCurEvt->nCpuId;
 	CpuCtx* pCpuCtx = gaCpu + nCpuId;
 	assert(pEvt == pCpuCtx->pEvt);
-	//	printf("END %d, %X\n", gnCurCpu, pCurEvt);
-	pCpuCtx->pEvt = nullptr;
-	CO_Switch(nCpuId);
+	if (true) // 0 == pCurEvt->nAddTick)
+	{
+		//	printf("END %d, %X\n", gnCurCpu, pCurEvt);
+		pCpuCtx->pEvt = nullptr;
+		gnCurCpu = nCpuId;
+		CO_Switch(nCpuId);
+	}
+	else
+	{
+		// Prospond cpu run if additional tick is.
+		// additional tick is added by ISR called by HW.
+		pCpuCtx->pEvt = cpu_NewEvent(pCurEvt->nAddTick, nCpuId);
+	}
 }
 
-void CPU_Add(CpuID eID, Routine pfEntry, void* pParam)
+void CPU_Add(uint32 eID, Routine pfEntry, void* pParam)
 {
 	SIM_AddHW(HW_CPU, cpu_HandleEvt);
 	CO_RegTask(eID, pfEntry, pParam);
 }
 
-
 void CPU_TimePass(uint32 nTick)
 {
-	CpuEvt* pEvt = (CpuEvt*)SIM_NewEvt(HW_CPU, nTick);
-	pEvt->eCpuId = gnCurCpu;
-	CpuCtx* pCpuCtx = gaCpu + gnCurCpu;
-	pCpuCtx->pEvt = pEvt;
+	uint32 nCpu = gnCurCpu;
+	CpuCtx* pCpuCtx = gaCpu + nCpu;
 	pCpuCtx->nRunTime += nTick;
-	//	printf("NEW %d, %X\n", gnCurCpu, pEvt);
-	gnCurCpu = NUM_CPU;
-	CO_ToMain();
+	if (NOT(SIM_PeekTick(nTick)))
+	{
+		pCpuCtx->pEvt = cpu_NewEvent(nTick, nCpu);
+		//	printf("NEW %d, %X\n", gnCurCpu, pEvt);
+		gnCurCpu = NUM_CPU;
+		CO_ToMain();
+		ASSERT(gnCurCpu == nCpu);
+	}
 }
 
 /**
-* CPU wait상태...
+* Makes CPU as wait interrupt.(wakeup)
 */
 void CPU_Sleep()
 {
@@ -64,20 +84,22 @@ void CPU_Sleep()
 }
 
 /**
-* ISR 등에서 CPU를 깨우는 함수.
+* Wakeup CPU on ISR or something.
 */
-void CPU_Wakeup(CpuID eCpu)
+void CPU_Wakeup(uint32 nCpu, uint32 nAddTick)
 {
-	CpuCtx* pCtx = gaCpu + eCpu;
+	CpuCtx* pCtx = gaCpu + nCpu;
 	if (nullptr == pCtx->pEvt) // if sleep state.
 	{
-		CpuEvt* pEvt = (CpuEvt*)SIM_NewEvt(HW_CPU, 0);
-		pEvt->eCpuId = eCpu;
-		pCtx->pEvt = pEvt;
+		pCtx->pEvt = cpu_NewEvent(nAddTick, nCpu);
+	}
+	else
+	{
+		pCtx->pEvt->nAddTick += nAddTick;
 	}
 }
 
-CpuID CPU_GetCpuId()
+uint32 CPU_GetCpuId()
 {
 	return gnCurCpu;
 }
@@ -86,15 +108,16 @@ CpuID CPU_GetCpuId()
 void CPU_Start()
 {
 	CO_Start();
-	for (uint32 nIdx = 0; nIdx < CpuID::NUM_CPU; nIdx++)
+	for (uint32 nIdx = 0; nIdx < NUM_CPU; nIdx++)
 	{
-		CpuEvt* pEvt = (CpuEvt*)SIM_NewEvt(HW_CPU, 0);
-		gaCpu[nIdx].pEvt = pEvt;
+		gaCpu[nIdx].pEvt = cpu_NewEvent(0, nIdx);
 		gaCpu[nIdx].nRunTime = 0;
-		pEvt->eCpuId = (CpuID)nIdx;
 	}
 }
 
+/**
+* Need to Coroutine initialize.
+*/
 void dummy_Routine(void* pParam)
 {
 	while (true)
@@ -107,7 +130,6 @@ void dummy_Routine(void* pParam)
 
 void CPU_InitSim()
 {
-	// SET_JMP의 경우 처음 시작할 때, 1회 호출된다.
 	for(uint32 nIdx = 0; nIdx < NUM_CPU; nIdx++)
 	{
 		CO_RegTask(nIdx, dummy_Routine, nullptr);

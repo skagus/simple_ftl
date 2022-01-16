@@ -9,18 +9,23 @@
 
 using namespace std;
 
-#define NUM_EVENT				(NUM_HW * 2)	// NFC는 Die개수에 비례하는 값이 필요함.
+/**
+* Normally, one Event for each HW. (caution: count instance! NOT type)
+*/
+#define NUM_EVENT				(NUM_HW * 2)
 
 
 struct Evt
 {
 public:
-	uint64	nTick;			///< Event발생할 시간.
-	HwID	nOwner;			///< Event발생한 HW.
+	uint64	nTick;			///< Time of event occur.
+	HwID	nOwner;			///< HW of the event.
 	uint32	nSeqNo;
 	uint8	aParams[BYTE_PER_EVT];		///< Event information for each HW.
 
-	/// sorting을 위해서 comparator필요함.
+	/**
+		Event queue must be sorted with time(tick) 
+	*/
 	bool operator()(const Evt* lhs, const Evt* rhs) const
 	{
 		return lhs->nTick > rhs->nTick;
@@ -29,7 +34,7 @@ public:
 
 
 static uint64 gnTick;			///< Simulation time.
-static EvtHdr gfEvtHdr[NUM_HW];	///< HW별 Event handler.
+static EvtHdr gfEvtHdr[NUM_HW];	///< Event handler of each HW.
 static bool gbPowerOn;			///< Power on state.
 static uint32 gnCycle;
 
@@ -39,8 +44,8 @@ static std::priority_queue<Evt*, std::vector<Evt*>, Evt> gEvtQue;
 static Queue<Evt*, NUM_EVENT + 1> gEvtPool;
 
 /**
-HW는 event driven으로만 동작하며,
-SIM에 Event handler를 등록한다.
+* Add Hardware. 
+* HW is defined by handler.
 */
 void SIM_AddHW(HwID id, EvtHdr pfEvtHandler)
 {
@@ -94,29 +99,7 @@ bool SIM_PeekTick(uint32 nTick)
 }
 
 /**
-nEndTick 이내의 최근 tick의 event를 실행한다.
-최근 event중에 가장 빠른 미래의 event를 실행하는데,
-일반적으로 한개이지만, 동시에 발생될 event라면 한번에 실행한다.
-*/
-static void sim_ProcEvt()
-{
-	assert(!gEvtQue.empty());
-	Evt* pEvt = gEvtQue.top();
-	gnTick = pEvt->nTick;
-	do
-	{
-		gEvtQue.pop();
-		gfEvtHdr[pEvt->nOwner](pEvt->aParams);
-		gEvtPool.PushTail(pEvt);
-		pEvt = gEvtQue.top();
-	} while (pEvt->nTick == gnTick);
-}
-
-/**
-Simulation engine을 처음으로 되돌린다.
-(즉, simulating event를 모두 clear한다.)
-반드시 Simulator fiber에서 호출되어야 한다. 
-(권장: HW event에서 호출하면 좋을 듯..)
+Initiate system. (aka. power on)
 */
 static void sim_PowerUp()
 {
@@ -139,37 +122,24 @@ void SIM_PowerDown()
 	gbPowerOn = false;
 }
 
-/**
-sim의 실행 방법은, 
-여러 HW의 시간을 나타내는 Event Queue의 가장 작은 시간과,
-여러 CPU의 누적 실행 시간중 가장 작은 놈을 실행하는 구조로 동작한다.
-*/
+
 void SIM_Run()
 {
-	SIM_UtilInit();
-
-#if	EN_BENCHMARK
-	LARGE_INTEGER stBegin;
-	QueryPerformanceCounter(&stBegin);
-	uint32 nCnt = 200;
-#else
 	uint32 nCnt = 10;
-#endif
+
 	while (nCnt-- > 0)
 	{
 		sim_PowerUp();
-#if	(EN_BENCHMARK == 0)
 		SIM_Print("[SIM] ============== Power up %d =================\n", gnCycle);
-#endif
 		while (gbPowerOn)
 		{
-			sim_ProcEvt();	// 내부에서 gnHwTick을 update한다.
+			assert(!gEvtQue.empty());
+			Evt* pEvt = gEvtQue.top();
+			gnTick = pEvt->nTick;
+			gEvtQue.pop();
+			gfEvtHdr[pEvt->nOwner](pEvt->aParams);
+			gEvtPool.PushTail(pEvt);
 		}
 		gnCycle++;
 	}
-#if	EN_BENCHMARK
-	LARGE_INTEGER stEnd;
-	QueryPerformanceCounter(&stEnd);
-	printf("Time: %.3e\n", float(stEnd.QuadPart - stBegin.QuadPart));
-#endif
 }

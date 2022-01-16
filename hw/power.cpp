@@ -29,7 +29,9 @@ void POWER_InitSim()
 
 
 ///////////// Power LLD ////////////////
-
+/**
+* manual power off signal to simulator.
+*/
 void POWER_SwitchOff()
 {
 	power_NewEvt(1);
