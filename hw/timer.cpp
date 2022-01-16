@@ -16,7 +16,7 @@ struct TimerInfo
 	uint32 nTimeout;
 	Cbf pfCbf;
 	TmrEvt* pstEvt;
-	CpuID eCpu;
+	uint32 eCpu;
 };
 
 TimerInfo gaTimer[NUM_TIMER];
@@ -44,7 +44,7 @@ void tmr_HandleEvt(void* pEvt)
 			pTI->nTimeout = 0;
 		}
 		pTI->pfCbf(0, 0);
-		CPU_Wakeup(pTI->eCpu);
+		CPU_Wakeup(pTI->eCpu, SIM_USEC(1)); // processing time of timer ISR  is 1 usec.
 	}
 }
 

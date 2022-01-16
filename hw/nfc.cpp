@@ -44,7 +44,7 @@ Queue<CmdInfo*, 100> gstDoneQue;
 
 CbFunc gfCbDone;
 CurRun gastRun[NUM_DIE];
-CpuID geMasterCpu;
+uint32 geMasterCpu;
 
 /**
 Start new command if available.
@@ -71,7 +71,7 @@ void nfc_DoneCmd(CmdInfo* pCmd)
 	if (nullptr != gfCbDone)
 	{
 		gfCbDone(pCmd->nDie, 0);
-		CPU_Wakeup(geMasterCpu);
+		CPU_Wakeup(geMasterCpu, SIM_USEC(3));
 	}
 }
 

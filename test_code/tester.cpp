@@ -17,7 +17,11 @@ void start_cpu(void* pParam)
 	while (nLoop-- > 0)
 	{
 		SIM_Print("In Cpu loop rest %d\n", nLoop);
-		CPU_TimePass(SIM_USEC(10));
+		CPU_TimePass(SIM_USEC(8));
+		SIM_Print("rest 2\n");
+		CPU_TimePass(SIM_USEC(1));
+		SIM_Print("rest 1\n");
+		CPU_TimePass(SIM_USEC(1));
 	}
 	POWER_SwitchOff();
 	END_RUN;
@@ -37,8 +41,8 @@ int main()
 	CPU_InitSim();
 	TMR_InitSim();
 	POWER_InitSim();
-//	CPU_Add((CpuID)0, start_cpu, nullptr);
-	CPU_Add((CpuID)1, start_cpu, nullptr);
+//	CPU_Add(0, start_cpu, nullptr);
+	CPU_Add(1, start_cpu, nullptr);
 	SIM_Run();
 	return 0;
 }

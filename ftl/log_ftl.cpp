@@ -18,7 +18,7 @@ void FTL_Request(ReqInfo* pReq)
 	pReq->nSeqNo = SIM_GetSeqNo();
 	gstReqQ.PushTail(pReq);
 	Sched_TrigAsyncEvt(BIT(EVT_USER_CMD));
-	CPU_Wakeup(CPU_FTL);
+	CPU_Wakeup(CPU_FTL, SIM_USEC(1));
 }
 
 uint32 FTL_GetNumLPN(CbfReq pfCbf)

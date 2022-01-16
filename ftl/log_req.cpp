@@ -280,11 +280,12 @@ void reqResp_Run(void* pParam)
 		}
 
 		IO_Free(pCmd);
+		// Calls CPU_WORK cpu function --> treat as ISR.
 		if (pRun->nDone == pRun->nTotal)
 		{
 			gfCbf(pReq);
 			gstReqInfoPool.PushTail(pCmd->nTag);
-			CPU_Wakeup(CPU_WORK);
+			CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 		}
 		Sched_Yield();
 	}

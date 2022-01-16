@@ -39,6 +39,7 @@ void SIM_Print(const char *szFormat, ...);
 void* SIM_NewEvt(HwID eOwn, uint32 time);
 void SIM_Run();	// infinite running.
 
+bool SIM_PeekTick(uint32 nTick);
 uint32 SIM_GetRand(uint32 nMod);
 uint32 SIM_GetSeqNo();
 

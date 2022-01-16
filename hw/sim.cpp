@@ -79,6 +79,21 @@ void SIM_Print(const char *szFormat, ...)
 }
 
 /**
+* Check whether it can bypass tick & then bypass tick.
+* @return true if peek the tick.
+*/
+bool SIM_PeekTick(uint32 nTick)
+{
+	Evt* pEvt = gEvtQue.top();
+	if (gnTick + nTick < pEvt->nTick)
+	{
+		gnTick += nTick;
+		return true;
+	}
+	return false;
+}
+
+/**
 nEndTick 이내의 최근 tick의 event를 실행한다.
 최근 event중에 가장 빠른 미래의 event를 실행하는데,
 일반적으로 한개이지만, 동시에 발생될 event라면 한번에 실행한다.
@@ -88,9 +103,13 @@ static void sim_ProcEvt()
 	assert(!gEvtQue.empty());
 	Evt* pEvt = gEvtQue.top();
 	gnTick = pEvt->nTick;
-	gEvtQue.pop();
-	gfEvtHdr[pEvt->nOwner](pEvt->aParams);
-	gEvtPool.PushTail(pEvt);
+	do
+	{
+		gEvtQue.pop();
+		gfEvtHdr[pEvt->nOwner](pEvt->aParams);
+		gEvtPool.PushTail(pEvt);
+		pEvt = gEvtQue.top();
+	} while (pEvt->nTick == gnTick);
 }
 
 /**
@@ -134,7 +153,7 @@ void SIM_Run()
 	QueryPerformanceCounter(&stBegin);
 	uint32 nCnt = 200;
 #else
-	uint32 nCnt = 10000000;
+	uint32 nCnt = 10;
 #endif
 	while (nCnt-- > 0)
 	{
