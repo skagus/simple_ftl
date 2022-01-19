@@ -155,6 +155,7 @@
     <ClCompile Include="..\hw\sim.cpp" />
     <ClCompile Include="..\hw\sim_util.cpp" />
     <ClCompile Include="..\hw\timer.cpp" />
+    <ClCompile Include="..\hw\uart.cpp" />
     <ClCompile Include="tester.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -163,6 +164,7 @@
     <ClInclude Include="..\hw\power.h" />
     <ClInclude Include="..\hw\sim.h" />
     <ClInclude Include="..\hw\timer.h" />
+    <ClInclude Include="..\hw\uart.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

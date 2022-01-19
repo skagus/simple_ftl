@@ -31,6 +31,9 @@
     <ClCompile Include="..\hw\timer.cpp">
       <Filter>tested</Filter>
     </ClCompile>
+    <ClCompile Include="..\hw\uart.cpp">
+      <Filter>tested</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\hw\coroutine.h">
@@ -46,6 +49,9 @@
       <Filter>tested</Filter>
     </ClInclude>
     <ClInclude Include="..\hw\timer.h">
+      <Filter>tested</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\uart.h">
       <Filter>tested</Filter>
     </ClInclude>
   </ItemGroup>

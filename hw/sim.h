@@ -6,8 +6,8 @@
 #include "macro.h"
 
 #define SIM_USEC(x)		(x)
-#define SIM_MSEC(x)		SIM_USEC(1000)
-#define SIM_SEC(x)		SIM_MSEC(1000)
+#define SIM_MSEC(x)		SIM_USEC((x)*1000)
+#define SIM_SEC(x)		SIM_MSEC((x)*1000)
 
 /**
 HW ID: 같은 handler를 사용하게 된다.
@@ -20,6 +20,7 @@ enum HwID
 	HW_NAND,	///< NAND state changes busy to idle.
 	HW_TIMER,	///< Timer.
 	HW_POWER,
+	HW_UART,
 	NUM_HW,
 };
 
