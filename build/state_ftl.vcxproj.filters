@@ -49,20 +49,20 @@
     <ClCompile Include="..\ftl\io.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\log_ftl.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\log_gc.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\log_meta.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ftl\log_req.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
     <ClCompile Include="..\hw\cpu.cpp">
       <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\page_ftl.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\page_gc.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\page_meta.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\page_req.cpp">
+      <Filter>ftl</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -108,22 +108,10 @@
     <ClInclude Include="..\hw\coroutine.h">
       <Filter>hw</Filter>
     </ClInclude>
-    <ClInclude Include="..\ftl\log_req.h">
-      <Filter>ftl</Filter>
-    </ClInclude>
     <ClInclude Include="..\ftl\ftl.h">
       <Filter>ftl</Filter>
     </ClInclude>
     <ClInclude Include="..\ftl\io.h">
-      <Filter>ftl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ftl\log_ftl.h">
-      <Filter>ftl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ftl\log_gc.h">
-      <Filter>ftl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ftl\log_meta.h">
       <Filter>ftl</Filter>
     </ClInclude>
     <ClInclude Include="..\hw\cpu.h">
@@ -131,6 +119,18 @@
     </ClInclude>
     <ClInclude Include="..\hw\sim_conf.h">
       <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\page_ftl.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\page_gc.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\page_meta.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\page_req.h">
+      <Filter>ftl</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -5,9 +5,9 @@
 #include "timer.h"
 #include "scheduler.h"
 #include "io.h"
-#include "log_gc.h"
-#include "log_req.h"
-#include "log_meta.h"
+#include "page_gc.h"
+#include "page_req.h"
+#include "page_meta.h"
 
 #define PRINTF		//	SIM_Print
 
@@ -25,7 +25,7 @@ uint32 FTL_GetNumLPN(CbfReq pfCbf)
 {
 	REQ_SetCbf(pfCbf);
 	CPU_TimePass(SIM_MSEC(1000));	// Wait open time.
-	return NUM_USER_BLK * LPN_PER_USER_BLK;
+	return NUM_LPN;
 }
 
 void FTL_Main(void* pParam)

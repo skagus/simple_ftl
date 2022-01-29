@@ -6,16 +6,16 @@
 #include "scheduler.h"
 #include "buf.h"
 #include "io.h"
-#include "log_meta.h"
+#include "page_meta.h"
 
 #define PRINTF			//	SIM_Print
 
 #define PAGE_PER_META	(4)
-static_assert(sizeof(Meta) <= BYTE_PER_PPG* PAGE_PER_META);
 
 Meta gstMeta;
 bool gbRequest;
 LRU<uint32, NUM_LOG_BLK> gLRU;
+OpenBlk gaOpen[NUM_OPEN];
 
 struct MetaCtx
 {
@@ -42,8 +42,8 @@ MtCtx* gpMetaCtx;
 
 enum FormatStep
 {
-	FMT_BlkMap,
-	FMT_LogMap,
+	FMT_Memset,
+	FMT_Save,
 	FMT_Done,
 };
 
@@ -60,35 +60,27 @@ bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 	if (b1st)
 	{
 		pFmtCtx->nBN = 0;
-		pFmtCtx->eStep = FMT_BlkMap;
+		pFmtCtx->eStep = FMT_Memset;
 	}
 	switch (pFmtCtx->eStep)
 	{
-		case FMT_BlkMap:
+		case FMT_Memset:
 		{
 			uint16 nBN = NUM_META_BLK;
 			for (uint16 nIdx = 0; nIdx < NUM_USER_BLK; nIdx++)
 			{
-				gstMeta.astMap[nIdx].nPBN = nBN;
-				gstMeta.astMap[nIdx].bLog = 0;
+				gstMeta.astBI[nIdx].eState = BS_Closed;
+				gstMeta.astBI[nIdx].nVPC = 0;
 				nBN++;
 			}
-			pFmtCtx->eStep = FMT_LogMap;
+			pFmtCtx->eStep = FMT_Done;
 			pFmtCtx->nBN = nBN;
-			Sched_Yield();
+			bRet = true;
 			break;
 		}
-		case FMT_LogMap:
+		case FMT_Save:
 		{
-			uint16 nBN = pFmtCtx->nBN;
-			for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
-			{
-				gstMeta.astLog[nIdx].nLBN = INV_BN;
-				gstMeta.astLog[nIdx].nPBN = nBN;
-				nBN++;
-			}
-			gstMeta.nFreePBN = nBN;
-			gstMetaCtx.nAge = NUM_WL;	/// Not tobe zero.
+			// TODO: Map save.
 			bRet = true;
 			break;
 		}
@@ -106,45 +98,104 @@ bool META_Ready()
 	return gpMetaCtx->eStep == Mt_Ready;
 }
 
-BlkMap* META_GetBlkMap(uint16 nLBN)
+VAddr META_GetMap(uint32 nLPN)
 {
-	return gstMeta.astMap + nLBN;
+	return gstMeta.astL2P[nLPN];
 }
 
-LogMap* META_GetOldLog()
+BlkInfo* META_GetFree(uint16* pnBN, bool bFirst)
 {
-	int nIdx = gLRU.GetOld();
-	return gstMeta.astLog + nIdx;
-}
-
-LogMap* META_FindLog(uint16 nLBN, bool bForUpdate)
-{
-	if (gstMeta.astMap[nLBN].bLog)
+	for (uint16 nIdx = 0; nIdx < NUM_USER_BLK; nIdx++)
 	{
-		for (uint16 nIdx = 0; nIdx < NUM_LOG_BLK; nIdx++)
+		BlkInfo* pBI = gstMeta.astBI + nIdx;
+		if ((BS_Closed == pBI->eState)
+			&& (0 == pBI->nVPC))
 		{
-			LogMap* pLMap = gstMeta.astLog + nIdx;
-			if ((pLMap->nLBN == nLBN)
-				&& (true == pLMap->bReady))
+			if (NOT(bFirst))
 			{
-				if (bForUpdate)
-				{
-					if (pLMap->nCPO == (NUM_WL - 1))
-					{
-						gLRU.SetOld(nIdx);
-					}
-					else
-					{
-						gLRU.Touch(nIdx);
-					}
-				}
-				return pLMap;
+				bFirst = true;
+				continue;
 			}
+			if (nullptr != pnBN)
+			{
+				*pnBN = nIdx;
+			}
+			return pBI;
 		}
 	}
 	return nullptr;
 }
 
+void META_SetOpen(OpenType eType, uint16 nBN)
+{
+	OpenBlk* pOpen = gaOpen + eType;
+	pOpen->nBN = nBN;
+	pOpen->nCWO = 0;
+}
+
+
+void META_Update(uint32 nLPN, VAddr stNew)
+{
+	if (nLPN < NUM_LPN)
+	{
+		VAddr stOld = gstMeta.astL2P[nLPN];
+		gstMeta.astL2P[nLPN] = stNew;
+		if (FF32 != stOld.nDW)
+		{
+			gstMeta.astBI[stOld.nBN].nVPC--;
+		}
+		if (FF32 != stNew.nDW)
+		{
+			gstMeta.astBI[stNew.nBN].nVPC++;
+		}
+	}
+}
+
+void META_FilterP2L(uint16 nBN, uint32* aLPN)
+{
+	for (uint32 nWL = 0; nWL < NUM_WL; nWL++)
+	{
+		uint32 nLPN = aLPN[nWL];
+		if (nLPN < NUM_LPN)
+		{
+			VAddr stAddr = gstMeta.astL2P[nLPN];
+			if ((stAddr.nBN != nBN) || (stAddr.nWL != nWL))
+			{
+				aLPN[nWL] = FF32;
+			}
+		}
+	}
+}
+
+
+BlkInfo* META_GetMinVPC(uint16* pnBN)
+{
+	uint16 nMinVPC = FF16;
+	uint16 nMinBlk = FF16;
+	for (uint16 nIdx = 0; nIdx < NUM_USER_BLK; nIdx++)
+	{
+		BlkInfo* pBI = gstMeta.astBI + nIdx;
+		if ((BS_Closed == pBI->eState)
+			&& (0 != pBI->nVPC)
+			&& (nMinVPC > pBI->nVPC))
+		{
+			nMinBlk = nIdx;
+			nMinVPC = pBI->nVPC;
+		}
+	}
+	if (nullptr != pnBN)
+	{
+		*pnBN = nMinBlk;
+	}
+	return gstMeta.astBI + nMinBlk;
+}
+
+/// ////////////////////////////////////
+
+OpenBlk* META_GetOpen(OpenType eOpen)
+{
+	return gaOpen + eOpen;
+}
 
 enum MtSaveStep
 {
@@ -159,6 +210,7 @@ struct MtSaveCtx
 	uint8 nIssue;
 	uint8 nDone;
 };
+
 bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 {
 	if (b1st)
@@ -263,6 +315,7 @@ struct UserScanCtx
 bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 {
 	bool bRet = false;
+#if 0
 	if (b1st)
 	{
 		LogMap* pLMap = gstMeta.astLog + 0;
@@ -338,6 +391,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 	{
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
+#endif
 	return bRet;
 }
 
@@ -423,7 +477,7 @@ bool open_MtLoad(MtPageScanCtx* pCtx, bool b1st)
 		uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
 		uint8* pMain = BM_GetMain(nBuf);
 		uint8* pDst = (uint8*)(&gstMeta) + (pDone->nTag * BYTE_PER_PPG);
-		uint16 nSize = 0;
+		uint32 nSize = 0;
 		if (sizeof(gstMeta) > (pDone->nTag * BYTE_PER_PPG))
 		{
 			nSize = sizeof(gstMeta) - (pDone->nTag * BYTE_PER_PPG);
@@ -716,10 +770,14 @@ void META_ReqSave()
 static uint8 anContext[4096];		///< Stack like meta context.
 void META_Init()
 {
+	gaOpen[0].nBN = 0;
+	gaOpen[0].nCWO = 0;
+
 	gpMetaCtx = (MtCtx*)anContext;
-	MEMSET_OBJ(gstMeta, 0);
+	MEMSET_ARRAY(gstMeta.astBI, 0);
+	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);
 	MEMSET_OBJ(gstMetaCtx, 0);
 	MEMSET_ARRAY(anContext, 0);
-	Sched_Register(TID_META, meta_Run, anContext, BIT(MODE_NORMAL));
-	gLRU.Init();
+//	Sched_Register(TID_META, meta_Run, anContext, BIT(MODE_NORMAL));
+//	gLRU.Init();
 }

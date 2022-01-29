@@ -4,10 +4,11 @@
 #include "scheduler.h"
 #include "buf.h"
 #include "io.h"
-#include "log_gc.h"
-#include "log_meta.h"
+#include "page_gc.h"
+#include "page_meta.h"
 
-#define PRINTF		//	SIM_Print
+#define PRINTF			SIM_Print
+#define P2L_MARK		(0xFFAAFFAA)
 
 extern Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
@@ -46,6 +47,7 @@ struct ReqRunCtx
 enum ReqStep
 {
 	RS_Init,
+	RS_Run,
 	RS_BlkWait,
 };
 
@@ -58,6 +60,36 @@ struct ReqCtx
 	uint16 nDone;
 };
 
+
+void req_Done(NCmd eCmd, uint32 nTag)
+{
+	RunInfo* pRun = gaIssued + nTag;
+	ReqInfo* pReq = pRun->pReq;
+	uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
+	pRun->nDone++;
+
+	if (NC_READ == eCmd)
+	{
+		PRINTF("[REQ] Read: LPN:%X == %X\n", pReq->nLPN, *pnVal);
+	}
+	else
+	{
+		PRINTF("[REQ] Write: LPN:%X (%X)\n", pReq->nLPN, *pnVal);
+	}
+
+	if (MARK_ERS != *pnVal)
+	{
+		assert(pReq->nLPN == *pnVal);
+	}
+	// Calls CPU_WORK cpu function --> treat as ISR.
+	if (pRun->nDone == pRun->nTotal)
+	{
+		gfCbf(pReq);
+		gstReqInfoPool.PushTail(nTag);
+		CPU_Wakeup(CPU_WORK, SIM_USEC(2));
+	}
+}
+
 bool req_Write(ReqCtx* pCtx, bool b1st)
 {
 	if (b1st)
@@ -67,49 +99,43 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		pCtx->nIssued = 0;
 	}
 	ReqInfo* pReq = pCtx->pReq;
-	uint16 nLBN = pReq->nLPN / CHUNK_PER_PBLK;
-	uint16 nLPO = pReq->nLPN % CHUNK_PER_PBLK;
+	uint32 nLPN = pReq->nLPN;
 	bool bRet = false;
-	switch (pCtx->eStep)
+	OpenBlk* pDst = META_GetOpen(OPEN_USER);
+	if (nullptr == pDst || pDst->nCWO >= NUM_WL)
 	{
-		case RS_Init:
+		uint16 nNewOpen = GC_ReqFree(OPEN_USER);
+		if (FF16 != nNewOpen)
 		{
-			LogMap* pMap = META_FindLog(nLBN, false);
-			if (nullptr == pMap || pMap->nCPO >= CHUNK_PER_PBLK)
-			{
-				GC_ReqLog(nLBN);
-				Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
-			}
-			else
-			{
-				Sched_Yield();
-			}
-			pCtx->eStep = RS_BlkWait;
-			break;
+			META_SetOpen(OPEN_USER, nNewOpen);
+			Sched_Yield();
 		}
-		case RS_BlkWait:
+		else
 		{
-			LogMap* pMap = META_FindLog(nLBN, true);
-			if ((nullptr != pMap) && (pMap->nCPO < CHUNK_PER_PBLK))
-			{
-				*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
-				assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
-				CmdInfo* pCmd = IO_Alloc(IOCB_User);
-				IO_Program(pCmd, pMap->nPBN, pMap->nCPO, pReq->nBuf, pCtx->nTag);
-				pMap->anMap[nLPO] = pMap->nCPO;
-				if (nLPO != pMap->nCPO)
-				{
-					pMap->bInPlace = false;
-				}
-				pMap->nCPO++;
-				bRet = true;
-			}
-			else
-			{
-				Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
-			}
-			break;
+			Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
 		}
+	}
+	else if (pDst->nCWO == NUM_WL - 1)// P2L program in Last P2L.
+	{
+		uint16 nBuf = BM_Alloc();
+		*(uint32*)BM_GetSpare(nBuf) = P2L_MARK;
+		uint8* pMain = BM_GetMain(nBuf);
+		assert(sizeof(pDst->anP2L) <= BYTE_PER_PPG);
+		memcpy(pMain, pDst->anP2L, sizeof(pDst->anP2L));
+		CmdInfo* pCmd = IO_Alloc(IOCB_User);
+		IO_Program(pCmd, pDst->nBN, pDst->nCWO, nBuf, P2L_MARK);
+		pDst->nCWO++;
+		Sched_Wait(BIT(EVT_BLOCK), LONG_TIME); ///< Wait P2L program done.
+	}
+	else
+	{
+		*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
+		assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
+		CmdInfo* pCmd = IO_Alloc(IOCB_User);
+		IO_Program(pCmd, pDst->nBN, pDst->nCWO, pReq->nBuf, pCtx->nTag);
+		pDst->anP2L[pDst->nCWO] = pReq->nLPN;
+		pDst->nCWO++;
+		bRet = true;
 	}
 	return bRet;
 }
@@ -123,27 +149,19 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 		pCtx->nIssued = 0;
 	}
 	ReqInfo* pReq = pCtx->pReq;
-	uint16 nLBN = pReq->nLPN / CHUNK_PER_PBLK;
-	uint16 nLPO = pReq->nLPN % CHUNK_PER_PBLK;
-	uint16 nPPO = INV_PPO;
+	uint32 nLPN = pReq->nLPN;
 
-	LogMap* pMap = META_FindLog(nLBN, false);
-	if (nullptr != pMap)
+	VAddr stAddr = META_GetMap(nLPN);
+	if (FF32 != stAddr.nDW)
 	{
-		nPPO = pMap->anMap[nLPO];
-	}
-	CmdInfo* pCmd = IO_Alloc(IOCB_User);
-	if (INV_PPO != nPPO)	// in Log block.
-	{
-		IO_Read(pCmd, pMap->nPBN, nPPO, pReq->nBuf, pCtx->nTag);
+		CmdInfo* pCmd = IO_Alloc(IOCB_User);
+		IO_Read(pCmd, stAddr.nBN, stAddr.nWL, pReq->nBuf, pCtx->nTag);
+		CPU_TimePass(SIM_USEC(3));
 	}
 	else
 	{
-		BlkMap* pBMap = META_GetBlkMap(nLBN);
-		IO_Read(pCmd, pBMap->nPBN, nLPO, pReq->nBuf, pCtx->nTag);
+		req_Done(NC_READ, pCtx->nTag);
 	}
-
-	CPU_TimePass(SIM_USEC(3));
 	return true;
 }
 
@@ -156,6 +174,10 @@ void req_Run(void* pParam)
 	{
 		case RS_WaitOpen:
 		{
+#if 1
+			pCtx->eState = RS_WaitUser;
+			Sched_Yield();
+#else
 			if (META_Ready())
 			{
 				pCtx->eState = RS_WaitUser;
@@ -165,6 +187,7 @@ void req_Run(void* pParam)
 			{
 				Sched_Wait(BIT(EVT_OPEN), LONG_TIME);
 			}
+#endif
 			break;
 		}
 		case RS_WaitUser:
@@ -262,31 +285,28 @@ void reqResp_Run(void* pParam)
 	}
 	else
 	{
-		RunInfo* pRun = gaIssued + pCmd->nTag;
-		ReqInfo* pReq = pRun->pReq;
-		uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
-		pRun->nDone++;
 		if (NC_READ == pCmd->eCmd)
 		{
-			PRINTF("[REQ] Read: LPN:%X == %X from {%X, %X}\n", pReq->nLPN, *pnVal, pCmd->anBBN[0], pCmd->nWL);
+			req_Done(pCmd->eCmd, pCmd->nTag);
 		}
 		else
 		{
-			PRINTF("[REQ] Write: LPN:%X (%X) to {%X, %X}\n", pReq->nLPN, *pnVal, pCmd->anBBN[0], pCmd->nWL);
+			if (P2L_MARK == pCmd->nTag)
+			{
+				BM_Free(pCmd->stPgm.anBufId[0]);
+			}
+			else
+			{
+				VAddr stVA;
+				stVA.nDW = 0;
+				stVA.nBN = pCmd->anBBN[0];
+				stVA.nWL = pCmd->nWL;
+				uint32* pnVal = (uint32*)BM_GetSpare(pCmd->stPgm.anBufId[0]);
+				META_Update(*pnVal, stVA);
+				req_Done(pCmd->eCmd, pCmd->nTag);
+			}
 		}
-		if (MARK_ERS != *pnVal)
-		{
-			assert(pReq->nLPN == *pnVal);
-		}
-
 		IO_Free(pCmd);
-		// Calls CPU_WORK cpu function --> treat as ISR.
-		if (pRun->nDone == pRun->nTotal)
-		{
-			gfCbf(pReq);
-			gstReqInfoPool.PushTail(pCmd->nTag);
-			CPU_Wakeup(CPU_WORK, SIM_USEC(2));
-		}
 		Sched_Yield();
 	}
 }

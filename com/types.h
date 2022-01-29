@@ -4,9 +4,9 @@
 /**
 기본 Type정의.
 */
-#define INV32			0xFFFFFFFF
-#define INV16			0xFFFF
-#define INV8			0xFF
+#define FF32			0xFFFFFFFF
+#define FF16			0xFFFF
+#define FF08			0xFF
 
 typedef uint32_t			uint32;
 typedef int32_t				int32;
