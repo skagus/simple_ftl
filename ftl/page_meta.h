@@ -14,6 +14,7 @@ VAddr META_GetMap(uint32 nLPN);
 BlkInfo* META_GetFree(uint16* pnBN, bool bFirst);
 BlkInfo* META_GetMinVPC(uint16* pnBN);
 void META_SetOpen(OpenType eType, uint16 nBN);
+void META_Close(uint16 nBN);
 bool META_Ready();
 void META_FilterP2L(uint16 nBN, uint32* aLPN);
 void META_Update(uint32 nLPN, VAddr stVA);

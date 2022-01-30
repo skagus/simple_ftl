@@ -7,6 +7,9 @@
 #define NUM_LOG_BLK		(PBLK_PER_DIE - NUM_USER_BLK - NUM_META_BLK - 1)
 static_assert(NUM_LOG_BLK > 1);
 
+#define P2L_MARK		(0xFFAAFFAA)
+
+
 union VAddr
 {
 	struct

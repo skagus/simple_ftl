@@ -92,6 +92,22 @@ bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 	return bRet;
 }
 
+void dbg_MapIntegrity()
+{
+	uint16 anVPC[NUM_USER_BLK];
+	MEMSET_ARRAY(anVPC, 0x0);
+	for (uint32 nLPN = 0; nLPN < NUM_LPN; nLPN++)
+	{
+		if (gstMeta.astL2P[nLPN].nBN < NUM_USER_BLK)
+		{
+			anVPC[gstMeta.astL2P[nLPN].nBN]++;
+		}
+	}
+	for (uint16 nBN = 0; nBN < NUM_USER_BLK; nBN++)
+	{
+		assert(gstMeta.astBI[nBN].nVPC == anVPC[nBN]);
+	}
+}
 
 bool META_Ready()
 {
@@ -131,8 +147,13 @@ void META_SetOpen(OpenType eType, uint16 nBN)
 	OpenBlk* pOpen = gaOpen + eType;
 	pOpen->nBN = nBN;
 	pOpen->nCWO = 0;
+	gstMeta.astBI[nBN].eState = BS_Open;
 }
 
+void META_Close(uint16 nBN)
+{
+	gstMeta.astBI[nBN].eState = BS_Closed;
+}
 
 void META_Update(uint32 nLPN, VAddr stNew)
 {
@@ -149,6 +170,7 @@ void META_Update(uint32 nLPN, VAddr stNew)
 			gstMeta.astBI[stNew.nBN].nVPC++;
 		}
 	}
+	dbg_MapIntegrity();
 }
 
 void META_FilterP2L(uint16 nBN, uint32* aLPN)

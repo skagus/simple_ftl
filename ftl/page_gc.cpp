@@ -6,7 +6,7 @@
 #include "page_gc.h"
 #include "page_meta.h"
 
-#define PRINTF			//	SIM_Print
+#define PRINTF			SIM_Print
 uint16 gbmGcReq;
 
 /**
@@ -79,11 +79,24 @@ struct GcMoveCtx
 	uint16 nSrcWL;
 	uint32 aSrcLPN[NUM_WL];
 
-	bool bRunP2L;
+	bool bReadReady;
 	uint8 nReadRun;
 	uint8 nPgmRun;
+	uint16 nDataRead; // Total data read: to check read end.
 };
 
+/**
+* Next를 알아내는 방법
+* 1안:
+*	- Source선택 직후, P2L map은 filtering하는 방법.
+* 2안:
+*	- 매번 Next read를 찾아낼 때마다, Map query하는 방법.
+* 
+* 어차피 memory를 random read하는 것이기에, 1안의 장점은 없다.
+* 2안으로 하는 경우, move중에 update된 최신 map정보를 기반으로 동작 가능하다.
+* 
+* 추후 2안으로 수정할 것.
+*/
 uint16 gc_GetNextRead(uint16 nCur, uint32* aLPN)
 {
 	while (nCur < NUM_WL)
@@ -101,19 +114,7 @@ void gc_HandlePgm(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-	PRINTF("[GC] PGM Done to {%X, %X}, LPN:%X\n",
-		pDone->anBBN[0], pDone->nWL, *pSpare);
-	VAddr stAddr;
-	stAddr.nDW = 0;
-	stAddr.nBN = pDone->anBBN[0];
-	stAddr.nWL = pDone->nWL;
-	pCtx->aDstLPN[pDone->nWL] = *pSpare;
-	META_Update(*pSpare, stAddr);
-	if ((*pSpare & 0xF) == pDone->nTag)
-	{
-		uint32* pMain = (uint32*)BM_GetMain(nBuf);
-		assert((*pMain & 0xF) == pDone->nTag);
-	}
+	PRINTF("[GC] PGM Done to {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
 	BM_Free(nBuf);
 }
 
@@ -126,35 +127,68 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 		pDone->anBBN[0], pDone->nWL, *pSpare);
 	assert(*pSpare == pCtx->aSrcLPN[pDone->nWL]);
 	CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-	IO_Program(pNewPgm, pCtx->nDstBN, nLPO, nBuf, nLPO);
+	IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, nLPO);
+	// User Data.
+	if ((*pSpare & 0xF) == pDone->nTag)
+	{
+		uint32* pMain = (uint32*)BM_GetMain(nBuf);
+		assert((*pMain & 0xF) == pDone->nTag);
+	}
+
+	pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
+	VAddr stAddr;
+	stAddr.nDW = 0;
+	stAddr.nBN = pCtx->nDstBN;
+	stAddr.nWL = pCtx->nDstWL;
+	META_Update(*pSpare, stAddr);
+
+	pCtx->nDstWL++;
+	pCtx->nPgmRun++;
 }
+
+extern void dbg_MapIntegrity();
 
 void gc_HandleReadP2L(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-	PRINTF("[GC] P2L Done to {%X, %X}, LPN:%X\n",
+	PRINTF("[GC] P2L read from {%X, %X}, LPN:%X\n",
 		pDone->anBBN[0], pDone->nWL, *pSpare);
 	uint32* pMain = (uint32*)BM_GetMain(nBuf);
 	//			uint32 nIdx = *pSpare;	// Index of P2L chunk.
 	uint32 nSize = sizeof(pCtx->aSrcLPN);
 	memcpy(pCtx->aSrcLPN, pMain, nSize);
+	dbg_MapIntegrity();
 	META_FilterP2L(pCtx->nSrcBN, pCtx->aSrcLPN);
 	BM_Free(nBuf);
+	pCtx->bReadReady = true;
+}
+
+void gc_SetupNewSrc(GcMoveCtx* pCtx)
+{
+	uint16 nBuf4Copy = BM_Alloc();
+	META_GetMinVPC(&pCtx->nSrcBN);
+	pCtx->nSrcWL = 0;
+	CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
+	IO_Read(pCmd, pCtx->nSrcBN, NUM_WL - 1, nBuf4Copy, FF32);
+	pCtx->nReadRun++;
 }
 
 bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 {
 	bool bRet = false;
-
 	if (b1st)
 	{
 		pCtx->nDstWL = 0;
 		pCtx->nReadRun = 0;
 		pCtx->nPgmRun = 0;
+		pCtx->nDataRead = 0;
+		pCtx->bReadReady = false;
+
 		PRINTF("[GC] Start Move to %X\n", pCtx->nDstBN);
 	}
-	/// Process done command.
+
+	////////////// Process done command. ///////////////
 	CmdInfo* pDone;
 	while (pDone = IO_GetDone(IOCB_Mig))
 	{
@@ -169,7 +203,6 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 			if (FF32 == pDone->nTag) // Read P2L.
 			{
 				gc_HandleReadP2L(pDone, pCtx);
-				pCtx->bRunP2L = false;
 			}
 			else
 			{
@@ -178,44 +211,62 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		}
 		IO_Free(pDone);
 	}
-	/// Issue New command.
+	////////// Issue New command. //////////////////
 	if (NUM_WL == pCtx->nDstWL)
 	{
-		PRINTF("[GC] Move done\n");
-		bRet = true;
+		if (0 == pCtx->nPgmRun)
+		{
+			PRINTF("[GC] Dst fill: %X\n", pCtx->nDstBN);
+			bRet = true;
+		}
 	}
-	else if((pCtx->nReadRun < 2) && (pCtx->nPgmRun < 2))
+	else if ((NUM_WL - 1) == pCtx->nDstWL)
 	{
-		uint16 nBuf4Copy = BM_Alloc();
+		uint16 nBuf = BM_Alloc();
+		*(uint32*)BM_GetSpare(nBuf) = P2L_MARK;
+		uint8* pMain = BM_GetMain(nBuf);
+		assert(sizeof(pCtx->aDstLPN) <= BYTE_PER_PPG);
+		memcpy(pMain, pCtx->aDstLPN, sizeof(pCtx->aDstLPN));
+		CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
+		PRINTF("[GC] Pgm P2L\n");
+		IO_Program(pCmd, pCtx->nDstBN, pCtx->nDstWL, nBuf, P2L_MARK);
+		pCtx->nDstWL++;
+		pCtx->nPgmRun++;
+	}
+	else if((pCtx->nReadRun < 2) && (pCtx->nDataRead < (NUM_WL - 1)))
+	{
 		if (FF16 == pCtx->nSrcBN) // Load P2L map
 		{
-			if (false == pCtx->bRunP2L)
+			if ((false == pCtx->bReadReady) && (0 == pCtx->nReadRun))
 			{
-				META_GetMinVPC(&pCtx->nSrcBN);
-				pCtx->nSrcWL = 0;
-				CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-				IO_Read(pCmd, pCtx->nSrcBN, NUM_WL - 1, nBuf4Copy, FF32);
-				pCtx->nReadRun++;
-				pCtx->bRunP2L = true;
+				gc_SetupNewSrc(pCtx);
 			}
 		}
-		else
+		else if(true == pCtx->bReadReady)
 		{
-			uint16 nLPO = gc_GetNextRead(pCtx->nSrcWL, pCtx->aSrcLPN);
-			if (FF16 == nLPO)
+			uint16 nReadWL = gc_GetNextRead(pCtx->nSrcWL, pCtx->aSrcLPN);
+			if (FF16 != nReadWL)
+			{
+				uint16 nBuf4Copy = BM_Alloc();
+				CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
+				PRINTF("[GC] RD:{%X,%X}\n", pCtx->nSrcBN, nReadWL);
+				IO_Read(pCmd, pCtx->nSrcBN, nReadWL, nBuf4Copy, nReadWL);
+				pCtx->nSrcWL = nReadWL + 1;
+				pCtx->nReadRun++;
+				pCtx->nDataRead++;
+			}
+			else if ((0 == pCtx->nReadRun) && (0 == pCtx->nPgmRun))
 			{
 				pCtx->nSrcBN = FF16;
+				pCtx->bReadReady = false;
+
 				Sched_Yield();
 				return false;
 			}
-			CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-			IO_Read(pCmd, pCtx->nSrcBN, nLPO, nBuf4Copy, nLPO);
-			pCtx->nReadRun++;
-			pCtx->nSrcWL++;
 		}
 	}
 
-	if ((pCtx->nReadRun > 0)|| (pCtx->nReadRun > 0))
+	if ((pCtx->nReadRun > 0)|| (pCtx->nPgmRun > 0))
 	{
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
@@ -238,7 +289,7 @@ void gc_Run(void* pParam)
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
+				Sched_Wait(BIT(EVT_BLK_REQ), LONG_TIME);
 			}
 			break;
 		}
@@ -247,6 +298,7 @@ void gc_Run(void* pParam)
 			uint16 nFree;
 			if (nullptr != META_GetFree(&nFree, true))
 			{
+				META_SetOpen(OPEN_GC, nFree);
 				pCtx->nDstBN = nFree;
 				pCtx->eState = GS_ErsDst;
 				GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
@@ -277,6 +329,9 @@ void gc_Run(void* pParam)
 			GcMoveCtx* pMoveCtx = (GcMoveCtx*)(pCtx + 1);
 			if (gc_Move(pMoveCtx, false))
 			{
+				META_Close(pMoveCtx->nDstBN);
+				gbmGcReq = 0;
+				Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
 				pCtx->eState = GS_WaitReq;
 				Sched_Yield();
 			}
@@ -287,6 +342,7 @@ void gc_Run(void* pParam)
 
 uint16 GC_ReqFree(OpenType eType)
 {
+	static uint16 nNewFree = FF16;
 	PRINTF("[GC] Request Free Blk: %X\n", eType);
 	if (OPEN_GC == eType)
 	{
@@ -297,20 +353,35 @@ uint16 GC_ReqFree(OpenType eType)
 	}
 	else
 	{
-		uint16 nBN;
-		BlkInfo* pBI = META_GetFree(&nBN, false);
-		if (nullptr == pBI)
+		if (FF16 != nNewFree)
 		{
-			gbmGcReq |= BIT(eType);
-			Sched_TrigSyncEvt(BIT(EVT_BLOCK));
-			Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
-			return FF16;
+			CmdInfo* pCmd = IO_GetDone(IOCB_User);
+			if (nullptr != pCmd)
+			{
+				uint16 nBN = nNewFree;
+				nNewFree = FF16;
+				IO_Free(pCmd);
+				return nBN;
+			}
 		}
 		else
 		{
-			return nBN;
+			uint16 nBN;
+			BlkInfo* pBI = META_GetFree(&nBN, false);
+			if (nullptr == pBI)
+			{
+				gbmGcReq |= BIT(eType);
+				Sched_TrigSyncEvt(BIT(EVT_BLK_REQ));
+			}
+			else
+			{
+				nNewFree = nBN;
+				CmdInfo* pCmd = IO_Alloc(IOCB_User);
+				IO_Erase(pCmd, nBN, FF32);
+			}
 		}
 	}
+	return FF16;
 }
 
 static uint8 anContext[4096];		///< Stack like meta context.

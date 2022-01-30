@@ -11,7 +11,8 @@ typedef enum
 	EVT_BUF,
 	EVT_NAND_CMD,
 	EVT_USER_CMD,
-	EVT_BLOCK,
+	EVT_BLK_REQ,
+	EVT_NEW_BLK,
 	NUM_EVT
 } evt_id;
 

@@ -8,7 +8,6 @@
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
-#define P2L_MARK		(0xFFAAFFAA)
 
 extern Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
@@ -112,7 +111,8 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		}
 		else
 		{
-			Sched_Wait(BIT(EVT_BLOCK), LONG_TIME);
+			// Wait erase done for new block.
+			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 		}
 	}
 	else if (pDst->nCWO == NUM_WL - 1)// P2L program in Last P2L.
@@ -125,7 +125,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
 		IO_Program(pCmd, pDst->nBN, pDst->nCWO, nBuf, P2L_MARK);
 		pDst->nCWO++;
-		Sched_Wait(BIT(EVT_BLOCK), LONG_TIME); ///< Wait P2L program done.
+		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME); ///< Wait P2L program done.
 	}
 	else
 	{
@@ -293,6 +293,7 @@ void reqResp_Run(void* pParam)
 		{
 			if (P2L_MARK == pCmd->nTag)
 			{
+				META_Close(pCmd->anBBN[0]);
 				BM_Free(pCmd->stPgm.anBufId[0]);
 			}
 			else
