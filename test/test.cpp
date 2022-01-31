@@ -177,17 +177,22 @@ void TEST_Main(void* pParam)
 		gaDict = new uint32[nNumUserLPN];
 		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
 	}
-	if (0 == (SIM_GetCycle() % 10))
+	while (true)
 	{
-		tc_SeqWrite(0, nNumUserLPN);
+		if (0 == (SIM_GetCycle() % 10))
+		{
+			tc_SeqWrite(0, nNumUserLPN);
+		}
+		tc_SeqRead(0, nNumUserLPN);
+		for (uint32 nLoop = 0; nLoop < 1; nLoop++)
+		{
+			tc_RandRead(0, nNumUserLPN, nNumUserLPN * 2);
+			tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 128);
+		}
+		tc_StreamWrite(nNumUserLPN);
+
+		tc_RandRead(0, nNumUserLPN, nNumUserLPN * 4);
 	}
-	tc_SeqRead(0, nNumUserLPN);
-	for (uint32 nLoop = 0; nLoop < 1; nLoop++)
-	{
-		tc_RandRead(0, nNumUserLPN, nNumUserLPN * 2);
-		tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 128);
-	}
-	tc_StreamWrite(nNumUserLPN);
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();
 	END_RUN;

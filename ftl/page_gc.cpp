@@ -114,7 +114,6 @@ void gc_HandlePgm(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-	PRINTF("[GC] PGM Done to {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
 	BM_Free(nBuf);
 }
 
@@ -123,27 +122,33 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 	uint16 nBuf = pDone->stRead.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
 	uint16 nLPO = pDone->nTag;
-	PRINTF("[GC] Read Done from {%X, %X}, LPN:%X\n",
-		pDone->anBBN[0], pDone->nWL, *pSpare);
+	PRINTF("[GCR] {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
 	assert(*pSpare == pCtx->aSrcLPN[pDone->nWL]);
-	CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-	IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, nLPO);
-	// User Data.
-	if ((*pSpare & 0xF) == pDone->nTag)
+
+	if (pCtx->nSrcBN == META_GetMap(*pSpare).nBN)
 	{
-		uint32* pMain = (uint32*)BM_GetMain(nBuf);
-		assert((*pMain & 0xF) == pDone->nTag);
+		CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
+		IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, nLPO);
+		// User Data.
+		if ((*pSpare & 0xF) == pDone->nTag)
+		{
+			uint32* pMain = (uint32*)BM_GetMain(nBuf);
+			assert((*pMain & 0xF) == pDone->nTag);
+		}
+		VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
+		META_Update(*pSpare, stAddr);
+		pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
+		PRINTF("[GCW] {%X, %X}, LPN:%X\n", pCtx->nDstBN, pCtx->nDstWL, *pSpare);
+
+		pCtx->nDstWL++;
+		pCtx->nPgmRun++;
 	}
-
-	pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
-	VAddr stAddr;
-	stAddr.nDW = 0;
-	stAddr.nBN = pCtx->nDstBN;
-	stAddr.nWL = pCtx->nDstWL;
-	META_Update(*pSpare, stAddr);
-
-	pCtx->nDstWL++;
-	pCtx->nPgmRun++;
+	else
+	{
+		pCtx->nDataRead--;
+		PRINTF("[GC] Moved LPN:%X\n", *pSpare);
+		BM_Free(nBuf);
+	}
 }
 
 extern void dbg_MapIntegrity();
@@ -152,10 +157,8 @@ void gc_HandleReadP2L(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-	PRINTF("[GC] P2L read from {%X, %X}, LPN:%X\n",
-		pDone->anBBN[0], pDone->nWL, *pSpare);
+	PRINTF("[GC] P2L read from {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
 	uint32* pMain = (uint32*)BM_GetMain(nBuf);
-	//			uint32 nIdx = *pSpare;	// Index of P2L chunk.
 	uint32 nSize = sizeof(pCtx->aSrcLPN);
 	memcpy(pCtx->aSrcLPN, pMain, nSize);
 	dbg_MapIntegrity();
@@ -168,6 +171,8 @@ void gc_SetupNewSrc(GcMoveCtx* pCtx)
 {
 	uint16 nBuf4Copy = BM_Alloc();
 	META_GetMinVPC(&pCtx->nSrcBN);
+	PRINTF("[GC] New Victim: %X\n", pCtx->nSrcBN);
+	META_SetBlkState(pCtx->nSrcBN, BS_Victim);
 	pCtx->nSrcWL = 0;
 	CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
 	IO_Read(pCmd, pCtx->nSrcBN, NUM_WL - 1, nBuf4Copy, FF32);
@@ -217,6 +222,10 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		if (0 == pCtx->nPgmRun)
 		{
 			PRINTF("[GC] Dst fill: %X\n", pCtx->nDstBN);
+			if (FF16 != pCtx->nSrcBN)
+			{
+				META_SetBlkState(pCtx->nSrcBN, BS_Closed);
+			}
 			bRet = true;
 		}
 	}
@@ -256,10 +265,11 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 				pCtx->nDataRead++;
 			}
 			else if ((0 == pCtx->nReadRun) && (0 == pCtx->nPgmRun))
-			{
+			{// After all program done related to read.(SPO safe)
+				META_SetBlkState(pCtx->nSrcBN, BS_Closed);
+				PRINTF("[GC] Close victim: %X\n", pCtx->nSrcBN);
 				pCtx->nSrcBN = FF16;
 				pCtx->bReadReady = false;
-
 				Sched_Yield();
 				return false;
 			}
@@ -329,7 +339,7 @@ void gc_Run(void* pParam)
 			GcMoveCtx* pMoveCtx = (GcMoveCtx*)(pCtx + 1);
 			if (gc_Move(pMoveCtx, false))
 			{
-				META_Close(pMoveCtx->nDstBN);
+				META_SetBlkState(pMoveCtx->nDstBN, BS_Closed);
 				gbmGcReq = 0;
 				Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
 				pCtx->eState = GS_WaitReq;
@@ -355,7 +365,7 @@ uint16 GC_ReqFree(OpenType eType)
 	{
 		if (FF16 != nNewFree)
 		{
-			CmdInfo* pCmd = IO_GetDone(IOCB_User);
+			CmdInfo* pCmd = IO_GetDone(IOCB_UErs);
 			if (nullptr != pCmd)
 			{
 				uint16 nBN = nNewFree;
@@ -376,7 +386,7 @@ uint16 GC_ReqFree(OpenType eType)
 			else
 			{
 				nNewFree = nBN;
-				CmdInfo* pCmd = IO_Alloc(IOCB_User);
+				CmdInfo* pCmd = IO_Alloc(IOCB_UErs);
 				IO_Erase(pCmd, nBN, FF32);
 			}
 		}

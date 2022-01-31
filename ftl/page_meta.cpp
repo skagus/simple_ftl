@@ -150,9 +150,9 @@ void META_SetOpen(OpenType eType, uint16 nBN)
 	gstMeta.astBI[nBN].eState = BS_Open;
 }
 
-void META_Close(uint16 nBN)
+void META_SetBlkState(uint16 nBN, BlkState eState)
 {
-	gstMeta.astBI[nBN].eState = BS_Closed;
+	gstMeta.astBI[nBN].eState = eState;
 }
 
 void META_Update(uint32 nLPN, VAddr stNew)

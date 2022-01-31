@@ -12,11 +12,20 @@ static_assert(NUM_LOG_BLK > 1);
 
 union VAddr
 {
+	VAddr() {}
+	VAddr(uint32 nDie, uint32 nBN, uint32 nWL)
+	{
+		this->nDW = 0;
+		this->nDie = nDie;
+		this->nBN = nBN;
+		this->nWL = nWL;
+	}
 	struct
 	{
 		uint32 nDie : 2;
 		uint32 nBN : 10;
 		uint32 nWL : 15;
+		uint32 nDummy : 5;
 	};
 	uint32 nDW;
 };

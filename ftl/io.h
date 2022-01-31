@@ -7,6 +7,7 @@ enum CbKey
 	IOCB_User,
 	IOCB_Meta,
 	IOCB_Mig,
+	IOCB_UErs,
 	NUM_IOCB,
 };
 

@@ -66,16 +66,16 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	ReqInfo* pReq = pRun->pReq;
 	uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
 	pRun->nDone++;
-
+#if 0
 	if (NC_READ == eCmd)
 	{
-		PRINTF("[REQ] Read: LPN:%X == %X\n", pReq->nLPN, *pnVal);
+		PRINTF("[R] LPN:%X == %X\n", pReq->nLPN, *pnVal);
 	}
 	else
 	{
-		PRINTF("[REQ] Write: LPN:%X (%X)\n", pReq->nLPN, *pnVal);
+		PRINTF("[W] LPN:%X (%X)\n", pReq->nLPN, *pnVal);
 	}
-
+#endif
 	if (MARK_ERS != *pnVal)
 	{
 		assert(pReq->nLPN == *pnVal);
@@ -126,6 +126,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		IO_Program(pCmd, pDst->nBN, pDst->nCWO, nBuf, P2L_MARK);
 		pDst->nCWO++;
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME); ///< Wait P2L program done.
+		bRet = true;
 	}
 	else
 	{
@@ -133,9 +134,22 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
 		IO_Program(pCmd, pDst->nBN, pDst->nCWO, pReq->nBuf, pCtx->nTag);
+
+		VAddr stVA(0, pDst->nBN, pDst->nCWO);
+		META_Update(pReq->nLPN, stVA);
 		pDst->anP2L[pDst->nCWO] = pReq->nLPN;
+		PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->nBN, pDst->nCWO);
+
 		pDst->nCWO++;
-		bRet = true;
+		// Next pgm will follow.
+		if (pDst->nCWO != NUM_WL - 1)
+		{
+			bRet = true;
+		}
+		else
+		{
+			Sched_Yield();
+		}
 	}
 	return bRet;
 }
@@ -197,8 +211,6 @@ void req_Run(void* pParam)
 				Sched_Wait(BIT(EVT_USER_CMD), LONG_TIME);
 				break;
 			}
-			PRINTF("[REQ] Req Rcv\n");
-
 			pCtx->nCurSlot = gstReqInfoPool.PopHead();
 			RunInfo* pRun = gaIssued + pCtx->nCurSlot;
 			pRun->pReq = gstReqQ.PopHead();
@@ -293,17 +305,11 @@ void reqResp_Run(void* pParam)
 		{
 			if (P2L_MARK == pCmd->nTag)
 			{
-				META_Close(pCmd->anBBN[0]);
+				META_SetBlkState(pCmd->anBBN[0], BS_Closed);
 				BM_Free(pCmd->stPgm.anBufId[0]);
 			}
 			else
 			{
-				VAddr stVA;
-				stVA.nDW = 0;
-				stVA.nBN = pCmd->anBBN[0];
-				stVA.nWL = pCmd->nWL;
-				uint32* pnVal = (uint32*)BM_GetSpare(pCmd->stPgm.anBufId[0]);
-				META_Update(*pnVal, stVA);
 				req_Done(pCmd->eCmd, pCmd->nTag);
 			}
 		}
