@@ -8,7 +8,8 @@
 
 #define PRINTF			SIM_Print
 uint16 gbmGcReq;
-
+bool gbVictimChanged;
+VAddr gstChanged;
 /**
 * GC move는 
 */
@@ -25,9 +26,6 @@ struct GcCtx
 	GcState eState;
 	uint16 nReqLBN;		///< Requested BN.
 	uint16 nDstBN;		///< Orignally Free block.
-
-	uint32 nMtAge;		///< Meta저장 확인용 Age값.
-	uint32 nSeqNo;
 };
 
 
@@ -69,6 +67,8 @@ bool gc_Erase(GcErsCtx* pCtx, bool b1st)
 	return bRet;
 }
 
+#define MAX_GC_READ		(2)
+
 struct GcMoveCtx
 {
 	uint16 nDstBN;	// Input.
@@ -83,6 +83,9 @@ struct GcMoveCtx
 	uint8 nReadRun;
 	uint8 nPgmRun;
 	uint16 nDataRead; // Total data read: to check read end.
+
+	uint8 nRdSlot;
+	CmdInfo* apReadRun[MAX_GC_READ];
 };
 
 /**
@@ -97,15 +100,20 @@ struct GcMoveCtx
 * 
 * 추후 2안으로 수정할 것.
 */
-uint16 gc_GetNextRead(uint16 nCur, uint32* aLPN)
+uint16 gc_GetNextRead(uint16 nCurBN, uint16 nCurPage, uint32* aLPN)
 {
-	while (nCur < NUM_WL)
+	while (nCurPage < NUM_WL)
 	{
-		if (FF32 != aLPN[nCur])
+		uint32 nLPN = aLPN[nCurPage];
+		if (nLPN < NUM_LPN)
 		{
-			return nCur;
+			VAddr stAddr = META_GetMap(nLPN);
+			if ((stAddr.nBN == nCurBN) && (stAddr.nWL == nCurPage))
+			{
+				return nCurPage;
+			}
 		}
-		nCur++;
+		nCurPage++;
 	}
 	return FF16;
 }
@@ -121,14 +129,22 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
 	uint16 nBuf = pDone->stRead.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-	uint16 nLPO = pDone->nTag;
 	PRINTF("[GCR] {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
 	assert(*pSpare == pCtx->aSrcLPN[pDone->nWL]);
 
-	if (pCtx->nSrcBN == META_GetMap(*pSpare).nBN)
+	uint32 nIdx = GET_INDEX(pDone->nTag);
+	assert(pCtx->apReadRun[nIdx] == pDone);
+	pCtx->apReadRun[nIdx] = nullptr;
+
+	bool bUnchanged = (0 == GET_CHECK(pDone->nTag));
+	if (NOT(bUnchanged))
+	{
+		bUnchanged = (pCtx->nSrcBN == META_GetMap(*pSpare).nBN);
+	}
+	if (bUnchanged)
 	{
 		CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-		IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, nLPO);
+		IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, *pSpare);
 		// User Data.
 		if ((*pSpare & 0xF) == pDone->nTag)
 		{
@@ -136,7 +152,7 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 			assert((*pMain & 0xF) == pDone->nTag);
 		}
 		VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
-		META_Update(*pSpare, stAddr);
+		META_Update(*pSpare, stAddr, OPEN_GC);
 		pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
 		PRINTF("[GCW] {%X, %X}, LPN:%X\n", pCtx->nDstBN, pCtx->nDstWL, *pSpare);
 
@@ -157,12 +173,12 @@ void gc_HandleReadP2L(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-	PRINTF("[GC] P2L read from {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
+	assert(*pSpare == P2L_MARK);
+	PRINTF("[GC] P2L read from {%X, %X}\n", pDone->anBBN[0], pDone->nWL, *pSpare);
 	uint32* pMain = (uint32*)BM_GetMain(nBuf);
 	uint32 nSize = sizeof(pCtx->aSrcLPN);
 	memcpy(pCtx->aSrcLPN, pMain, nSize);
 	dbg_MapIntegrity();
-	META_FilterP2L(pCtx->nSrcBN, pCtx->aSrcLPN);
 	BM_Free(nBuf);
 	pCtx->bReadReady = true;
 }
@@ -189,10 +205,22 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		pCtx->nPgmRun = 0;
 		pCtx->nDataRead = 0;
 		pCtx->bReadReady = false;
-
+		pCtx->nRdSlot = 0;
+		MEMSET_ARRAY(pCtx->apReadRun, 0x0);
 		PRINTF("[GC] Start Move to %X\n", pCtx->nDstBN);
 	}
-
+	if (gbVictimChanged)
+	{
+		for (uint32 nIdx = 0; nIdx < MAX_GC_READ; nIdx++)
+		{
+			CmdInfo* pCmd = pCtx->apReadRun[nIdx];
+			if ((nullptr != pCmd) && (pCmd->nWL == gstChanged.nWL))
+			{
+				SET_CHECK(pCmd->nTag);
+			}
+		}
+		gbVictimChanged = false;
+	}
 	////////////// Process done command. ///////////////
 	CmdInfo* pDone;
 	while (pDone = IO_GetDone(IOCB_Mig))
@@ -242,7 +270,7 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		pCtx->nDstWL++;
 		pCtx->nPgmRun++;
 	}
-	else if((pCtx->nReadRun < 2) && (pCtx->nDataRead < (NUM_WL - 1)))
+	else if((pCtx->nReadRun < MAX_GC_READ) && (pCtx->nDataRead < (NUM_WL - 1)))
 	{
 		if (FF16 == pCtx->nSrcBN) // Load P2L map
 		{
@@ -253,16 +281,18 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		}
 		else if(true == pCtx->bReadReady)
 		{
-			uint16 nReadWL = gc_GetNextRead(pCtx->nSrcWL, pCtx->aSrcLPN);
-			if (FF16 != nReadWL)
+			uint16 nReadWL = gc_GetNextRead(pCtx->nSrcBN, pCtx->nSrcWL, pCtx->aSrcLPN);
+			if (FF16 != nReadWL) // Issue Read.
 			{
 				uint16 nBuf4Copy = BM_Alloc();
 				CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
 				PRINTF("[GC] RD:{%X,%X}\n", pCtx->nSrcBN, nReadWL);
-				IO_Read(pCmd, pCtx->nSrcBN, nReadWL, nBuf4Copy, nReadWL);
+				IO_Read(pCmd, pCtx->nSrcBN, nReadWL, nBuf4Copy, pCtx->nRdSlot);
 				pCtx->nSrcWL = nReadWL + 1;
 				pCtx->nReadRun++;
 				pCtx->nDataRead++;
+				pCtx->apReadRun[pCtx->nRdSlot] = pCmd;
+				pCtx->nRdSlot = (pCtx->nRdSlot + 1) % MAX_GC_READ;
 			}
 			else if ((0 == pCtx->nReadRun) && (0 == pCtx->nPgmRun))
 			{// After all program done related to read.(SPO safe)
@@ -348,6 +378,12 @@ void gc_Run(void* pParam)
 			break;
 		}
 	}
+}
+
+void GC_VictimUpdate(VAddr stOld)
+{
+	gbVictimChanged = true;
+	gstChanged = stOld;
 }
 
 uint16 GC_ReqFree(OpenType eType)

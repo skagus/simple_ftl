@@ -48,7 +48,7 @@ enum BlkState
 struct OpenBlk
 {
 	uint16 nBN;		///< Block Number.
-	uint16 nCWO;	// Clean WL.
+	uint32 nNextPage;	// Clean WL.
 	uint32 anP2L[NUM_WL];
 };
 
@@ -56,6 +56,7 @@ struct BlkInfo
 {
 	BlkState eState;
 	uint16 nVPC;
+	uint32 nAge;
 };
 
 struct Meta

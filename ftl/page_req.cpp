@@ -101,7 +101,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 	uint32 nLPN = pReq->nLPN;
 	bool bRet = false;
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
-	if (nullptr == pDst || pDst->nCWO >= NUM_WL)
+	if (nullptr == pDst || pDst->nNextPage >= NUM_WL)
 	{
 		uint16 nNewOpen = GC_ReqFree(OPEN_USER);
 		if (FF16 != nNewOpen)
@@ -115,7 +115,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 		}
 	}
-	else if (pDst->nCWO == NUM_WL - 1)// P2L program in Last P2L.
+	else if (pDst->nNextPage == NUM_WL - 1)// P2L program in Last P2L.
 	{
 		uint16 nBuf = BM_Alloc();
 		*(uint32*)BM_GetSpare(nBuf) = P2L_MARK;
@@ -123,8 +123,8 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		assert(sizeof(pDst->anP2L) <= BYTE_PER_PPG);
 		memcpy(pMain, pDst->anP2L, sizeof(pDst->anP2L));
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
-		IO_Program(pCmd, pDst->nBN, pDst->nCWO, nBuf, P2L_MARK);
-		pDst->nCWO++;
+		IO_Program(pCmd, pDst->nBN, pDst->nNextPage, nBuf, P2L_MARK);
+		pDst->nNextPage++;
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME); ///< Wait P2L program done.
 		bRet = true;
 	}
@@ -133,16 +133,16 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
 		assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
-		IO_Program(pCmd, pDst->nBN, pDst->nCWO, pReq->nBuf, pCtx->nTag);
+		IO_Program(pCmd, pDst->nBN, pDst->nNextPage, pReq->nBuf, pCtx->nTag);
 
-		VAddr stVA(0, pDst->nBN, pDst->nCWO);
-		META_Update(pReq->nLPN, stVA);
-		pDst->anP2L[pDst->nCWO] = pReq->nLPN;
-		PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->nBN, pDst->nCWO);
+		VAddr stVA(0, pDst->nBN, pDst->nNextPage);
+		META_Update(pReq->nLPN, stVA, OPEN_USER);
+		pDst->anP2L[pDst->nNextPage] = pReq->nLPN;
+		PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->nBN, pDst->nNextPage);
 
-		pDst->nCWO++;
+		pDst->nNextPage++;
 		// Next pgm will follow.
-		if (pDst->nCWO != NUM_WL - 1)
+		if (pDst->nNextPage != NUM_WL - 1)
 		{
 			bRet = true;
 		}
@@ -286,7 +286,7 @@ void req_Run(void* pParam)
 }
 
 /**
-* Error´Â response task¿¡¼­ Ã³¸®ÇÏµµ·Ï ÇÏÀÚ.
+* ErrorëŠ” response taskì—ì„œ ì²˜ë¦¬í•˜ë„ë¡ í•˜ì.
 */
 void reqResp_Run(void* pParam)
 {

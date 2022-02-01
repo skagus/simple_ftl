@@ -6,6 +6,7 @@
 #include "scheduler.h"
 #include "buf.h"
 #include "io.h"
+#include "page_gc.h"
 #include "page_meta.h"
 
 #define PRINTF			//	SIM_Print
@@ -146,7 +147,7 @@ void META_SetOpen(OpenType eType, uint16 nBN)
 {
 	OpenBlk* pOpen = gaOpen + eType;
 	pOpen->nBN = nBN;
-	pOpen->nCWO = 0;
+	pOpen->nNextPage = 0;
 	gstMeta.astBI[nBN].eState = BS_Open;
 }
 
@@ -155,7 +156,7 @@ void META_SetBlkState(uint16 nBN, BlkState eState)
 	gstMeta.astBI[nBN].eState = eState;
 }
 
-void META_Update(uint32 nLPN, VAddr stNew)
+void META_Update(uint32 nLPN, VAddr stNew, OpenType eOpen)
 {
 	if (nLPN < NUM_LPN)
 	{
@@ -164,6 +165,10 @@ void META_Update(uint32 nLPN, VAddr stNew)
 		if (FF32 != stOld.nDW)
 		{
 			gstMeta.astBI[stOld.nBN].nVPC--;
+			if ((OPEN_USER == eOpen) && (BS_Victim == gstMeta.astBI[stOld.nBN].eState))
+			{
+				GC_VictimUpdate(stOld);
+			}
 		}
 		if (FF32 != stNew.nDW)
 		{
@@ -793,7 +798,7 @@ static uint8 anContext[4096];		///< Stack like meta context.
 void META_Init()
 {
 	gaOpen[0].nBN = 0;
-	gaOpen[0].nCWO = 0;
+	gaOpen[0].nNextPage = 0;
 
 	gpMetaCtx = (MtCtx*)anContext;
 	MEMSET_ARRAY(gstMeta.astBI, 0);

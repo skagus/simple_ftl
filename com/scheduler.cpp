@@ -1,4 +1,3 @@
-
 #include <atomic>
 #include "types.h"
 #include "sim.h"

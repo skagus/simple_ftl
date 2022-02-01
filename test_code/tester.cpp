@@ -1,4 +1,3 @@
-
 #include "sim.h"
 #include "timer.h"
 #include "cpu.h"
