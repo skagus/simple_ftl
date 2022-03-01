@@ -51,7 +51,6 @@ enum FormatStep
 struct FormatCtx
 {
 	FormatStep eStep;
-	uint16 nBN;
 };
 
 bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
@@ -60,22 +59,18 @@ bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 
 	if (b1st)
 	{
-		pFmtCtx->nBN = 0;
 		pFmtCtx->eStep = FMT_Memset;
 	}
 	switch (pFmtCtx->eStep)
 	{
 		case FMT_Memset:
 		{
-			uint16 nBN = NUM_META_BLK;
 			for (uint16 nIdx = 0; nIdx < NUM_USER_BLK; nIdx++)
 			{
 				gstMeta.astBI[nIdx].eState = BS_Closed;
 				gstMeta.astBI[nIdx].nVPC = 0;
-				nBN++;
 			}
 			pFmtCtx->eStep = FMT_Done;
-			pFmtCtx->nBN = nBN;
 			bRet = true;
 			break;
 		}
