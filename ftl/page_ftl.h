@@ -42,6 +42,7 @@ enum BlkState
 	BS_Closed,
 	BS_Open,
 	BS_Victim,
+	BS_InFree,
 	NUM_BS,
 };
 
@@ -56,7 +57,7 @@ struct BlkInfo
 {
 	BlkState eState;
 	uint16 nVPC;
-	uint32 nAge;
+	uint16 nEC;
 };
 
 struct Meta

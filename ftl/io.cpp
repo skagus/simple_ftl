@@ -9,7 +9,7 @@
 #include "io.h"
 
 #define PRINTF			// SIM_Print
-#define NUM_NAND_CMD	(5)
+#define NUM_NAND_CMD	(8)
 
 CmdInfo gaCmds[NUM_NAND_CMD];
 CbKey gaKeys[NUM_NAND_CMD];

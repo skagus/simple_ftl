@@ -47,7 +47,7 @@ enum ReqStep
 {
 	RS_Init,
 	RS_Run,
-	RS_BlkWait,
+	RS_BlkErsWait,
 };
 
 struct ReqCtx
@@ -103,16 +103,36 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
 	if (nullptr == pDst || pDst->nNextPage >= NUM_WL)
 	{
-		uint16 nNewOpen = GC_ReqFree(OPEN_USER);
-		if (FF16 != nNewOpen)
+		if (RS_Init == pCtx->eStep)
 		{
-			META_SetOpen(OPEN_USER, nNewOpen);
-			Sched_Yield();
+			uint16 nBN = GC_ReqFree(OPEN_USER);
+			if (FF16 != nBN)
+			{
+				PRINTF("[REQ] Alloc Free: %X\n", nBN);
+				CmdInfo* pCmd = IO_Alloc(IOCB_UErs);
+				IO_Erase(pCmd, nBN, FF32);
+				pCtx->eStep = RS_BlkErsWait;
+				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_NEW_BLK), LONG_TIME);
+			}
 		}
 		else
 		{
-			// Wait erase done for new block.
-			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+			CmdInfo* pCmd = IO_GetDone(IOCB_UErs);
+			if (nullptr != pCmd)
+			{
+				META_SetOpen(OPEN_USER, pCmd->anBBN[0]);
+				IO_Free(pCmd);
+				pCtx->eStep = RS_Init;
+				Sched_Yield();
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+			}
 		}
 	}
 	else if (pDst->nNextPage == NUM_WL - 1)// P2L program in Last P2L.
@@ -166,6 +186,7 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 	uint32 nLPN = pReq->nLPN;
 
 	VAddr stAddr = META_GetMap(nLPN);
+	PRINTF("[R] %X: {%X,%X}\n", nLPN, stAddr.nBN, stAddr.nWL);
 	if (FF32 != stAddr.nDW)
 	{
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);

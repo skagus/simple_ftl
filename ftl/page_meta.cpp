@@ -144,6 +144,7 @@ void META_SetOpen(OpenType eType, uint16 nBN)
 	pOpen->nBN = nBN;
 	pOpen->nNextPage = 0;
 	gstMeta.astBI[nBN].eState = BS_Open;
+	gstMeta.astBI[nBN].nEC++;
 }
 
 void META_SetBlkState(uint16 nBN, BlkState eState)
@@ -793,7 +794,7 @@ static uint8 anContext[4096];		///< Stack like meta context.
 void META_Init()
 {
 	gaOpen[0].nBN = 0;
-	gaOpen[0].nNextPage = 0;
+	gaOpen[0].nNextPage = NUM_WL;	// Invalid user block.
 
 	gpMetaCtx = (MtCtx*)anContext;
 	MEMSET_ARRAY(gstMeta.astBI, 0);

@@ -6,7 +6,7 @@
 #define NUM_USER_BLK		(PBLK_PER_DIE - 7)
 #define LPN_PER_USER_BLK	(CHUNK_PER_PBLK)
 
-#define NUM_LPN		((NUM_USER_BLK - 3) * (LPN_PER_USER_BLK - 1))
+#define NUM_LPN				((NUM_USER_BLK - 5) * (LPN_PER_USER_BLK - 1))
 
 #define SIZE_REQ_QUE		(16)
 #define INV_BN				(0xFF)

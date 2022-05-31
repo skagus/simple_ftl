@@ -1,4 +1,5 @@
 
+#include "templ.h"
 #include "cpu.h"
 #include "scheduler.h"
 #include "buf.h"
@@ -7,9 +8,13 @@
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
+#define SIZE_FREE_POOL	(3)
+#define GC_TRIG_BLK_CNT	(2)
+
 uint16 gbmGcReq;
 bool gbVictimChanged;
 VAddr gstChanged;
+Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 /**
 * GC move는 
 */
@@ -313,6 +318,24 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 	return bRet;
 }
 
+uint8 gc_ScanFree()
+{
+	uint16 nFree;
+	while (gstFreePool.Count() < SIZE_FREE_POOL)
+	{
+		BlkInfo* pstBI = META_GetFree(&nFree, true);
+		if (nullptr != pstBI)
+		{
+			gstFreePool.PushTail(nFree);
+			pstBI->eState = BS_InFree;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return gstFreePool.Count();
+}
 
 void gc_Run(void* pParam)
 {
@@ -322,7 +345,12 @@ void gc_Run(void* pParam)
 	{
 		case GS_WaitReq:
 		{
-			if (0 != gbmGcReq)
+			uint8 nFree = gstFreePool.Count();
+			if(nFree < SIZE_FREE_POOL)
+			{
+				nFree = gc_ScanFree();
+			}
+			if (nFree <= GC_TRIG_BLK_CNT)
 			{
 				pCtx->eState = GS_GetDst;
 				Sched_Yield();
@@ -335,20 +363,14 @@ void gc_Run(void* pParam)
 		}
 		case GS_GetDst:
 		{
-			uint16 nFree;
-			if (nullptr != META_GetFree(&nFree, true))
-			{
-				META_SetOpen(OPEN_GC, nFree);
-				pCtx->nDstBN = nFree;
-				pCtx->eState = GS_ErsDst;
-				GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
-				pChild->nBN = nFree;
-				gc_Erase(pChild, true);
-			}
-			else
-			{
-				Sched_Yield();	// 여기서 기다린다고 뭐가 되나??
-			}
+			uint16 nFree = gstFreePool.PopHead();
+			ASSERT(FF16 != nFree);
+			META_SetOpen(OPEN_GC, nFree);
+			pCtx->nDstBN = nFree;
+			pCtx->eState = GS_ErsDst;
+			GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
+			pChild->nBN = nFree;
+			gc_Erase(pChild, true);
 			break;
 		}
 		case GS_ErsDst:
@@ -388,44 +410,13 @@ void GC_VictimUpdate(VAddr stOld)
 
 uint16 GC_ReqFree(OpenType eType)
 {
-	static uint16 nNewFree = FF16;
-	PRINTF("[GC] Request Free Blk: %X\n", eType);
-	if (OPEN_GC == eType)
+	if (gstFreePool.Count() <= 2)
 	{
-		uint16 nBN;
-		BlkInfo* pBI = META_GetFree(&nBN, true);
-		assert(nullptr != pBI);
-		return nBN;
+		Sched_TrigSyncEvt(BIT(EVT_BLK_REQ));
 	}
-	else
+	if(gstFreePool.Count() > 1)
 	{
-		if (FF16 != nNewFree)
-		{
-			CmdInfo* pCmd = IO_GetDone(IOCB_UErs);
-			if (nullptr != pCmd)
-			{
-				uint16 nBN = nNewFree;
-				nNewFree = FF16;
-				IO_Free(pCmd);
-				return nBN;
-			}
-		}
-		else
-		{
-			uint16 nBN;
-			BlkInfo* pBI = META_GetFree(&nBN, false);
-			if (nullptr == pBI)
-			{
-				gbmGcReq |= BIT(eType);
-				Sched_TrigSyncEvt(BIT(EVT_BLK_REQ));
-			}
-			else
-			{
-				nNewFree = nBN;
-				CmdInfo* pCmd = IO_Alloc(IOCB_UErs);
-				IO_Erase(pCmd, nBN, FF32);
-			}
-		}
+		return gstFreePool.PopHead();
 	}
 	return FF16;
 }
