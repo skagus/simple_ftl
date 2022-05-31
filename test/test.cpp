@@ -177,7 +177,8 @@ void TEST_Main(void* pParam)
 		gaDict = new uint32[nNumUserLPN];
 		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
 	}
-	while (true)
+
+	for(uint32 nLoop = 0; nLoop < 10; nLoop++)
 	{
 		if (0 == (SIM_GetCycle() % 10))
 		{

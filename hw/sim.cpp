@@ -125,9 +125,7 @@ void SIM_PowerDown()
 
 void SIM_Run()
 {
-	uint32 nCnt = 10;
-
-	while (nCnt-- > 0)
+	while (true)
 	{
 		sim_PowerUp();
 		SIM_Print("[SIM] ============== Power up %d =================\n", gnCycle);

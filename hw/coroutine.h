@@ -4,7 +4,7 @@
 #define CO_FIBER		1
 #define CO_SETJMP		2
 
-#define OPT_CO			(CO_SETJMP)		///< Selection between coroutine type.
+#define OPT_CO			(CO_FIBER)		///< Selection between coroutine type.
 
 #define MAX_ROUTINE			(4)
 
