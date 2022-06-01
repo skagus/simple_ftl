@@ -6,7 +6,7 @@
 #include "page_ftl.h"
 
 void META_Init();
-void META_ReqSave();	// Age return.
+uint32 META_ReqSave();	// Age return.
 uint32 META_GetAge();
 
 void META_SetOpen(OpenType eType, uint16 nBN);

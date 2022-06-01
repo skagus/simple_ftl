@@ -48,12 +48,15 @@ enum ReqStep
 	RS_Init,
 	RS_Run,
 	RS_BlkErsWait,
+	RS_MetaWait,
 };
 
 struct ReqCtx
 {
 	ReqStep eStep;
 	ReqInfo* pReq;	// input.
+	uint32 nWaitAge; ///< Meta save check.
+	uint16 nNextBlk;
 	uint32 nTag;
 	uint16 nIssued;
 	uint16 nDone;
@@ -112,6 +115,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 				CmdInfo* pCmd = IO_Alloc(IOCB_UErs);
 				IO_Erase(pCmd, nBN, FF32);
 				pCtx->eStep = RS_BlkErsWait;
+				pCtx->nNextBlk = nBN;
 				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 			}
 			else
@@ -119,19 +123,33 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 				Sched_Wait(BIT(EVT_NEW_BLK), LONG_TIME);
 			}
 		}
-		else
+		else if (RS_BlkErsWait == pCtx->eStep)
 		{
 			CmdInfo* pCmd = IO_GetDone(IOCB_UErs);
 			if (nullptr != pCmd)
 			{
-				META_SetOpen(OPEN_USER, pCmd->anBBN[0]);
 				IO_Free(pCmd);
+				pCtx->eStep = RS_MetaWait;
+				pCtx->nWaitAge = META_ReqSave();
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+			}
+		}
+		else
+		{
+			ASSERT(RS_MetaWait == pCtx->eStep);
+			if (META_GetAge() > pCtx->nWaitAge)
+			{
+				META_SetOpen(OPEN_USER, pCtx->nNextBlk);
 				pCtx->eStep = RS_Init;
 				Sched_Yield();
 			}
 			else
 			{
-				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
 			}
 		}
 	}

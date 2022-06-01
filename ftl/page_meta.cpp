@@ -17,6 +17,75 @@ Meta gstMeta;
 bool gbRequest;
 OpenBlk gaOpen[NUM_OPEN];
 
+enum MtSaveStep
+{
+	MS_Erase,
+	MS_Program,
+	MS_Done,
+};
+
+struct MtSaveCtx
+{
+	MtSaveStep eStep;
+	uint8 nIssue;
+	uint8 nDone;
+};
+
+
+enum JnlType
+{
+	JT_UserW,
+	JT_GcW,
+	JT_ERB,
+};
+
+union Jnl
+{
+	struct
+	{
+		uint32 eJType : 2;
+		uint32 nValue : 30;
+	} Com;
+	struct
+	{
+		uint32 eJType : 2;		// JT_GC, JT_User
+		uint32 nWL : 10;
+		uint32 nLPN : 20;
+	} Wrt;
+	struct
+	{
+		uint32 eJType : 2;	// JT_ERB
+		uint32 eOpenType : 1;
+		uint32 nBN : 29;
+	} Erb;
+};
+
+#define MAX_JNL_ENTRY		(30)
+struct JnlSet
+{
+	uint32 nCnt;	///< Valid count or Jnl.
+	uint16 anActBlk[NUM_OPEN];
+	Jnl aJnl[MAX_JNL_ENTRY];
+public:
+	bool AddWrite(OpenType eOpen, uint16 nWL, uint32 nLPN)
+	{
+		aJnl[nCnt].Wrt.eJType = (OPEN_GC == eOpen) ? JT_GcW : JT_UserW;
+		aJnl[nCnt].Wrt.nWL = nWL;
+		aJnl[nCnt].Wrt.nLPN = nLPN;
+		nCnt++;
+		return (MAX_JNL_ENTRY == nCnt);
+	}
+	bool AddErase(OpenType eOpen, uint16 nBN)
+	{
+		aJnl[nCnt].Erb.eJType = JT_ERB;
+		aJnl[nCnt].Erb.eOpenType = eOpen;
+		aJnl[nCnt].Erb.nBN = nBN;
+		nCnt++;
+		return (MAX_JNL_ENTRY == nCnt);
+	}
+};
+
+
 struct MetaCtx
 {
 	uint16 nCurBO;
@@ -24,8 +93,6 @@ struct MetaCtx
 	uint16 nNextWL;
 	uint32 nAge;
 };
-
-MetaCtx gstMetaCtx;
 
 enum MtStep
 {
@@ -40,6 +107,13 @@ struct MtCtx
 	MtStep eStep;
 };
 MtCtx* gpMetaCtx;
+MetaCtx gstMetaCtx;
+JnlSet gstJnlSet;
+
+uint16 meta_MtBlk2PBN(uint16 nMetaBN)
+{
+	return nMetaBN + BASE_META_BLK;
+}
 
 enum FormatStep
 {
@@ -47,17 +121,10 @@ enum FormatStep
 	FMT_Save,
 	FMT_Done,
 };
-
 struct FormatCtx
 {
 	FormatStep eStep;
 };
-
-uint16 meta_MtBlk2PBN(uint16 nMetaBN)
-{
-	return nMetaBN + BASE_META_BLK;
-}
-
 bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 {
 	bool bRet = false;
@@ -77,6 +144,9 @@ bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 			}
 			pFmtCtx->eStep = FMT_Done;
 			bRet = true;
+			gstMetaCtx.nNextWL = 0;
+			gstMetaCtx.nAge = 1;
+			gstMetaCtx.nCurBO = 0;
 			break;
 		}
 		case FMT_Save:
@@ -206,24 +276,12 @@ BlkInfo* META_GetMinVPC(uint16* pnBN)
 * Meta Open/Save sequence.
 ***************************************************************************/
 
+
 OpenBlk* META_GetOpen(OpenType eOpen)
 {
 	return gaOpen + eOpen;
 }
 
-enum MtSaveStep
-{
-	MS_Erase,
-	MS_Program,
-	MS_Done,
-};
-
-struct MtSaveCtx
-{
-	MtSaveStep eStep;
-	uint8 nIssue;
-	uint8 nDone;
-};
 
 bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 {
@@ -268,7 +326,6 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 					{
 						gstMetaCtx.nCurBO = 0;
 					}
-					gstMetaCtx.nCurBN = meta_MtBlk2PBN(gstMetaCtx.nCurBO);
 				}
 				pCtx->eStep = MS_Done;
 				bRet = true;
@@ -283,7 +340,8 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 	{
 		if (0 == pCtx->nIssue)
 		{
-			PRINTF("[MT] ERS %X\n", gstMetaCtx.nCurBN);
+			gstMetaCtx.nCurBN = meta_MtBlk2PBN(gstMetaCtx.nCurBO);
+			PRINTF("[MT] ERS BO:%X, BN:%X\n", gstMetaCtx.nCurBO, gstMetaCtx.nCurBN);
 			pCmd = IO_Alloc(IOCB_Meta);
 			IO_Erase(pCmd, gstMetaCtx.nCurBN, 0);
 			pCtx->nIssue++;
@@ -785,10 +843,11 @@ uint32 META_GetAge()
 	return gstMetaCtx.nAge;
 }
 
-void META_ReqSave()
+uint32 META_ReqSave()
 {
 	gbRequest = true;
 	Sched_TrigSyncEvt(BIT(EVT_META));
+	return gstMetaCtx.nAge;
 }
 
 static uint8 anContext[4096];		///< Stack like meta context.

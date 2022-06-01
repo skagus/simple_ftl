@@ -235,7 +235,7 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 			gc_HandlePgm(pDone, pCtx);
 			pCtx->nPgmRun--;
 		}
-		else 
+		else
 		{
 			pCtx->nReadRun--;
 			if (FF32 == pDone->nTag) // Read P2L.
