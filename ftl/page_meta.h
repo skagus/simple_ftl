@@ -17,5 +17,4 @@ BlkInfo* META_GetMinVPC(uint16* pnBN);
 void META_SetBlkState(uint16 nBN, BlkState eState);
 
 bool META_Ready();
-void META_FilterP2L(uint16 nBN, uint32* aLPN);
 void META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen);

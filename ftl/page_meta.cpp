@@ -9,18 +9,18 @@
 #include "page_gc.h"
 #include "page_meta.h"
 
-#define PRINTF			//	SIM_Print
+#define PRINTF			SIM_Print
 
 #define PAGE_PER_META	(4)
 
 Meta gstMeta;
 bool gbRequest;
-LRU<uint32, NUM_LOG_BLK> gLRU;
 OpenBlk gaOpen[NUM_OPEN];
 
 struct MetaCtx
 {
-	uint16 nCurBN;
+	uint16 nCurBO;
+	uint16 nCurBN; // == meta_MtBlk2PBN(nCurBO)
 	uint16 nNextWL;
 	uint32 nAge;
 };
@@ -52,6 +52,11 @@ struct FormatCtx
 {
 	FormatStep eStep;
 };
+
+uint16 meta_MtBlk2PBN(uint16 nMetaBN)
+{
+	return nMetaBN + BASE_META_BLK;
+}
 
 bool meta_Format(FormatCtx* pFmtCtx, bool b1st)
 {
@@ -107,7 +112,7 @@ void dbg_MapIntegrity()
 
 bool META_Ready()
 {
-	return gpMetaCtx->eStep == Mt_Ready;
+	return (gpMetaCtx->eStep == Mt_Ready);
 }
 
 VAddr META_GetMap(uint32 nLPN)
@@ -174,22 +179,6 @@ void META_Update(uint32 nLPN, VAddr stNew, OpenType eOpen)
 	dbg_MapIntegrity();
 }
 
-void META_FilterP2L(uint16 nBN, uint32* aLPN)
-{
-	for (uint32 nWL = 0; nWL < NUM_WL; nWL++)
-	{
-		uint32 nLPN = aLPN[nWL];
-		if (nLPN < NUM_LPN)
-		{
-			VAddr stAddr = gstMeta.astL2P[nLPN];
-			if ((stAddr.nBN != nBN) || (stAddr.nWL != nWL))
-			{
-				aLPN[nWL] = FF32;
-			}
-		}
-	}
-}
-
 
 BlkInfo* META_GetMinVPC(uint16* pnBN)
 {
@@ -213,7 +202,9 @@ BlkInfo* META_GetMinVPC(uint16* pnBN)
 	return gstMeta.astBI + nMinBlk;
 }
 
-/// ////////////////////////////////////
+/***************************************************************************
+* Meta Open/Save sequence.
+***************************************************************************/
 
 OpenBlk* META_GetOpen(OpenType eOpen)
 {
@@ -272,11 +263,12 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 				if (gstMetaCtx.nNextWL >= NUM_WL)
 				{
 					gstMetaCtx.nNextWL = 0;
-					gstMetaCtx.nCurBN++;
-					if (gstMetaCtx.nCurBN >= NUM_META_BLK)
+					gstMetaCtx.nCurBO++;
+					if (gstMetaCtx.nCurBO >= NUM_META_BLK)
 					{
-						gstMetaCtx.nCurBN = 0;
+						gstMetaCtx.nCurBO = 0;
 					}
+					gstMetaCtx.nCurBN = meta_MtBlk2PBN(gstMetaCtx.nCurBO);
 				}
 				pCtx->eStep = MS_Done;
 				bRet = true;
@@ -421,7 +413,8 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 // =================== Meta Page Scan ========================
 struct MtPageScanCtx
 {
-	uint16 nMaxBN;	// Input
+	uint16 nMaxBO;	// Input
+	uint16 nMaxBN;	// == meta_MtBlk2PBN(nMaxBO)
 	uint16 nCPO;	// Output.
 	uint16 nIssued;	// Internal.
 	uint16 nDone;	// Internal.
@@ -536,7 +529,7 @@ bool open_MtLoad(MtPageScanCtx* pCtx, bool b1st)
 // ========================== Meta Block Scan ====================================
 struct MtBlkScanCtx
 {
-	uint16 nMaxBN;	// for return.
+	uint16 nMaxBO;	// for return.
 	uint32 nMaxAge;
 	uint16 nIssued;
 	uint16 nDone;
@@ -547,7 +540,7 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 	bool bRet = false;
 	if (b1st)
 	{
-		pCtx->nMaxBN = INV_BN;
+		pCtx->nMaxBO = INV_BN;
 		pCtx->nIssued = 0;
 		pCtx->nDone = 0;
 		pCtx->nMaxAge = 0;
@@ -558,8 +551,9 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 	{
 		uint16 nBuf = BM_Alloc();
 		CmdInfo* pCmd;
+		uint16 nBN = meta_MtBlk2PBN(pCtx->nIssued);
 		pCmd = IO_Alloc(IOCB_Meta);
-		IO_Read(pCmd, pCtx->nIssued, 0, nBuf, pCtx->nIssued);
+		IO_Read(pCmd, nBN, 0, nBuf, pCtx->nIssued);
 		PRINTF("[OPEN] BlkScan Issue %X\n", pCtx->nIssued);
 		pCtx->nIssued++;
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
@@ -581,7 +575,7 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 		if ((*pnSpare > pCtx->nMaxAge) && (*pnSpare != MARK_ERS))
 		{
 			pCtx->nMaxAge = *pnSpare;
-			pCtx->nMaxBN = pDone->nTag;
+			pCtx->nMaxBO = pDone->nTag;
 		}
 		BM_Free(nBuf);
 		IO_Free(pDone);
@@ -589,9 +583,9 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 		if (NUM_META_BLK == pCtx->nDone)	// All done.
 		{
 			bRet = true;
-			if (INV_BN != pCtx->nMaxBN)
+			if (INV_BN != pCtx->nMaxBO)
 			{
-				PRINTF("[OPEN] BlkScan Latest BN: %X\n", pCtx->nMaxBN);
+				PRINTF("[OPEN] BlkScan Latest BN: %X\n", pCtx->nMaxBO);
 			}
 			else
 			{
@@ -616,7 +610,7 @@ enum MetaStep
 struct OpenCtx
 {
 	MetaStep eOpenStep;
-	uint16 nMaxBN;	// for return.
+	uint16 nMaxBO;	// for return.
 };
 
 bool meta_Open(OpenCtx* pCtx, bool b1st)
@@ -633,7 +627,7 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 		case Open_Init:
 		{
 			pCtx->eOpenStep = Open_BlkScan;
-			pCtx->nMaxBN = INV_BN;
+			pCtx->nMaxBO = INV_BN;
 			MtBlkScanCtx* pChildCtx = (MtBlkScanCtx*)(pCtx + 1);
 			bRet = open_BlkScan(pChildCtx, true);
 			break;
@@ -643,12 +637,12 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 			MtBlkScanCtx* pChildCtx = (MtBlkScanCtx*)(pCtx + 1);
 			if (open_BlkScan(pChildCtx, false))
 			{
-				pCtx->nMaxBN = pChildCtx->nMaxBN;
-				if (INV_BN != pCtx->nMaxBN)
+				pCtx->nMaxBO = pChildCtx->nMaxBO;
+				if (INV_BN != pCtx->nMaxBO)
 				{
 					pCtx->eOpenStep = Open_PageScan;
 					MtPageScanCtx* pNextChild = (MtPageScanCtx*)(pCtx + 1);
-					pNextChild->nMaxBN = pCtx->nMaxBN;
+					pNextChild->nMaxBN = meta_MtBlk2PBN(pCtx->nMaxBO);
 					bRet = open_PageScan(pNextChild, true);
 					assert(false == bRet);
 				}
@@ -666,12 +660,12 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 			{
 				if (pChildCtx->nCPO != NUM_WL)
 				{
-					gstMetaCtx.nCurBN = pChildCtx->nMaxBN;
+					gstMetaCtx.nCurBO = pChildCtx->nMaxBO;
 					gstMetaCtx.nNextWL = pChildCtx->nCPO;
 				}
 				else
 				{
-					gstMetaCtx.nCurBN = (pChildCtx->nMaxBN + 1) % NUM_META_BLK;
+					gstMetaCtx.nCurBO = (pChildCtx->nMaxBO + 1) % NUM_META_BLK;
 					gstMetaCtx.nNextWL = 0;
 				}
 				pCtx->eOpenStep = Open_MtLoad;
@@ -703,7 +697,6 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 void meta_Run(void* pParam)
 {
 	MtCtx* pCtx = (MtCtx*)pParam;
-
 	switch (pCtx->eStep)
 	{
 		case Mt_Init:
@@ -719,11 +712,19 @@ void meta_Run(void* pParam)
 			OpenCtx* pChildCtx = (OpenCtx*)(pCtx + 1);
 			if (meta_Open(pChildCtx, false))
 			{
-				if (INV_BN == pChildCtx->nMaxBN)
+				if (INV_BN == pChildCtx->nMaxBO)
 				{
 					FormatCtx* pNextCtx = (FormatCtx*)(pCtx + 1);
-					meta_Format(pNextCtx, true);
-					pCtx->eStep = Mt_Format;
+					if (meta_Format(pNextCtx, true))
+					{
+						pCtx->eStep = Mt_Ready;
+						Sched_TrigSyncEvt(BIT(EVT_OPEN));
+						Sched_Yield();
+					}
+					else
+					{
+						pCtx->eStep = Mt_Format;
+					}
 					Sched_Yield();
 				}
 				else
@@ -801,6 +802,6 @@ void META_Init()
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);
 	MEMSET_OBJ(gstMetaCtx, 0);
 	MEMSET_ARRAY(anContext, 0);
-//	Sched_Register(TID_META, meta_Run, anContext, BIT(MODE_NORMAL));
+	Sched_Register(TID_META, meta_Run, anContext, BIT(MODE_NORMAL));
 //	gLRU.Init();
 }

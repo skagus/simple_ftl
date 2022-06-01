@@ -11,7 +11,6 @@
 #define SIZE_FREE_POOL	(3)
 #define GC_TRIG_BLK_CNT	(2)
 
-uint16 gbmGcReq;
 bool gbVictimChanged;
 VAddr gstChanged;
 Queue<uint16, SIZE_FREE_POOL> gstFreePool;
@@ -20,6 +19,7 @@ Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 */
 enum GcState
 {
+	GS_WaitOpen,
 	GS_WaitReq,
 	GS_GetDst,	
 	GS_ErsDst,
@@ -343,6 +343,19 @@ void gc_Run(void* pParam)
 
 	switch (pCtx->eState)
 	{
+		case GS_WaitOpen:
+		{
+			if (NOT(META_Ready()))
+			{
+				Sched_Wait(BIT(EVT_BLK_REQ), LONG_TIME);
+			}
+			else
+			{
+				pCtx->eState = GS_WaitReq;
+				Sched_Yield();
+			}
+			break;
+		}
 		case GS_WaitReq:
 		{
 			uint8 nFree = gstFreePool.Count();
@@ -357,6 +370,7 @@ void gc_Run(void* pParam)
 			}
 			else
 			{
+				Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
 				Sched_Wait(BIT(EVT_BLK_REQ), LONG_TIME);
 			}
 			break;
@@ -392,7 +406,6 @@ void gc_Run(void* pParam)
 			if (gc_Move(pMoveCtx, false))
 			{
 				META_SetBlkState(pMoveCtx->nDstBN, BS_Closed);
-				gbmGcReq = 0;
 				Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
 				pCtx->eState = GS_WaitReq;
 				Sched_Yield();
@@ -425,8 +438,7 @@ static uint8 anContext[4096];		///< Stack like meta context.
 
 void GC_Init()
 {
-	gbmGcReq = 0;
-	GcCtx* pCtx = (GcCtx*)anContext;
-	MEMSET_PTR(pCtx, 0);
+	MEMSET_ARRAY(anContext, 0);
+	gstFreePool.Init();
 	Sched_Register(TID_GC, gc_Run, anContext, BIT(MODE_NORMAL));
 }

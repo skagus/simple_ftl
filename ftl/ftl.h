@@ -3,7 +3,11 @@
 #include "types.h"
 #include "config.h"
 
-#define NUM_USER_BLK		(PBLK_PER_DIE - 7)
+#define NUM_META_BLK		(7)
+#define NUM_USER_BLK		(PBLK_PER_DIE - NUM_META_BLK)
+
+#define BASE_META_BLK		(NUM_USER_BLK)
+
 #define LPN_PER_USER_BLK	(CHUNK_PER_PBLK)
 
 #define NUM_LPN				((NUM_USER_BLK - 5) * (LPN_PER_USER_BLK - 1))

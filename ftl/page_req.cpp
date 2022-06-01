@@ -200,19 +200,19 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 	return true;
 }
 
+ReqRunCtx* gpDbgReqRunCtx;	// for Debug.
+ReqCtx* gpDbgReqCtx;
 
 void req_Run(void* pParam)
 {
 	ReqRunCtx*  pCtx = (ReqRunCtx*)pParam;
-
 	switch (pCtx->eState)
 	{
 		case RS_WaitOpen:
 		{
-#if 1
-			pCtx->eState = RS_WaitUser;
-			Sched_Yield();
-#else
+			gpDbgReqRunCtx = pCtx;
+			gpDbgReqCtx = (ReqCtx*)(pCtx + 1);
+
 			if (META_Ready())
 			{
 				pCtx->eState = RS_WaitUser;
@@ -222,7 +222,6 @@ void req_Run(void* pParam)
 			{
 				Sched_Wait(BIT(EVT_OPEN), LONG_TIME);
 			}
-#endif
 			break;
 		}
 		case RS_WaitUser:
