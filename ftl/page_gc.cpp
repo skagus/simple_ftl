@@ -78,13 +78,16 @@ struct GcMoveCtx
 {
 	uint16 nDstBN;	// Input.
 	uint16 nDstWL;
+#if (EN_P2L_IN_DATA == 1)
 	uint32 aDstLPN[NUM_WL];
+#endif
 
 	uint16 nSrcBN;	// Block map PBN.
 	uint16 nSrcWL;
+#if (EN_P2L_IN_DATA == 1)
 	uint32 aSrcLPN[NUM_WL];
-
 	bool bReadReady;
+#endif
 	uint8 nReadRun;
 	uint8 nPgmRun;
 	uint16 nDataRead; // Total data read: to check read end.
@@ -107,6 +110,12 @@ struct GcMoveCtx
 */
 uint16 gc_GetNextRead(uint16 nCurBN, uint16 nCurPage, uint32* aLPN)
 {
+#if (EN_P2L_IN_DATA == 0)
+	if (nCurPage < NUM_DATA_PAGE)
+	{
+		return nCurPage;
+	}
+#else
 	while (nCurPage < NUM_WL)
 	{
 		uint32 nLPN = aLPN[nCurPage];
@@ -120,6 +129,7 @@ uint16 gc_GetNextRead(uint16 nCurBN, uint16 nCurPage, uint32* aLPN)
 		}
 		nCurPage++;
 	}
+#endif
 	return FF16;
 }
 
@@ -135,18 +145,26 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 	uint16 nBuf = pDone->stRead.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
 	PRINTF("[GCR] {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
+#if (EN_P2L_IN_DATA == 1)
 	assert(*pSpare == pCtx->aSrcLPN[pDone->nWL]);
+#endif
 
 	uint32 nIdx = GET_INDEX(pDone->nTag);
 	assert(pCtx->apReadRun[nIdx] == pDone);
 	pCtx->apReadRun[nIdx] = nullptr;
 
+#if (EN_P2L_IN_DATA == 0)
+	VAddr stOld = META_GetMap(*pSpare);
+	if((pCtx->nSrcBN == stOld.nBN) // Valide.
+		&&(pDone->nWL == stOld.nWL))
+#else
 	bool bUnchanged = (0 == GET_CHECK(pDone->nTag));
 	if (NOT(bUnchanged))
 	{
 		bUnchanged = (pCtx->nSrcBN == META_GetMap(*pSpare).nBN);
 	}
 	if (bUnchanged)
+#endif
 	{
 		CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
 		IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, *pSpare);
@@ -158,7 +176,9 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 		}
 		VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
 		META_Update(*pSpare, stAddr, OPEN_GC);
+#if (EN_P2L_IN_DATA == 1)
 		pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
+#endif
 		PRINTF("[GCW] {%X, %X}, LPN:%X\n", pCtx->nDstBN, pCtx->nDstWL, *pSpare);
 
 		pCtx->nDstWL++;
@@ -174,6 +194,7 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 
 extern void dbg_MapIntegrity();
 
+#if (EN_P2L_IN_DATA == 1)
 void gc_HandleReadP2L(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
@@ -187,17 +208,20 @@ void gc_HandleReadP2L(CmdInfo* pDone, GcMoveCtx* pCtx)
 	BM_Free(nBuf);
 	pCtx->bReadReady = true;
 }
+#endif
 
 void gc_SetupNewSrc(GcMoveCtx* pCtx)
 {
-	uint16 nBuf4Copy = BM_Alloc();
 	META_GetMinVPC(&pCtx->nSrcBN);
 	PRINTF("[GC] New Victim: %X\n", pCtx->nSrcBN);
 	META_SetBlkState(pCtx->nSrcBN, BS_Victim);
 	pCtx->nSrcWL = 0;
+#if (EN_P2L_IN_DATA == 1)
+	uint16 nBuf4Copy = BM_Alloc();
 	CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-	IO_Read(pCmd, pCtx->nSrcBN, NUM_WL - 1, nBuf4Copy, FF32);
+	IO_Read(pCmd, pCtx->nSrcBN, NUM_DATA_PAGE, nBuf4Copy, FF32);
 	pCtx->nReadRun++;
+#endif
 }
 
 bool gc_Move(GcMoveCtx* pCtx, bool b1st)
@@ -209,7 +233,9 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		pCtx->nReadRun = 0;
 		pCtx->nPgmRun = 0;
 		pCtx->nDataRead = 0;
+#if (EN_P2L_IN_DATA == 1)
 		pCtx->bReadReady = false;
+#endif
 		pCtx->nRdSlot = 0;
 		MEMSET_ARRAY(pCtx->apReadRun, 0x0);
 		PRINTF("[GC] Start Move to %X\n", pCtx->nDstBN);
@@ -238,11 +264,13 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		else
 		{
 			pCtx->nReadRun--;
+#if (EN_P2L_IN_DATA == 1)
 			if (FF32 == pDone->nTag) // Read P2L.
 			{
 				gc_HandleReadP2L(pDone, pCtx);
 			}
 			else
+#endif
 			{
 				gc_HandleRead(pDone, pCtx);
 			}
@@ -262,7 +290,8 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 			bRet = true;
 		}
 	}
-	else if ((NUM_WL - 1) == pCtx->nDstWL)
+#if (EN_P2L_IN_DATA == 1)
+	else if (NUM_DATA_PAGE == pCtx->nDstWL)
 	{
 		uint16 nBuf = BM_Alloc();
 		*(uint32*)BM_GetSpare(nBuf) = P2L_MARK;
@@ -275,18 +304,32 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		pCtx->nDstWL++;
 		pCtx->nPgmRun++;
 	}
-	else if((pCtx->nReadRun < MAX_GC_READ) && (pCtx->nDataRead < (NUM_WL - 1)))
+#endif
+	else if((pCtx->nReadRun < MAX_GC_READ) && (pCtx->nDataRead < NUM_DATA_PAGE))
 	{
-		if (FF16 == pCtx->nSrcBN) // Load P2L map
+		if (FF16 == pCtx->nSrcBN)
 		{
+#if (EN_P2L_IN_DATA == 1)
 			if ((false == pCtx->bReadReady) && (0 == pCtx->nReadRun))
+#else
+			if (0 == pCtx->nReadRun)
+#endif
 			{
 				gc_SetupNewSrc(pCtx);
+				Sched_Yield();
 			}
 		}
+#if (EN_P2L_IN_DATA == 1)
 		else if(true == pCtx->bReadReady)
+#else
+		else
+#endif
 		{
+#if (EN_P2L_IN_DATA == 1)
 			uint16 nReadWL = gc_GetNextRead(pCtx->nSrcBN, pCtx->nSrcWL, pCtx->aSrcLPN);
+#else
+			uint16 nReadWL = gc_GetNextRead(pCtx->nSrcBN, pCtx->nSrcWL, nullptr);
+#endif
 			if (FF16 != nReadWL) // Issue Read.
 			{
 				uint16 nBuf4Copy = BM_Alloc();
@@ -304,9 +347,11 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 				META_SetBlkState(pCtx->nSrcBN, BS_Closed);
 				PRINTF("[GC] Close victim: %X\n", pCtx->nSrcBN);
 				pCtx->nSrcBN = FF16;
+#if (EN_P2L_IN_DATA == 1)
 				pCtx->bReadReady = false;
+#endif
 				Sched_Yield();
-				return false;
+				ASSERT(false == bRet);	// return false;
 			}
 		}
 	}

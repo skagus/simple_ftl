@@ -72,17 +72,6 @@ uint32 SIM_GetCycle()
 	return gnCycle;
 }
 
-#define MAX_BUF_SIZE	(128)
-void SIM_Print(const char *szFormat, ...)
-{
-	va_list stAP;
-	char aBuf[MAX_BUF_SIZE];
-	va_start(stAP, szFormat);
-	vsprintf_s(aBuf, MAX_BUF_SIZE, szFormat, stAP);
-	va_end(stAP);
-	fprintf(stdout, "%8lld: %s", gnTick, aBuf);
-}
-
 /**
 * Check whether it can bypass tick & then bypass tick.
 * @return true if peek the tick.

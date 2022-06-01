@@ -154,8 +154,8 @@ void tc_StreamWrite(uint32 nMaxLPN)
 			stReq.nBuf = BM_Alloc();
 			_FillData(stReq.nBuf, stReq.nLPN);
 			gbDone = false;
-			FTL_Request(&stReq);
 			CMD_PRINTF("[TC] Write Req: %d\n", stReq.nLPN);
+			FTL_Request(&stReq);
 			CPU_TimePass(SIM_USEC(5));
 			while (false == gbDone)
 			{

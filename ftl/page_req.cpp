@@ -153,7 +153,8 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 			}
 		}
 	}
-	else if (pDst->nNextPage == NUM_WL - 1)// P2L program in Last P2L.
+#if (EN_P2L_IN_DATA == 1)
+	else if (pDst->nNextPage == NUM_DATA_PAGE)// P2L program in Last P2L.
 	{
 		uint16 nBuf = BM_Alloc();
 		*(uint32*)BM_GetSpare(nBuf) = P2L_MARK;
@@ -166,6 +167,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME); ///< Wait P2L program done.
 		bRet = true;
 	}
+#endif
 	else
 	{
 		*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
@@ -175,12 +177,11 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 
 		VAddr stVA(0, pDst->nBN, pDst->nNextPage);
 		META_Update(pReq->nLPN, stVA, OPEN_USER);
-		pDst->anP2L[pDst->nNextPage] = pReq->nLPN;
 		PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->nBN, pDst->nNextPage);
-
+#if (EN_P2L_IN_DATA == 1)
+		pDst->anP2L[pDst->nNextPage] = pReq->nLPN;
 		pDst->nNextPage++;
-		// Next pgm will follow.
-		if (pDst->nNextPage != NUM_WL - 1)
+		if (pDst->nNextPage != NUM_DATA_PAGE)
 		{
 			bRet = true;
 		}
@@ -188,6 +189,10 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		{
 			Sched_Yield();
 		}
+#else
+		pDst->nNextPage++;
+		bRet = true;
+#endif
 	}
 	return bRet;
 }
@@ -341,12 +346,19 @@ void reqResp_Run(void* pParam)
 		}
 		else
 		{
+#if (EN_P2L_IN_DATA == 1)
 			if (P2L_MARK == pCmd->nTag)
 			{
 				META_SetBlkState(pCmd->anBBN[0], BS_Closed);
 				BM_Free(pCmd->stPgm.anBufId[0]);
 			}
 			else
+#else
+			if (pCmd->nWL == (NUM_DATA_PAGE - 1))
+			{
+				META_SetBlkState(pCmd->anBBN[0], BS_Closed);
+			}
+#endif
 			{
 				req_Done(pCmd->eCmd, pCmd->nTag);
 			}
