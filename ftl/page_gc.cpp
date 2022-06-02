@@ -11,9 +11,7 @@
 #define SIZE_FREE_POOL	(3)
 #define GC_TRIG_BLK_CNT	(2)
 
-bool gbVictimChanged;
-VAddr gstChanged;
-Queue<uint16, SIZE_FREE_POOL> gstFreePool;
+
 /**
 * GC move는 
 */
@@ -24,6 +22,7 @@ enum GcState
 	GS_GetDst,	
 	GS_ErsDst,
 	GS_Move,
+	GS_Stop,	// Stop on shutdown.
 };
 
 struct GcCtx
@@ -33,12 +32,18 @@ struct GcCtx
 	uint16 nDstBN;		///< Orignally Free block.
 };
 
+GcCtx* gpGcCtx;
+bool gbVictimChanged;
+VAddr gstChanged;
+Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 
 struct GcErsCtx
 {
 	bool bIssued;
 	uint16 nBN;
 };
+
+
 
 bool gc_Erase(GcErsCtx* pCtx, bool b1st)
 {
@@ -457,6 +462,10 @@ void gc_Run(void* pParam)
 			}
 			break;
 		}
+		case GS_Stop:
+		{
+			break;
+		}
 	}
 }
 
@@ -479,11 +488,17 @@ uint16 GC_ReqFree(OpenType eType)
 	return FF16;
 }
 
+void GC_Stop()
+{
+	gpGcCtx->eState = GS_Stop;
+}
+
 static uint8 anContext[4096];		///< Stack like meta context.
 
 void GC_Init()
 {
 	MEMSET_ARRAY(anContext, 0);
 	gstFreePool.Init();
+	gpGcCtx = (GcCtx*)anContext;
 	Sched_Register(TID_GC, gc_Run, anContext, BIT(MODE_NORMAL));
 }

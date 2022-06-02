@@ -2,6 +2,7 @@
 #include "types.h"
 #include "config.h"
 #include "templ.h"
+#include "macro.h"
 #include "cpu.h"
 #include "scheduler.h"
 #include "buf.h"
@@ -12,6 +13,8 @@
 #define PRINTF			SIM_Print
 
 #define PAGE_PER_META	(4)
+
+static_assert(DIV_CEIL(sizeof(Meta), BYTE_PER_PPG) == PAGE_PER_META);
 
 Meta gstMeta;
 bool gbRequest;
@@ -27,64 +30,9 @@ enum MtSaveStep
 struct MtSaveCtx
 {
 	MtSaveStep eStep;
-	uint8 nIssue;
-	uint8 nDone;
+	uint8 nIssue;	///< count of issued NAND operation.
+	uint8 nDone;	///< count of done NAND operation.
 };
-
-
-enum JnlType
-{
-	JT_UserW,
-	JT_GcW,
-	JT_ERB,
-};
-
-union Jnl
-{
-	struct
-	{
-		uint32 eJType : 2;
-		uint32 nValue : 30;
-	} Com;
-	struct
-	{
-		uint32 eJType : 2;		// JT_GC, JT_User
-		uint32 nWL : 10;
-		uint32 nLPN : 20;
-	} Wrt;
-	struct
-	{
-		uint32 eJType : 2;	// JT_ERB
-		uint32 eOpenType : 1;
-		uint32 nBN : 29;
-	} Erb;
-};
-
-#define MAX_JNL_ENTRY		(30)
-struct JnlSet
-{
-	uint32 nCnt;	///< Valid count or Jnl.
-	uint16 anActBlk[NUM_OPEN];
-	Jnl aJnl[MAX_JNL_ENTRY];
-public:
-	bool AddWrite(OpenType eOpen, uint16 nWL, uint32 nLPN)
-	{
-		aJnl[nCnt].Wrt.eJType = (OPEN_GC == eOpen) ? JT_GcW : JT_UserW;
-		aJnl[nCnt].Wrt.nWL = nWL;
-		aJnl[nCnt].Wrt.nLPN = nLPN;
-		nCnt++;
-		return (MAX_JNL_ENTRY == nCnt);
-	}
-	bool AddErase(OpenType eOpen, uint16 nBN)
-	{
-		aJnl[nCnt].Erb.eJType = JT_ERB;
-		aJnl[nCnt].Erb.eOpenType = eOpen;
-		aJnl[nCnt].Erb.nBN = nBN;
-		nCnt++;
-		return (MAX_JNL_ENTRY == nCnt);
-	}
-};
-
 
 struct MetaCtx
 {
@@ -108,7 +56,6 @@ struct MtCtx
 };
 MtCtx* gpMetaCtx;
 MetaCtx gstMetaCtx;
-JnlSet gstJnlSet;
 
 uint16 meta_MtBlk2PBN(uint16 nMetaBN)
 {
@@ -287,6 +234,12 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 {
 	if (b1st)
 	{
+		// Backup scan point.
+		gstMeta.astOpen[OPEN_USER].nBN = gaOpen[OPEN_USER].nBN;
+		gstMeta.astOpen[OPEN_USER].nWL = gaOpen[OPEN_USER].nNextPage;
+		gstMeta.astOpen[OPEN_GC].nBN = gaOpen[OPEN_GC].nBN;
+		gstMeta.astOpen[OPEN_GC].nWL = gaOpen[OPEN_GC].nNextPage;
+
 		pCtx->nIssue = 0;
 		pCtx->nDone = 0;
 
@@ -351,18 +304,17 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 	{
 		if (PAGE_PER_META > pCtx->nIssue)
 		{
-			uint16 nWL = gstMetaCtx.nNextWL + pCtx->nIssue;
 			uint16 nBuf = BM_Alloc();
-			*(uint32*)BM_GetSpare(nBuf) = gstMetaCtx.nAge;
-			uint8* pMain = BM_GetMain(nBuf);
+			uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
+			pSpare[0] = gstMetaCtx.nAge;
+			pSpare[1] = MARK_META;
+			uint8* pDst = BM_GetMain(nBuf);
 			uint8* pSrc = (uint8*)(&gstMeta) + (pCtx->nIssue * BYTE_PER_PPG);
-			uint16 nRest = 0;
-			if (sizeof(gstMeta) >= (int16)(pCtx->nIssue * BYTE_PER_PPG))
-			{
-				nRest = sizeof(gstMeta) - (int16)(pCtx->nIssue * BYTE_PER_PPG);
-				nRest = nRest > BYTE_PER_PPG ? BYTE_PER_PPG : nRest;
-			}
-			memcpy(pMain, pSrc, nRest);
+			uint32 nRest = sizeof(gstMeta) - (pCtx->nIssue * BYTE_PER_PPG);
+			uint32 nCurCpy = nRest > BYTE_PER_PPG ? BYTE_PER_PPG : nRest;
+			memcpy(pDst, pSrc, nCurCpy);
+
+			uint16 nWL = gstMetaCtx.nNextWL + pCtx->nIssue;
 			PRINTF("[MT] PGM (%X,%X) Age:%X\n", gstMetaCtx.nCurBN, nWL, gstMetaCtx.nAge);
 			pCmd = IO_Alloc(IOCB_Meta);
 			IO_Program(pCmd, gstMetaCtx.nCurBN, nWL, nBuf, 0);

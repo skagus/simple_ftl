@@ -166,6 +166,20 @@ void tc_StreamWrite(uint32 nMaxLPN)
 	}
 }
 
+void tc_Shutdown()
+{
+	ReqInfo stReq;
+	stReq.eCmd = CMD_SHUTDOWN;
+	gbDone = false;
+	CMD_PRINTF("[TC] Shutdown Req\n");
+	FTL_Request(&stReq);
+	CPU_TimePass(SIM_USEC(5));
+	while (false == gbDone)
+	{
+		CPU_Sleep();
+	}
+}
+
 /**
 Workload 생성역할.
 */
@@ -178,7 +192,7 @@ void TEST_Main(void* pParam)
 		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
 	}
 
-	for(uint32 nLoop = 0; nLoop < 10; nLoop++)
+	for(uint32 nLoop = 0; nLoop < 2; nLoop++)
 	{
 		if (0 == (SIM_GetCycle() % 10))
 		{
@@ -194,6 +208,9 @@ void TEST_Main(void* pParam)
 
 		tc_RandRead(0, nNumUserLPN, nNumUserLPN * 4);
 	}
+
+	tc_Shutdown();
+
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();
 	END_RUN;

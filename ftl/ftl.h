@@ -10,7 +10,7 @@
 
 #define LPN_PER_USER_BLK	(CHUNK_PER_PBLK)
 
-#define NUM_LPN				((NUM_USER_BLK - 5) * (LPN_PER_USER_BLK - 1))
+#define NUM_LPN				((NUM_USER_BLK - 12) * (LPN_PER_USER_BLK))
 
 #define SIZE_REQ_QUE		(16)
 #define INV_BN				(0xFF)
@@ -29,6 +29,8 @@ enum Cmd
 {
 	CMD_WRITE,
 	CMD_READ,
+	CMD_SHUTDOWN,
+	NUM_CMD,
 };
 
 struct ReqInfo

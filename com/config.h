@@ -22,5 +22,5 @@
 #define CHUNK_PER_PBLK		(CHUNK_PER_PPG * NUM_WL)
 
 //////////////////////
-#define EN_P2L_IN_DATA		(1)
+#define EN_P2L_IN_DATA		(0)
 

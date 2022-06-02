@@ -10,3 +10,4 @@
 void GC_Init();
 uint16 GC_ReqFree(OpenType eOpen);
 void GC_VictimUpdate(VAddr stOld);
+void GC_Stop();

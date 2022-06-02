@@ -223,6 +223,31 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 	return true;
 }
 
+bool req_Shutdown(ReqCtx* pCtx, bool b1st)
+{
+	if (b1st)
+	{
+		pCtx->eStep = RS_Init;
+		pCtx->nDone = 0;
+		pCtx->nIssued = 0;
+		GC_Stop();
+		pCtx->nWaitAge = META_ReqSave();
+	}
+
+	if (META_GetAge() > pCtx->nWaitAge)
+	{
+		gfCbf(pCtx->pReq);
+		gstReqInfoPool.PushTail(pCtx->nTag);
+		CPU_Wakeup(CPU_WORK, SIM_USEC(2));
+		return true;
+	}
+	else
+	{
+		Sched_Wait(BIT(EVT_META), LONG_TIME);
+		return false;
+	}
+}
+
 ReqRunCtx* gpDbgReqRunCtx;	// for Debug.
 ReqCtx* gpDbgReqCtx;
 
@@ -285,6 +310,19 @@ void req_Run(void* pParam)
 					}
 					break;
 				}
+				case CMD_SHUTDOWN:
+				{
+					if (req_Shutdown(pChild, true))
+					{
+						pCtx->eState = RS_WaitUser;
+						Sched_Yield();
+					}
+					break;
+				}
+				default:
+				{
+					assert(false);
+				}
 			}
 			break;
 		}
@@ -307,6 +345,15 @@ void req_Run(void* pParam)
 				case CMD_READ:
 				{
 					if (req_Read(pChild, false))
+					{
+						pCtx->eState = RS_WaitUser;
+						Sched_Yield();
+					}
+					break;
+				}
+				case CMD_SHUTDOWN:
+				{
+					if (req_Shutdown(pChild, false))
 					{
 						pCtx->eState = RS_WaitUser;
 						Sched_Yield();

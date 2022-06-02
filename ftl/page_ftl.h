@@ -59,6 +59,7 @@ struct BlkInfo
 
 struct Meta
 {
+	VAddr astOpen[NUM_OPEN];
 	VAddr astL2P[NUM_LPN];
 	BlkInfo astBI[NUM_USER_BLK];
 };
