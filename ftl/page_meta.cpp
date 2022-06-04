@@ -179,29 +179,71 @@ void META_StartJnl(OpenType eOpen, uint16 nBN)
 
 JnlRet META_Update(uint32 nLPN, VAddr stNew, OpenType eOpen)
 {
-	JnlRet bNeedMtSave = JR_Done;
+	JnlRet eJRet = JR_Done;
 	if (nLPN < NUM_LPN)
 	{
 		VAddr stOld = gstMeta.astL2P[nLPN];
-//		bNeedMtSave = gstJnlSet.AddWrite(nLPN, stNew, eOpen);
-		gstMeta.astL2P[nLPN] = stNew;
-		if (FF32 != stOld.nDW)
+		eJRet = gstJnlSet.AddWrite(nLPN, stNew, eOpen);
+		if (JR_Busy != eJRet)
 		{
-			gstMeta.astBI[stOld.nBN].nVPC--;
-			if ((OPEN_USER == eOpen) && (BS_Victim == gstMeta.astBI[stOld.nBN].eState))
+			gstMeta.astL2P[nLPN] = stNew;
+			if (FF32 != stOld.nDW)
 			{
-				GC_VictimUpdate(stOld);
+				gstMeta.astBI[stOld.nBN].nVPC--;
+				if ((OPEN_USER == eOpen) && (BS_Victim == gstMeta.astBI[stOld.nBN].eState))
+				{
+					GC_VictimUpdate(stOld);
+				}
 			}
-		}
-		if (FF32 != stNew.nDW)
-		{
-			gstMeta.astBI[stNew.nBN].nVPC++;
+			if (FF32 != stNew.nDW)
+			{
+				gstMeta.astBI[stNew.nBN].nVPC++;
+			}
 		}
 	}
 	dbg_MapIntegrity();
-	return bNeedMtSave;
+	return eJRet;
 }
 
+bool META_ReqMapUpdate(UpdateCtx* pCtx)
+{
+	bool bDone = false;
+	switch (pCtx->eState)
+	{
+		case US_Init:
+		{
+			JnlRet eJRet = META_Update(pCtx->nLPN, pCtx->stVA, pCtx->eOpen);
+			if (JR_Done == eJRet)
+			{
+				bDone = true;
+			}
+			else if (JR_Filled == eJRet)
+			{
+				pCtx->eState = US_WaitMeta;
+				pCtx->nMtAge = META_ReqSave();
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
+			}
+			break;
+		}
+		case US_WaitMeta:
+		{
+			if (META_GetAge() > pCtx->nMtAge)
+			{
+				bDone = true;
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
+			}
+			break;
+		}
+	}
+	return bDone;
+}
 
 BlkInfo* META_GetMinVPC(uint16* pnBN)
 {
@@ -263,7 +305,7 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 
 	bool bRet = false;
 	CmdInfo* pDone;
-	while (pDone = IO_GetDone(IOCB_Meta))
+	while (pDone = IO_PopDone(IOCB_Meta))
 	{
 		pCtx->nDone++;
 		if (NC_ERB == pDone->eCmd)
@@ -473,7 +515,7 @@ bool open_PageScan(MtPageScanCtx* pCtx, bool b1st)
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	// Check phase.
-	CmdInfo* pDone = IO_GetDone(CbKey::IOCB_Meta);
+	CmdInfo* pDone = IO_PopDone(CbKey::IOCB_Meta);
 	if (nullptr != pDone)
 	{
 		pCtx->nDone++;
@@ -515,7 +557,7 @@ bool open_MtLoad(MtPageScanCtx* pCtx, bool b1st)
 	}
 
 	// Check phase.
-	CmdInfo* pDone = IO_GetDone(CbKey::IOCB_Meta);
+	CmdInfo* pDone = IO_PopDone(CbKey::IOCB_Meta);
 	if (nullptr != pDone)
 	{
 		pCtx->nDone++;
@@ -593,7 +635,7 @@ bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
 	// Check phase.
-	CmdInfo* pDone = IO_GetDone(CbKey::IOCB_Meta);
+	CmdInfo* pDone = IO_PopDone(CbKey::IOCB_Meta);
 	if (nullptr != pDone)
 	{
 		pCtx->nDone++;
@@ -797,6 +839,7 @@ void meta_Run(void* pParam)
 			MtSaveCtx* pChild = (MtSaveCtx*)(pCtx + 1);
 			if (meta_Save(pChild, false))
 			{
+				META_StartJnl(OPEN_GC, 0);
 				Sched_TrigSyncEvt(BIT(EVT_META));
 				pCtx->eStep = MtCtx::Mt_Ready;
 				Sched_Yield();

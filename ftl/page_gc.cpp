@@ -105,18 +105,15 @@ void gc_HandlePgm(CmdInfo* pDone, GcMoveCtx* pCtx)
 	BM_Free(nBuf);
 }
 
-void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
+bool gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 {
+	bool bDone = true;
 	uint16 nBuf = pDone->stRead.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
 	PRINTF("[GCR] {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
 #if (EN_P2L_IN_DATA == 1)
 	assert(*pSpare == pCtx->aSrcLPN[pDone->nWL]);
 #endif
-
-	uint32 nIdx = GET_INDEX(pDone->nTag);
-	assert(pCtx->apReadRun[nIdx] == pDone);
-	pCtx->apReadRun[nIdx] = nullptr;
 
 #if (EN_P2L_IN_DATA == 0)
 	VAddr stOld = META_GetMap(*pSpare);
@@ -132,23 +129,33 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 #endif
 	{
 		VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
-		META_Update(*pSpare, stAddr, OPEN_GC);
-
-		CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-		IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, *pSpare);
-		// User Data.
-		if ((*pSpare & 0xF) == pDone->nTag)
+		JnlRet eJRet = META_Update(*pSpare, stAddr, OPEN_GC);
+		if (JnlRet::JR_Busy != eJRet)
 		{
-			uint32* pMain = (uint32*)BM_GetMain(nBuf);
-			assert((*pMain & 0xF) == pDone->nTag);
-		}
+			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
+			IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, *pSpare);
+			// User Data.
+			if ((*pSpare & 0xF) == pDone->nTag)
+			{
+				uint32* pMain = (uint32*)BM_GetMain(nBuf);
+				assert((*pMain & 0xF) == pDone->nTag);
+			}
 #if (EN_P2L_IN_DATA == 1)
-		pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
+			pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
 #endif
-		PRINTF("[GCW] {%X, %X}, LPN:%X\n", pCtx->nDstBN, pCtx->nDstWL, *pSpare);
+			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pCtx->nDstBN, pCtx->nDstWL, *pSpare);
 
-		pCtx->nDstWL++;
-		pCtx->nPgmRun++;
+			pCtx->nDstWL++;
+			pCtx->nPgmRun++;
+			if (JR_Filled == eJRet)
+			{
+				META_ReqSave();
+			}
+		}
+		else
+		{
+			bDone = false;
+		}
 	}
 	else
 	{
@@ -156,6 +163,13 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 		PRINTF("[GC] Moved LPN:%X\n", *pSpare);
 		BM_Free(nBuf);
 	}
+	uint32 nIdx = GET_INDEX(pDone->nTag);
+	assert(pCtx->apReadRun[nIdx] == pDone);
+	if (bDone)
+	{
+		pCtx->apReadRun[nIdx] = nullptr;
+	}
+	return bDone;
 }
 
 extern void dbg_MapIntegrity();
@@ -222,6 +236,7 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 	CmdInfo* pDone;
 	while (pDone = IO_GetDone(IOCB_Mig))
 	{
+		bool bDone = true;
 		if (NC_PGM == pDone->eCmd)
 		{
 			gc_HandlePgm(pDone, pCtx);
@@ -229,7 +244,6 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 		}
 		else
 		{
-			pCtx->nReadRun--;
 #if (EN_P2L_IN_DATA == 1)
 			if (FF32 == pDone->nTag) // Read P2L.
 			{
@@ -238,10 +252,22 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 			else
 #endif
 			{
-				gc_HandleRead(pDone, pCtx);
+				bDone = gc_HandleRead(pDone, pCtx);
+				if (bDone)
+				{
+					pCtx->nReadRun--;
+				}
 			}
 		}
-		IO_Free(pDone);
+		if (bDone)
+		{
+			IO_PopDone(IOCB_Mig);
+			IO_Free(pDone);
+		}
+		else
+		{
+			break;
+		}
 	}
 	////////// Issue New command. //////////////////
 	if (NUM_WL == pCtx->nDstWL)
@@ -481,7 +507,7 @@ bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
 		}
 		case ES_WaitErb:
 		{
-			CmdInfo* pCmd = IO_GetDone(eCbKey);
+			CmdInfo* pCmd = IO_PopDone(eCbKey);
 			if (nullptr != pCmd)
 			{
 				IO_Free(pCmd);
@@ -518,7 +544,7 @@ bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
 			{
 				pCtx->eStep = ES_Init;
 				// Start new Jnl
-				META_StartJnl(pCtx->eOpen, pCtx->nBN);
+//				META_StartJnl(pCtx->eOpen, pCtx->nBN);
 				bRet = true;
 			}
 			else

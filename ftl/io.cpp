@@ -18,11 +18,18 @@ LinkedQueue<CmdInfo> gNCmdPool;
 IoCbf gaCbf[NUM_IOCB];
 LinkedQueue<CmdInfo> gaDone[NUM_IOCB];
 
-CmdInfo* IO_GetDone(CbKey eCbId)
+CmdInfo* IO_PopDone(CbKey eCbId)
 {
 	CmdInfo* pRet = gaDone[eCbId].PopHead();
 	return pRet;
 }
+
+CmdInfo* IO_GetDone(CbKey eCbId)
+{
+	CmdInfo* pRet = gaDone[eCbId].GetHead();
+	return pRet;
+}
+
 
 void io_CbDone(uint32 nDie, uint32 nTag)
 {

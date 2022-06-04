@@ -150,25 +150,36 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 	{
 		*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
 		assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
-		CmdInfo* pCmd = IO_Alloc(IOCB_User);
-		IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, pCtx->nTag);
-
-		META_Update(pReq->nLPN, pDst->stNextVA, OPEN_USER);
-		PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
-#if (EN_P2L_IN_DATA == 1)
-		pDst->anP2L[pDst->nNextPage] = pReq->nLPN;
-		pDst->nNextPage++;
-		if (pDst->nNextPage != NUM_DATA_PAGE)
+		JnlRet eJRet = META_Update(pReq->nLPN, pDst->stNextVA, OPEN_USER);
+		if (JR_Busy != eJRet)
 		{
+			CmdInfo* pCmd = IO_Alloc(IOCB_User);
+			IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, pCtx->nTag);
+
+			PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
+#if (EN_P2L_IN_DATA == 1)
+			pDst->anP2L[pDst->nNextPage] = pReq->nLPN;
+			pDst->nNextPage++;
+			if (pDst->nNextPage != NUM_DATA_PAGE)
+			{
+				bRet = true;
+			}
+			else
+			{
+				Sched_Yield();
+			}
+#else
+			pDst->stNextVA.nWL++;
 			bRet = true;
+			if (JR_Filled == eJRet)
+			{
+				META_ReqSave();
+			}
 		}
 		else
 		{
-			Sched_Yield();
+			Sched_Wait(BIT(EVT_META), LONG_TIME);
 		}
-#else
-		pDst->stNextVA.nWL++;
-		bRet = true;
 #endif
 	}
 	return bRet;
@@ -357,7 +368,7 @@ void req_Run(void* pParam)
 */
 void reqResp_Run(void* pParam)
 {
-	CmdInfo* pCmd = IO_GetDone(IOCB_User);
+	CmdInfo* pCmd = IO_PopDone(IOCB_User);
 	if (nullptr == pCmd)
 	{
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);

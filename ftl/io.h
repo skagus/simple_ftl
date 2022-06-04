@@ -18,6 +18,7 @@ void IO_RegCbf(CbKey eId, IoCbf pfCb);
 void IO_Free(CmdInfo* pCmd);
 CmdInfo* IO_Alloc(CbKey eKey);
 
+CmdInfo* IO_PopDone(CbKey eCbId);
 CmdInfo* IO_GetDone(CbKey eCbId);
 void IO_WaitDone(CmdInfo* pCmd);
 void IO_Read(CmdInfo* pCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag);

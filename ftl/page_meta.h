@@ -43,7 +43,7 @@ enum JnlRet
 	JR_Filled,	///< Just filled, need to save.
 };
 
-#define MAX_JNL_ENTRY		(32)
+#define MAX_JNL_ENTRY		(20)
 struct JnlSet
 {
 	uint32 nCnt;	///< Valid count or Jnl.
@@ -83,7 +83,20 @@ public:
 	}
 };
 
+enum UpdateState
+{
+	US_Init,
+	US_WaitMeta, ///< 이번 update로 meta data save가 일어난 경우.
+};
 
+struct UpdateCtx
+{
+	UpdateState eState;
+	uint32 nMtAge;
+	uint32 nLPN;
+	VAddr stVA;
+	OpenType eOpen;
+};
 
 struct Meta
 {
@@ -121,3 +134,5 @@ bool META_Ready();
 JnlRet META_AddErbJnl(OpenType eOpen, uint16 nBN);
 void META_StartJnl(OpenType eOpen, uint16 nBN);
 JnlRet META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen);
+bool META_ReqMapUpdate(UpdateCtx* pCtx);
+
