@@ -20,7 +20,7 @@ OpenBlk gaOpen[NUM_OPEN];
 MetaCtx gstMetaCtx;
 JnlSet gstJnlSet;
 
-struct MtSaveCtx
+struct MtSaveStk
 {
 	enum MtSaveStep
 	{
@@ -35,7 +35,7 @@ struct MtSaveCtx
 
 
 
-struct MtCtx
+struct MtStk
 {
 	enum MtStep
 	{
@@ -47,7 +47,7 @@ struct MtCtx
 	};
 	MtStep eStep;
 };
-MtCtx* gpMetaCtx;
+MtStk* gpMtStateCtx;
 
 uint16 meta_MtBlk2PBN(uint16 nMetaBN)
 {
@@ -122,7 +122,7 @@ void dbg_MapIntegrity()
 
 bool META_Ready()
 {
-	return (gpMetaCtx->eStep == MtCtx::Mt_Ready);
+	return (gpMtStateCtx->eStep == MtStk::Mt_Ready);
 }
 
 VAddr META_GetMap(uint32 nLPN)
@@ -205,46 +205,6 @@ JnlRet META_Update(uint32 nLPN, VAddr stNew, OpenType eOpen)
 	return eJRet;
 }
 
-bool META_ReqMapUpdate(UpdateCtx* pCtx)
-{
-	bool bDone = false;
-	switch (pCtx->eState)
-	{
-		case US_Init:
-		{
-			JnlRet eJRet = META_Update(pCtx->nLPN, pCtx->stVA, pCtx->eOpen);
-			if (JR_Done == eJRet)
-			{
-				bDone = true;
-			}
-			else if (JR_Filled == eJRet)
-			{
-				pCtx->eState = US_WaitMeta;
-				pCtx->nMtAge = META_ReqSave();
-				Sched_Wait(BIT(EVT_META), LONG_TIME);
-			}
-			else
-			{
-				Sched_Wait(BIT(EVT_META), LONG_TIME);
-			}
-			break;
-		}
-		case US_WaitMeta:
-		{
-			if (META_GetAge() > pCtx->nMtAge)
-			{
-				bDone = true;
-			}
-			else
-			{
-				Sched_Wait(BIT(EVT_META), LONG_TIME);
-			}
-			break;
-		}
-	}
-	return bDone;
-}
-
 BlkInfo* META_GetMinVPC(uint16* pnBN)
 {
 	uint16 nMinVPC = FF16;
@@ -278,7 +238,7 @@ OpenBlk* META_GetOpen(OpenType eOpen)
 
 
 
-bool meta_Save(MtSaveCtx* pCtx, bool b1st)
+bool meta_Save_SM(MtSaveStk* pCtx, bool b1st)
 {
 	if (b1st)
 	{
@@ -295,11 +255,11 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 
 		if (0 == gstMetaCtx.nNextWL)
 		{
-			pCtx->eStep = MtSaveCtx::MS_Erase;
+			pCtx->eStep = MtSaveStk::MS_Erase;
 		}
 		else
 		{
-			pCtx->eStep = MtSaveCtx::MS_Program;
+			pCtx->eStep = MtSaveStk::MS_Program;
 		}
 	}
 
@@ -310,10 +270,10 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 		pCtx->nDone++;
 		if (NC_ERB == pDone->eCmd)
 		{
-			assert(MtSaveCtx::MS_Erase == pCtx->eStep);
+			assert(MtSaveStk::MS_Erase == pCtx->eStep);
 			pCtx->nIssue = 0;
 			pCtx->nDone = 0;
-			pCtx->eStep = MtSaveCtx::MS_Program;
+			pCtx->eStep = MtSaveStk::MS_Program;
 		}
 		else // PGM done.
 		{
@@ -335,7 +295,7 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 						gstMetaCtx.nCurBO = 0;
 					}
 				}
-				pCtx->eStep = MtSaveCtx::MS_Done;
+				pCtx->eStep = MtSaveStk::MS_Done;
 				bRet = true;
 			}
 			BM_Free(pDone->stPgm.anBufId[0]);
@@ -344,7 +304,7 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 	}
 	
 	CmdInfo* pCmd;
-	if (MtSaveCtx::MS_Erase == pCtx->eStep)
+	if (MtSaveStk::MS_Erase == pCtx->eStep)
 	{
 		if (0 == pCtx->nIssue)
 		{
@@ -355,7 +315,7 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 			pCtx->nIssue++;
 		}
 	}
-	else if (MtSaveCtx::MS_Program == pCtx->eStep)
+	else if (MtSaveStk::MS_Program == pCtx->eStep)
 	{
 		if (PAGE_PER_META > pCtx->nIssue)
 		{
@@ -391,7 +351,7 @@ bool meta_Save(MtSaveCtx* pCtx, bool b1st)
 	return bRet;
 }
 // =========================================
-struct UserScanCtx
+struct DataScanStk
 {
 	uint8 nLogIdx;
 	uint16 nIssue;
@@ -399,7 +359,7 @@ struct UserScanCtx
 	bool bErsFound;
 };
 
-bool open_UserScan(UserScanCtx* pCtx, bool b1st)
+bool open_UserScan_SM(DataScanStk* pCtx, bool b1st)
 {
 	bool bRet = false;
 #if 0
@@ -483,7 +443,7 @@ bool open_UserScan(UserScanCtx* pCtx, bool b1st)
 }
 
 // =================== Meta Page Scan ========================
-struct MtPageScanCtx
+struct MtPgScanStk
 {
 	uint16 nMaxBO;	// Input
 	uint16 nMaxBN;	// == meta_MtBlk2PBN(nMaxBO)
@@ -492,7 +452,7 @@ struct MtPageScanCtx
 	uint16 nDone;	// Internal.
 };
 
-bool open_PageScan(MtPageScanCtx* pCtx, bool b1st)
+bool open_PageScan_SM(MtPgScanStk* pCtx, bool b1st)
 {
 	bool bRet = false;
 	if (b1st)
@@ -546,7 +506,7 @@ bool open_PageScan(MtPageScanCtx* pCtx, bool b1st)
 	return bRet;
 }
 
-bool open_MtLoad(MtPageScanCtx* pCtx, bool b1st)
+bool open_MtLoad_SM(MtPgScanStk* pCtx, bool b1st)
 {
 	bool bRet = false;
 	if (b1st)
@@ -599,7 +559,7 @@ bool open_MtLoad(MtPageScanCtx* pCtx, bool b1st)
 
 
 // ========================== Meta Block Scan ====================================
-struct MtBlkScanCtx
+struct MtBlkScanStk
 {
 	uint16 nMaxBO;	// for return.
 	uint32 nMaxAge;
@@ -607,7 +567,7 @@ struct MtBlkScanCtx
 	uint16 nDone;
 };
 
-bool open_BlkScan(MtBlkScanCtx* pCtx, bool b1st)
+bool open_BlkScan_SM(MtBlkScanStk* pCtx, bool b1st)
 {
 	bool bRet = false;
 	if (b1st)
@@ -679,13 +639,13 @@ enum MetaStep
 	Open_DataScan,
 };
 
-struct OpenCtx
+struct OpenStk
 {
 	MetaStep eOpenStep;
 	uint16 nMaxBO;	// for return.
 };
 
-bool meta_Open(OpenCtx* pCtx, bool b1st)
+bool meta_Open_SM(OpenStk* pCtx, bool b1st)
 {
 	bool bRet = false;
 
@@ -700,22 +660,22 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 		{
 			pCtx->eOpenStep = Open_BlkScan;
 			pCtx->nMaxBO = INV_BN;
-			MtBlkScanCtx* pChildCtx = (MtBlkScanCtx*)(pCtx + 1);
-			bRet = open_BlkScan(pChildCtx, true);
+			MtBlkScanStk* pChildCtx = (MtBlkScanStk*)(pCtx + 1);
+			bRet = open_BlkScan_SM(pChildCtx, true);
 			break;
 		}
 		case Open_BlkScan:
 		{
-			MtBlkScanCtx* pChildCtx = (MtBlkScanCtx*)(pCtx + 1);
-			if (open_BlkScan(pChildCtx, false))
+			MtBlkScanStk* pChildCtx = (MtBlkScanStk*)(pCtx + 1);
+			if (open_BlkScan_SM(pChildCtx, false))
 			{
 				pCtx->nMaxBO = pChildCtx->nMaxBO;
 				if (INV_BN != pCtx->nMaxBO)
 				{
 					pCtx->eOpenStep = Open_PageScan;
-					MtPageScanCtx* pNextChild = (MtPageScanCtx*)(pCtx + 1);
+					MtPgScanStk* pNextChild = (MtPgScanStk*)(pCtx + 1);
 					pNextChild->nMaxBN = meta_MtBlk2PBN(pCtx->nMaxBO);
-					bRet = open_PageScan(pNextChild, true);
+					bRet = open_PageScan_SM(pNextChild, true);
 					assert(false == bRet);
 				}
 				else
@@ -727,8 +687,8 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 		}
 		case Open_PageScan:
 		{
-			MtPageScanCtx* pChildCtx = (MtPageScanCtx*)(pCtx + 1);
-			if (open_PageScan(pChildCtx, false))
+			MtPgScanStk* pChildCtx = (MtPgScanStk*)(pCtx + 1);
+			if (open_PageScan_SM(pChildCtx, false))
 			{
 				if (pChildCtx->nCPO != NUM_WL)
 				{
@@ -741,24 +701,24 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 					gstMetaCtx.nNextWL = 0;
 				}
 				pCtx->eOpenStep = Open_MtLoad;
-				open_MtLoad(pChildCtx, true);
+				open_MtLoad_SM(pChildCtx, true);
 			}
 			break;
 		}
 		case Open_MtLoad:
 		{
-			MtPageScanCtx* pChildCtx = (MtPageScanCtx*)(pCtx + 1);
-			if (open_MtLoad(pChildCtx, false))
+			MtPgScanStk* pChildCtx = (MtPgScanStk*)(pCtx + 1);
+			if (open_MtLoad_SM(pChildCtx, false))
 			{
 				pCtx->eOpenStep = Open_DataScan;
-				UserScanCtx* pNextChild = (UserScanCtx*)(pCtx + 1);
-				bRet = open_UserScan(pNextChild, true);
+				DataScanStk* pNextChild = (DataScanStk*)(pCtx + 1);
+				bRet = open_UserScan_SM(pNextChild, true);
 			}
 			break;
 		}
 		case Open_DataScan:
 		{
-			bRet = open_UserScan((UserScanCtx*)(pCtx + 1), false);
+			bRet = open_UserScan_SM((DataScanStk*)(pCtx + 1), false);
 			break;
 		}
 	}
@@ -768,65 +728,65 @@ bool meta_Open(OpenCtx* pCtx, bool b1st)
 
 void meta_Run(void* pParam)
 {
-	MtCtx* pCtx = (MtCtx*)pParam;
+	MtStk* pCtx = (MtStk*)pParam;
 	switch (pCtx->eStep)
 	{
-	case MtCtx::Mt_Init:
+	case MtStk::Mt_Init:
 		{
-			OpenCtx* pChildCtx = (OpenCtx*)(pCtx + 1);
-			meta_Open((OpenCtx*)(pCtx + 1), true);
-			pCtx->eStep = MtCtx::Mt_Open;
+			OpenStk* pChildCtx = (OpenStk*)(pCtx + 1);
+			meta_Open_SM((OpenStk*)(pCtx + 1), true);
+			pCtx->eStep = MtStk::Mt_Open;
 			break;
 		}
 
-		case MtCtx::Mt_Open:
+		case MtStk::Mt_Open:
 		{
-			OpenCtx* pChildCtx = (OpenCtx*)(pCtx + 1);
-			if (meta_Open(pChildCtx, false))
+			OpenStk* pChildCtx = (OpenStk*)(pCtx + 1);
+			if (meta_Open_SM(pChildCtx, false))
 			{
 				if (INV_BN == pChildCtx->nMaxBO)
 				{
 					FormatCtx* pNextCtx = (FormatCtx*)(pCtx + 1);
 					if (meta_Format(pNextCtx, true))
 					{
-						pCtx->eStep = MtCtx::Mt_Ready;
+						pCtx->eStep = MtStk::Mt_Ready;
 						Sched_TrigSyncEvt(BIT(EVT_OPEN));
 						Sched_Yield();
 					}
 					else
 					{
-						pCtx->eStep = MtCtx::Mt_Format;
+						pCtx->eStep = MtStk::Mt_Format;
 					}
 					Sched_Yield();
 				}
 				else
 				{
-					pCtx->eStep = MtCtx::Mt_Ready;
+					pCtx->eStep = MtStk::Mt_Ready;
 					Sched_TrigSyncEvt(BIT(EVT_OPEN));
 					Sched_Yield();
 				}
 			}
 			break;
 		}
-		case MtCtx::Mt_Format:
+		case MtStk::Mt_Format:
 		{
 			FormatCtx* pChildCtx = (FormatCtx*)(pCtx + 1);
 			if(meta_Format(pChildCtx, false))
 			{
-				pCtx->eStep = MtCtx::Mt_Ready;
+				pCtx->eStep = MtStk::Mt_Ready;
 				Sched_TrigSyncEvt(BIT(EVT_OPEN));
 				Sched_Yield();
 			}
 			break;
 		}
-		case MtCtx::Mt_Ready:
+		case MtStk::Mt_Ready:
 		{
 			if (gbRequest)
 			{
 				gbRequest = false;
-				MtSaveCtx* pChild = (MtSaveCtx*)(pCtx + 1);
-				meta_Save(pChild, true);
-				pCtx->eStep = MtCtx::Mt_Saving;
+				MtSaveStk* pChild = (MtSaveStk*)(pCtx + 1);
+				meta_Save_SM(pChild, true);
+				pCtx->eStep = MtStk::Mt_Saving;
 			}
 			else
 			{
@@ -834,14 +794,14 @@ void meta_Run(void* pParam)
 			}
 			break;
 		}
-		case MtCtx::Mt_Saving:
+		case MtStk::Mt_Saving:
 		{
-			MtSaveCtx* pChild = (MtSaveCtx*)(pCtx + 1);
-			if (meta_Save(pChild, false))
+			MtSaveStk* pChild = (MtSaveStk*)(pCtx + 1);
+			if (meta_Save_SM(pChild, false))
 			{
 				META_StartJnl(OPEN_GC, 0);
 				Sched_TrigSyncEvt(BIT(EVT_META));
-				pCtx->eStep = MtCtx::Mt_Ready;
+				pCtx->eStep = MtStk::Mt_Ready;
 				Sched_Yield();
 			}
 			break;
@@ -865,17 +825,17 @@ uint32 META_ReqSave()
 	return gstMetaCtx.nAge;
 }
 
-static uint8 anContext[4096];		///< Stack like meta context.
+static uint8 aStateCtx[4096];		///< Stack like meta context.
 void META_Init()
 {
 	gaOpen[0].stNextVA.nBN = 0;
 	gaOpen[0].stNextVA.nWL = NUM_WL;	// Invalid user block.
 
-	gpMetaCtx = (MtCtx*)anContext;
+	gpMtStateCtx = (MtStk*)aStateCtx;
 	MEMSET_ARRAY(gstMeta.astBI, 0);
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);
 	MEMSET_OBJ(gstMetaCtx, 0);
-	MEMSET_ARRAY(anContext, 0);
-	Sched_Register(TID_META, meta_Run, anContext, BIT(MODE_NORMAL));
+	MEMSET_ARRAY(aStateCtx, 0);
+	Sched_Register(TID_META, meta_Run, aStateCtx, BIT(MODE_NORMAL));
 //	gLRU.Init();
 }

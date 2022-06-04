@@ -166,10 +166,12 @@ void tc_StreamWrite(uint32 nMaxLPN)
 	}
 }
 
-void tc_Shutdown()
+
+void tc_Shutdown(ShutdownOpt eOpt)
 {
 	ReqInfo stReq;
 	stReq.eCmd = CMD_SHUTDOWN;
+	stReq.eOpt = eOpt;
 	gbDone = false;
 	CMD_PRINTF("[TC] Shutdown Req\n");
 	FTL_Request(&stReq);
@@ -199,17 +201,20 @@ void TEST_Main(void* pParam)
 			tc_SeqWrite(0, nNumUserLPN);
 		}
 		tc_SeqRead(0, nNumUserLPN);
-		for (uint32 nLoop = 0; nLoop < 10; nLoop++)
+		while (true)
 		{
-			tc_RandRead(0, nNumUserLPN, nNumUserLPN * 2);
-			tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 32);
-		}
-		tc_StreamWrite(nNumUserLPN);
+			for (uint32 nLoop = 0; nLoop < 10; nLoop++)
+			{
+				tc_RandRead(0, nNumUserLPN, nNumUserLPN / 4);
+				tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 4);
+			}
+			tc_StreamWrite(nNumUserLPN);
 
-		tc_RandRead(0, nNumUserLPN, nNumUserLPN * 4);
+			tc_SeqRead(0, nNumUserLPN);
+		}
 	}
 
-	tc_Shutdown();
+	tc_Shutdown(SD_Safe);
 
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();

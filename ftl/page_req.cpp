@@ -37,7 +37,7 @@ enum ReqState
 	RS_WaitIssue,
 };
 
-struct ReqRunCtx
+struct ReqStk
 {
 	ReqState eState;
 	uint8 nCurSlot;
@@ -50,7 +50,7 @@ enum ReqStep
 	RS_BlkErsWait,
 };
 
-struct ReqCtx
+struct CmdStk
 {
 	ReqStep eStep;
 	ReqInfo* pReq;	// input.
@@ -91,7 +91,7 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	}
 }
 
-bool req_Write(ReqCtx* pCtx, bool b1st)
+bool req_Write_SM(CmdStk* pCtx, bool b1st)
 {
 	if (b1st)
 	{
@@ -105,14 +105,14 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
 	if (nullptr == pDst || pDst->stNextVA.nWL >= NUM_WL)
 	{
-		ErsCtx* pChild = (ErsCtx*)(pCtx + 1);
+		ErbStk* pChild = (ErbStk*)(pCtx + 1);
 		if (RS_Init == pCtx->eStep)
 		{
 			uint16 nBN = GC_ReqFree(OPEN_USER);
 			if (FF16 != nBN)
 			{
 				pChild->nBN = nBN;
-				GC_BlkErase(pChild, true);
+				GC_BlkErase_SM(pChild, true);
 				pCtx->eStep = RS_BlkErsWait;
 			}
 			else
@@ -123,7 +123,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		else
 		{
 			assert(RS_BlkErsWait == pCtx->eStep);
-			if (GC_BlkErase((ErsCtx*)(pCtx + 1), false))
+			if (GC_BlkErase_SM((ErbStk*)(pCtx + 1), false))
 			{
 				META_SetOpen(OPEN_USER, pChild->nBN);
 				pCtx->eStep = RS_Run;
@@ -185,7 +185,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 	return bRet;
 }
 
-bool req_Read(ReqCtx* pCtx, bool b1st)
+bool req_Read_SM(CmdStk* pCtx, bool b1st)
 {
 	if (b1st)
 	{
@@ -211,7 +211,7 @@ bool req_Read(ReqCtx* pCtx, bool b1st)
 	return true;
 }
 
-bool req_Shutdown(ReqCtx* pCtx, bool b1st)
+bool req_Shutdown_SM(CmdStk* pCtx, bool b1st)
 {
 	if (b1st)
 	{
@@ -236,18 +236,16 @@ bool req_Shutdown(ReqCtx* pCtx, bool b1st)
 	}
 }
 
-ReqRunCtx* gpDbgReqRunCtx;	// for Debug.
-ReqCtx* gpDbgReqCtx;
+CmdStk* gpDbgReqCtx;
 
 void req_Run(void* pParam)
 {
-	ReqRunCtx*  pCtx = (ReqRunCtx*)pParam;
+	ReqStk*  pCtx = (ReqStk*)pParam;
 	switch (pCtx->eState)
 	{
 		case RS_WaitOpen:
 		{
-			gpDbgReqRunCtx = pCtx;
-			gpDbgReqCtx = (ReqCtx*)(pCtx + 1);
+			gpDbgReqCtx = (CmdStk*)(pCtx + 1);
 
 			if (META_Ready())
 			{
@@ -275,14 +273,14 @@ void req_Run(void* pParam)
 			pRun->nTotal = 1; //
 			pCtx->eState = RS_WaitIssue;
 			
-			ReqCtx* pChild = (ReqCtx*)(pCtx + 1);
+			CmdStk* pChild = (CmdStk*)(pCtx + 1);
 			pChild->nTag = pCtx->nCurSlot;
 			pChild->pReq = pRun->pReq;
 			switch (pRun->pReq->eCmd)
 			{
 				case CMD_READ:
 				{
-					if (req_Read(pChild, true))
+					if (req_Read_SM(pChild, true))
 					{
 						pCtx->eState = RS_WaitUser;
 						Sched_Yield();
@@ -291,7 +289,7 @@ void req_Run(void* pParam)
 				}
 				case CMD_WRITE:
 				{
-					if (req_Write(pChild, true))
+					if (req_Write_SM(pChild, true))
 					{
 						pCtx->eState = RS_WaitUser;
 						Sched_Yield();
@@ -300,7 +298,7 @@ void req_Run(void* pParam)
 				}
 				case CMD_SHUTDOWN:
 				{
-					if (req_Shutdown(pChild, true))
+					if (req_Shutdown_SM(pChild, true))
 					{
 						pCtx->eState = RS_WaitUser;
 						Sched_Yield();
@@ -318,12 +316,12 @@ void req_Run(void* pParam)
 		{
 			RunInfo* pRun = gaIssued + pCtx->nCurSlot;
 			ReqInfo* pReq = pRun->pReq;
-			ReqCtx* pChild = (ReqCtx*)(pCtx + 1);
+			CmdStk* pChild = (CmdStk*)(pCtx + 1);
 			switch (pReq->eCmd)
 			{
 				case CMD_WRITE:
 				{
-					if (req_Write(pChild, false))
+					if (req_Write_SM(pChild, false))
 					{
 						pCtx->eState = RS_WaitUser;
 						Sched_Yield();
@@ -332,7 +330,7 @@ void req_Run(void* pParam)
 				}
 				case CMD_READ:
 				{
-					if (req_Read(pChild, false))
+					if (req_Read_SM(pChild, false))
 					{
 						pCtx->eState = RS_WaitUser;
 						Sched_Yield();
@@ -341,7 +339,7 @@ void req_Run(void* pParam)
 				}
 				case CMD_SHUTDOWN:
 				{
-					if (req_Shutdown(pChild, false))
+					if (req_Shutdown_SM(pChild, false))
 					{
 						pCtx->eState = RS_WaitUser;
 						Sched_Yield();
@@ -403,16 +401,18 @@ void reqResp_Run(void* pParam)
 	}
 }
 
-static uint8 anContext[4096];		///< Stack like meta context.
+static uint8 aStateCtx[4096];		///< Stack like meta context.
+ReqStk* gpReqRunCtx;	// for Debug.
 
 void REQ_Init()
 {
-	MEMSET_ARRAY(anContext, 0);
+	MEMSET_ARRAY(aStateCtx, 0);
 	gstReqInfoPool.Init();
 	for (uint8 nIdx = 0; nIdx < SIZE_REQ_QUE; nIdx++)
 	{
 		gstReqInfoPool.PushTail(nIdx);
 	}
-	Sched_Register(TID_REQ, req_Run, anContext, BIT(MODE_NORMAL));
+	gpReqRunCtx = (ReqStk*)aStateCtx;
+	Sched_Register(TID_REQ, req_Run, aStateCtx, BIT(MODE_NORMAL));
 	Sched_Register(TID_REQ_RESP, reqResp_Run, nullptr, BIT(MODE_NORMAL));
 }

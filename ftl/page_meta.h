@@ -25,8 +25,7 @@ union Jnl
 	struct
 	{
 		uint32 eJType : 2;		// JT_GC, JT_User
-		uint32 nWL : 10;
-		uint32 nLPN : 20;
+		VAddr stAddr;
 	} Wrt;
 	struct
 	{
@@ -34,6 +33,7 @@ union Jnl
 		uint32 eOpenType : 1;
 		uint32 nBN : 29;
 	} Erb;
+	Jnl() {}
 };
 
 enum JnlRet
@@ -46,12 +46,14 @@ enum JnlRet
 #define MAX_JNL_ENTRY		(20)
 struct JnlSet
 {
+	bool bBusy;
 	uint32 nCnt;	///< Valid count or Jnl.
 	VAddr anActBlk[NUM_OPEN];	///< Open block information at JnlSet starting.
 	Jnl aJnl[MAX_JNL_ENTRY];
 public:
 	void Start(OpenType eOpen, uint16 nBN)
 	{
+		bBusy = false;
 		anActBlk[eOpen].nBN = nBN;
 		anActBlk[eOpen].nWL = 0;
 		memset(aJnl, 0, sizeof(anActBlk));
@@ -59,24 +61,25 @@ public:
 	}
 	JnlRet AddWrite(uint32 nLPN, VAddr stVA, OpenType eOpen)
 	{
-		if (MAX_JNL_ENTRY > nCnt)
+		if ((false == bBusy) && (MAX_JNL_ENTRY > nCnt))
 		{
 			aJnl[nCnt].Wrt.eJType = (OPEN_GC == eOpen) ? Jnl::JT_GcW : Jnl::JT_UserW;
-			aJnl[nCnt].Wrt.nWL = stVA.nWL;
-			aJnl[nCnt].Wrt.nLPN = nLPN;
+			aJnl[nCnt].Wrt.stAddr = stVA;
 			nCnt++;
+			bBusy = (MAX_JNL_ENTRY == nCnt);
 			return (MAX_JNL_ENTRY > nCnt) ? JR_Done : JR_Filled;
 		}
 		return JR_Busy;
 	}
 	JnlRet AddErase(uint16 nBN, OpenType eOpen)
 	{
-		if (MAX_JNL_ENTRY > nCnt)
+		if ((false == bBusy) && (MAX_JNL_ENTRY > nCnt))
 		{
 			aJnl[nCnt].Erb.eJType = Jnl::JT_ERB;
 			aJnl[nCnt].Erb.eOpenType = eOpen;
 			aJnl[nCnt].Erb.nBN = nBN;
 			nCnt++;
+			bBusy = true;
 			return JR_Filled;
 		}
 		return JR_Busy;

@@ -33,12 +33,29 @@ enum Cmd
 	NUM_CMD,
 };
 
+enum ShutdownOpt
+{
+	SD_Fast,	///< running IO만 처리. 
+	SD_Safe,	///< Meta data저장. (user scan불필요)
+	SD_Full,	///< Full meta data저장 (Jnl replay불필요)
+};
+
 struct ReqInfo
 {
 	Cmd eCmd;
-	uint32 nLPN;
-	uint16 nBuf;
-	uint32 nSeqNo;
+	union
+	{
+		struct
+		{
+			uint32 nLPN;
+			uint16 nBuf;
+			uint32 nSeqNo;
+		};
+		struct
+		{
+			ShutdownOpt eOpt;
+		};
+	};
 };
 
 typedef void (*CbfReq)(ReqInfo* pReq);

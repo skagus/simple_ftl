@@ -20,7 +20,7 @@ enum ErbState
 	ES_WaitMtSave,
 };
 
-struct ErsCtx
+struct ErbStk
 {
 	ErbState eStep;
 	OpenType eOpen;	///< requester.
@@ -33,4 +33,4 @@ void GC_Init();
 uint16 GC_ReqFree(OpenType eOpen);
 void GC_VictimUpdate(VAddr stOld);
 void GC_Stop();
-bool GC_BlkErase(ErsCtx* pCtx, bool b1st);
+bool GC_BlkErase_SM(ErbStk* pCtx, bool b1st);

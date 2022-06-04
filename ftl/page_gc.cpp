@@ -23,12 +23,12 @@ enum GcState
 	GS_Stop,	// Stop on shutdown.
 };
 
-struct GcCtx
+struct GcStk
 {
 	GcState eState;
 };
 
-GcCtx* gpGcCtx;
+GcStk* gpGcRunCtx;
 bool gbVictimChanged;
 VAddr gstChanged;
 Queue<uint16, SIZE_FREE_POOL> gstFreePool;
@@ -36,7 +36,7 @@ Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 
 #define MAX_GC_READ		(2)
 
-struct GcMoveCtx
+struct MoveStk
 {
 	uint16 nDstBN;	// Input.
 	uint16 nDstWL;
@@ -98,14 +98,14 @@ uint16 gc_GetNextRead(uint16 nCurBN, uint16 nCurPage, uint32* aLPN)
 	return FF16;
 }
 
-void gc_HandlePgm(CmdInfo* pDone, GcMoveCtx* pCtx)
+void gc_HandlePgm(CmdInfo* pDone, MoveStk* pCtx)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
 	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
 	BM_Free(nBuf);
 }
 
-bool gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
+bool gc_HandleRead(CmdInfo* pDone, MoveStk* pCtx)
 {
 	bool bDone = true;
 	uint16 nBuf = pDone->stRead.anBufId[0];
@@ -190,7 +190,7 @@ void gc_HandleReadP2L(CmdInfo* pDone, GcMoveCtx* pCtx)
 }
 #endif
 
-void gc_SetupNewSrc(GcMoveCtx* pCtx)
+void gc_SetupNewSrc(MoveStk* pCtx)
 {
 	META_GetMinVPC(&pCtx->nSrcBN);
 	PRINTF("[GC] New Victim: %X\n", pCtx->nSrcBN);
@@ -204,7 +204,7 @@ void gc_SetupNewSrc(GcMoveCtx* pCtx)
 #endif
 }
 
-bool gc_Move(GcMoveCtx* pCtx, bool b1st)
+bool gc_Move_SM(MoveStk* pCtx, bool b1st)
 {
 	bool bRet = false;
 	if (b1st)
@@ -380,7 +380,7 @@ uint8 gc_ScanFree()
 
 void gc_Run(void* pParam)
 {
-	GcCtx* pCtx = (GcCtx*)pParam;
+	GcStk* pCtx = (GcStk*)pParam;
 
 	switch (pCtx->eState)
 	{
@@ -425,30 +425,30 @@ void gc_Run(void* pParam)
 			uint16 nFree = gstFreePool.PopHead();
 			ASSERT(FF16 != nFree);
 			pCtx->eState = GS_ErsDst;
-			ErsCtx* pChild = (ErsCtx*)(pCtx + 1);
+			ErbStk* pChild = (ErbStk*)(pCtx + 1);
 			pChild->nBN = nFree;
 			pChild->eOpen = OPEN_GC;
-			GC_BlkErase(pChild, true);
+			GC_BlkErase_SM(pChild, true);
 			break;
 		}
 		case GS_ErsDst:
 		{
-			ErsCtx* pChild = (ErsCtx*)(pCtx + 1);
-			if (GC_BlkErase(pChild, false)) // End.
+			ErbStk* pChild = (ErbStk*)(pCtx + 1);
+			if (GC_BlkErase_SM(pChild, false)) // End.
 			{
 				META_SetOpen(OPEN_GC, pChild->nBN);
-				GcMoveCtx* pMoveCtx = (GcMoveCtx*)(pCtx + 1);
+				MoveStk* pMoveCtx = (MoveStk*)(pCtx + 1);
 				pMoveCtx->nDstBN = pChild->nBN;
 				pMoveCtx->nSrcBN = FF16;
-				gc_Move(pMoveCtx, true);
+				gc_Move_SM(pMoveCtx, true);
 				pCtx->eState = GS_Move;
 			}
 			break;
 		}
 		case GS_Move:
 		{
-			GcMoveCtx* pMoveCtx = (GcMoveCtx*)(pCtx + 1);
-			if (gc_Move(pMoveCtx, false))
+			MoveStk* pMoveCtx = (MoveStk*)(pCtx + 1);
+			if (gc_Move_SM(pMoveCtx, false))
 			{
 				META_SetBlkState(pMoveCtx->nDstBN, BS_Closed);
 				Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
@@ -486,7 +486,7 @@ uint16 GC_ReqFree(OpenType eType)
 }
 
 
-bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
+bool GC_BlkErase_SM(ErbStk* pCtx, bool b1st)
 {
 	bool bRet = false;
 	if (b1st)
@@ -560,16 +560,16 @@ bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
 
 void GC_Stop()
 {
-	gpGcCtx->eState = GS_Stop;
+	gpGcRunCtx->eState = GS_Stop;
 }
 
-static uint8 anContext[4096];		///< Stack like meta context.
+static uint8 aStateCtx[4096];		///< Stack like meta context.
 
 void GC_Init()
 {
-	MEMSET_ARRAY(anContext, 0);
+	MEMSET_ARRAY(aStateCtx, 0);
 	gstFreePool.Init();
-	gpGcCtx = (GcCtx*)anContext;
-	Sched_Register(TID_GC, gc_Run, anContext, BIT(MODE_NORMAL));
+	gpGcRunCtx = (GcStk*)aStateCtx;
+	Sched_Register(TID_GC, gc_Run, aStateCtx, BIT(MODE_NORMAL));
 }
 
