@@ -48,7 +48,6 @@ enum ReqStep
 	RS_Init,
 	RS_Run,
 	RS_BlkErsWait,
-	RS_MetaWait,
 };
 
 struct ReqCtx
@@ -104,52 +103,31 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 	uint32 nLPN = pReq->nLPN;
 	bool bRet = false;
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
-	if (nullptr == pDst || pDst->nNextPage >= NUM_WL)
+	if (nullptr == pDst || pDst->stNextVA.nWL >= NUM_WL)
 	{
+		ErsCtx* pChild = (ErsCtx*)(pCtx + 1);
 		if (RS_Init == pCtx->eStep)
 		{
 			uint16 nBN = GC_ReqFree(OPEN_USER);
 			if (FF16 != nBN)
 			{
-				PRINTF("[REQ] Alloc Free: %X\n", nBN);
-				CmdInfo* pCmd = IO_Alloc(IOCB_UErs);
-				IO_Erase(pCmd, nBN, FF32);
+				pChild->nBN = nBN;
+				GC_BlkErase(pChild, true);
 				pCtx->eStep = RS_BlkErsWait;
-				pCtx->nNextBlk = nBN;
-				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 			}
 			else
 			{
 				Sched_Wait(BIT(EVT_NEW_BLK), LONG_TIME);
 			}
 		}
-		else if (RS_BlkErsWait == pCtx->eStep)
-		{
-			CmdInfo* pCmd = IO_GetDone(IOCB_UErs);
-			if (nullptr != pCmd)
-			{
-				IO_Free(pCmd);
-				pCtx->eStep = RS_MetaWait;
-				pCtx->nWaitAge = META_ReqSave();
-				Sched_Wait(BIT(EVT_META), LONG_TIME);
-			}
-			else
-			{
-				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
-			}
-		}
 		else
 		{
-			ASSERT(RS_MetaWait == pCtx->eStep);
-			if (META_GetAge() > pCtx->nWaitAge)
+			assert(RS_BlkErsWait == pCtx->eStep);
+			if (GC_BlkErase((ErsCtx*)(pCtx + 1), false))
 			{
-				META_SetOpen(OPEN_USER, pCtx->nNextBlk);
-				pCtx->eStep = RS_Init;
+				META_SetOpen(OPEN_USER, pChild->nBN);
+				pCtx->eStep = RS_Run;
 				Sched_Yield();
-			}
-			else
-			{
-				Sched_Wait(BIT(EVT_META), LONG_TIME);
 			}
 		}
 	}
@@ -173,11 +151,10 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 		*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
 		assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
-		IO_Program(pCmd, pDst->nBN, pDst->nNextPage, pReq->nBuf, pCtx->nTag);
+		IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, pCtx->nTag);
 
-		VAddr stVA(0, pDst->nBN, pDst->nNextPage);
-		META_Update(pReq->nLPN, stVA, OPEN_USER);
-		PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->nBN, pDst->nNextPage);
+		META_Update(pReq->nLPN, pDst->stNextVA, OPEN_USER);
+		PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
 #if (EN_P2L_IN_DATA == 1)
 		pDst->anP2L[pDst->nNextPage] = pReq->nLPN;
 		pDst->nNextPage++;
@@ -190,7 +167,7 @@ bool req_Write(ReqCtx* pCtx, bool b1st)
 			Sched_Yield();
 		}
 #else
-		pDst->nNextPage++;
+		pDst->stNextVA.nWL++;
 		bRet = true;
 #endif
 	}

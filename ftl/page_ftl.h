@@ -43,8 +43,9 @@ enum BlkState
 
 struct OpenBlk
 {
-	uint16 nBN;		///< Block Number.
-	uint32 nNextPage;	// Clean WL.
+	VAddr stNextVA;
+//	uint16 nBN;		///< Block Number.
+//	uint32 nNextPage;	// Clean WL.
 #if (EN_P2L_IN_DATA == 1)
 	uint32 anP2L[NUM_WL];
 #endif
@@ -56,13 +57,3 @@ struct BlkInfo
 	uint16 nVPC;
 	uint16 nEC;
 };
-
-struct Meta
-{
-	VAddr astOpen[NUM_OPEN];
-	VAddr astL2P[NUM_LPN];
-	BlkInfo astBI[NUM_USER_BLK];
-};
-
-extern Meta gstMeta;
-

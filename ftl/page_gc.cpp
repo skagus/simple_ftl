@@ -488,6 +488,76 @@ uint16 GC_ReqFree(OpenType eType)
 	return FF16;
 }
 
+
+bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
+{
+	bool bRet = false;
+	if (b1st)
+	{
+		pCtx->eStep = ES_Init;
+	}
+	switch (pCtx->eStep)
+	{
+		case ES_Init:
+		{
+			PRINTF("[REQ] Alloc Free: %X\n", pCtx->nBN);
+			CmdInfo* pCmd = IO_Alloc(IOCB_UErs);
+			IO_Erase(pCmd, pCtx->nBN, FF32);
+			pCtx->eStep = ES_WaitErb;
+			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+			break;
+		}
+		case ES_WaitErb:
+		{
+			CmdInfo* pCmd = IO_GetDone(IOCB_UErs);
+			if (nullptr != pCmd)
+			{
+				IO_Free(pCmd);
+				if (JR_Busy != META_AddErbJnl(pCtx->nBN, OpenType::OPEN_USER))
+				{
+					pCtx->eStep = ES_WaitMtSave;
+					pCtx->nMtAge = META_ReqSave();
+				}
+				else
+				{
+					pCtx->eStep = ES_WaitJnlAdd;
+				}
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+			}
+			break;
+		}
+		case ES_WaitJnlAdd:
+		{
+			if (JR_Busy != META_AddErbJnl(pCtx->nBN, OpenType::OPEN_USER))
+			{
+				pCtx->eStep = ES_WaitMtSave;
+				pCtx->nMtAge = META_ReqSave();
+			}
+			Sched_Wait(BIT(EVT_META), LONG_TIME);
+			break;
+		}
+		case ES_WaitMtSave:
+		{
+			if (META_GetAge() > pCtx->nMtAge)
+			{
+				pCtx->eStep = ES_Init;
+				bRet = true;
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
+			}
+			break;
+		}
+	}
+	return bRet;
+}
+
+
 void GC_Stop()
 {
 	gpGcCtx->eState = GS_Stop;
@@ -502,3 +572,4 @@ void GC_Init()
 	gpGcCtx = (GcCtx*)anContext;
 	Sched_Register(TID_GC, gc_Run, anContext, BIT(MODE_NORMAL));
 }
+

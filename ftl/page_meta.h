@@ -6,16 +6,17 @@
 #include "page_ftl.h"
 
 #define MARK_META		(0xFABCBEAF)
-#if 0
-enum JnlType
-{
-	JT_UserW,
-	JT_GcW,
-	JT_ERB,
-};
+
 
 union Jnl
 {
+	enum JnlType
+	{
+		JT_UserW,
+		JT_GcW,
+		JT_ERB,
+	};
+
 	struct
 	{
 		uint32 eJType : 2;
@@ -35,31 +36,74 @@ union Jnl
 	} Erb;
 };
 
+enum JnlRet
+{
+	JR_Done,	///< Done with no event.
+	JR_Busy,	///< On Jnl saving.
+	JR_Filled,	///< Just filled, need to save.
+};
+
 #define MAX_JNL_ENTRY		(32)
 struct JnlSet
 {
 	uint32 nCnt;	///< Valid count or Jnl.
-	uint16 anActBlk[NUM_OPEN];
+	VAddr anActBlk[NUM_OPEN];	///< Open block information at JnlSet starting.
 	Jnl aJnl[MAX_JNL_ENTRY];
 public:
-	bool AddWrite(OpenType eOpen, uint16 nWL, uint32 nLPN)
+	void Start(VAddr* astOpen)
 	{
-		aJnl[nCnt].Wrt.eJType = (OPEN_GC == eOpen) ? JT_GcW : JT_UserW;
-		aJnl[nCnt].Wrt.nWL = nWL;
-		aJnl[nCnt].Wrt.nLPN = nLPN;
-		nCnt++;
-		return (MAX_JNL_ENTRY == nCnt);
+//		memcpy(anActBlk, astOpen, sizeof(anActBlk));
+		memset(aJnl, 0, sizeof(anActBlk));
+		nCnt = 0;
 	}
-	bool AddErase(OpenType eOpen, uint16 nBN)
+	JnlRet AddWrite(uint32 nLPN, VAddr stVA, OpenType eOpen)
 	{
-		aJnl[nCnt].Erb.eJType = JT_ERB;
-		aJnl[nCnt].Erb.eOpenType = eOpen;
-		aJnl[nCnt].Erb.nBN = nBN;
-		nCnt++;
-		return (MAX_JNL_ENTRY == nCnt);
+		if (MAX_JNL_ENTRY > nCnt)
+		{
+			aJnl[nCnt].Wrt.eJType = (OPEN_GC == eOpen) ? Jnl::JT_GcW : Jnl::JT_UserW;
+			aJnl[nCnt].Wrt.nWL = stVA.nWL;
+			aJnl[nCnt].Wrt.nLPN = nLPN;
+			nCnt++;
+			return (MAX_JNL_ENTRY > nCnt) ? JR_Done : JR_Filled;
+		}
+		return JR_Busy;
+	}
+	JnlRet AddErase(uint16 nBN, OpenType eOpen)
+	{
+		if (MAX_JNL_ENTRY > nCnt)
+		{
+			aJnl[nCnt].Erb.eJType = Jnl::JT_ERB;
+			aJnl[nCnt].Erb.eOpenType = eOpen;
+			aJnl[nCnt].Erb.nBN = nBN;
+			nCnt++;
+			return JR_Filled;
+		}
+		return JR_Busy;
 	}
 };
-#endif
+
+
+
+struct Meta
+{
+	//	VAddr astOpen[NUM_OPEN];
+	BlkInfo astBI[NUM_USER_BLK];
+	VAddr astL2P[NUM_LPN];
+};
+
+
+struct MetaCtx
+{
+	uint16 nCurBO;
+	uint16 nCurBN; // == meta_MtBlk2PBN(nCurBO)
+	uint16 nNextWL;
+	uint16 nNextSlice;
+	uint32 nAge;
+};
+
+#define SIZE_MAP_PER_SAVE		(BYTE_PER_PPG - sizeof(JnlSet))
+#define NUM_MAP_SLICE			DIV_CEIL(sizeof(Meta), SIZE_MAP_PER_SAVE)
+
 
 void META_Init();
 uint32 META_ReqSave();	// Age return.
@@ -73,4 +117,5 @@ BlkInfo* META_GetMinVPC(uint16* pnBN);
 void META_SetBlkState(uint16 nBN, BlkState eState);
 
 bool META_Ready();
-void META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen);
+JnlRet META_AddErbJnl(uint16 nBN, OpenType eOpen);
+JnlRet META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen);
