@@ -167,9 +167,14 @@ void META_SetBlkState(uint16 nBN, BlkState eState)
 	gstMeta.astBI[nBN].eState = eState;
 }
 
-JnlRet META_AddErbJnl(uint16 nBN, OpenType eOpen)
+JnlRet META_AddErbJnl(OpenType eOpen, uint16 nBN)
 {
 	return gstJnlSet.AddErase(nBN, eOpen);
+}
+
+void META_StartJnl(OpenType eOpen, uint16 nBN)
+{
+	gstJnlSet.Start(eOpen, nBN);
 }
 
 JnlRet META_Update(uint32 nLPN, VAddr stNew, OpenType eOpen)
@@ -794,8 +799,6 @@ void meta_Run(void* pParam)
 			{
 				Sched_TrigSyncEvt(BIT(EVT_META));
 				pCtx->eStep = MtCtx::Mt_Ready;
-
-				gstJnlSet.Start(nullptr);
 				Sched_Yield();
 			}
 			break;

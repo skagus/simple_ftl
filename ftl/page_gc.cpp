@@ -8,8 +8,6 @@
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
-#define SIZE_FREE_POOL	(3)
-#define GC_TRIG_BLK_CNT	(2)
 
 
 /**
@@ -28,8 +26,6 @@ enum GcState
 struct GcCtx
 {
 	GcState eState;
-	uint16 nReqLBN;		///< Requested BN.
-	uint16 nDstBN;		///< Orignally Free block.
 };
 
 GcCtx* gpGcCtx;
@@ -37,45 +33,6 @@ bool gbVictimChanged;
 VAddr gstChanged;
 Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 
-struct GcErsCtx
-{
-	bool bIssued;
-	uint16 nBN;
-};
-
-
-
-bool gc_Erase(GcErsCtx* pCtx, bool b1st)
-{
-	bool bRet = false;
-	if (b1st)
-	{
-		pCtx->bIssued = false;
-	}
-	if (false == pCtx->bIssued)
-	{
-		CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-		IO_Erase(pCmd, pCtx->nBN, 0);
-		pCtx->bIssued = true;
-		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
-	}
-	else
-	{
-		CmdInfo* pCmd = IO_GetDone(IOCB_Mig);
-		if (nullptr != pCmd)
-		{
-			PRINTF("[GC] ERB Done %X\n", pCtx->nBN);
-			assert(pCmd->anBBN[0] == pCtx->nBN);
-			IO_Free(pCmd);
-			bRet = true;
-		}
-		else
-		{
-			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
-		}
-	}
-	return bRet;
-}
 
 #define MAX_GC_READ		(2)
 
@@ -100,6 +57,9 @@ struct GcMoveCtx
 	uint8 nRdSlot;
 	CmdInfo* apReadRun[MAX_GC_READ];
 };
+
+
+uint8 gc_ScanFree();
 
 /**
 * Next를 알아내는 방법
@@ -160,7 +120,7 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 
 #if (EN_P2L_IN_DATA == 0)
 	VAddr stOld = META_GetMap(*pSpare);
-	if((pCtx->nSrcBN == stOld.nBN) // Valide.
+	if((pCtx->nSrcBN == stOld.nBN) // Valid
 		&&(pDone->nWL == stOld.nWL))
 #else
 	bool bUnchanged = (0 == GET_CHECK(pDone->nTag));
@@ -171,6 +131,9 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 	if (bUnchanged)
 #endif
 	{
+		VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
+		META_Update(*pSpare, stAddr, OPEN_GC);
+
 		CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
 		IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, *pSpare);
 		// User Data.
@@ -179,8 +142,6 @@ void gc_HandleRead(CmdInfo* pDone, GcMoveCtx* pCtx)
 			uint32* pMain = (uint32*)BM_GetMain(nBuf);
 			assert((*pMain & 0xF) == pDone->nTag);
 		}
-		VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
-		META_Update(*pSpare, stAddr, OPEN_GC);
 #if (EN_P2L_IN_DATA == 1)
 		pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
 #endif
@@ -351,6 +312,10 @@ bool gc_Move(GcMoveCtx* pCtx, bool b1st)
 			{// After all program done related to read.(SPO safe)
 				META_SetBlkState(pCtx->nSrcBN, BS_Closed);
 				PRINTF("[GC] Close victim: %X\n", pCtx->nSrcBN);
+				if (gc_ScanFree() > 0)
+				{
+					Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
+				}
 				pCtx->nSrcBN = FF16;
 #if (EN_P2L_IN_DATA == 1)
 				pCtx->bReadReady = false;
@@ -412,6 +377,10 @@ void gc_Run(void* pParam)
 			if(nFree < SIZE_FREE_POOL)
 			{
 				nFree = gc_ScanFree();
+				if (nFree > 0)
+				{
+					Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
+				}
 			}
 			if (nFree <= GC_TRIG_BLK_CNT)
 			{
@@ -429,21 +398,21 @@ void gc_Run(void* pParam)
 		{
 			uint16 nFree = gstFreePool.PopHead();
 			ASSERT(FF16 != nFree);
-			META_SetOpen(OPEN_GC, nFree);
-			pCtx->nDstBN = nFree;
 			pCtx->eState = GS_ErsDst;
-			GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
+			ErsCtx* pChild = (ErsCtx*)(pCtx + 1);
 			pChild->nBN = nFree;
-			gc_Erase(pChild, true);
+			pChild->eOpen = OPEN_GC;
+			GC_BlkErase(pChild, true);
 			break;
 		}
 		case GS_ErsDst:
 		{
-			GcErsCtx* pChild = (GcErsCtx*)(pCtx + 1);
-			if (gc_Erase(pChild, false)) // End.
+			ErsCtx* pChild = (ErsCtx*)(pCtx + 1);
+			if (GC_BlkErase(pChild, false)) // End.
 			{
+				META_SetOpen(OPEN_GC, pChild->nBN);
 				GcMoveCtx* pMoveCtx = (GcMoveCtx*)(pCtx + 1);
-				pMoveCtx->nDstBN = pCtx->nDstBN;
+				pMoveCtx->nDstBN = pChild->nBN;
 				pMoveCtx->nSrcBN = FF16;
 				gc_Move(pMoveCtx, true);
 				pCtx->eState = GS_Move;
@@ -477,15 +446,17 @@ void GC_VictimUpdate(VAddr stOld)
 
 uint16 GC_ReqFree(OpenType eType)
 {
-	if (gstFreePool.Count() <= 2)
+	uint16 nBN = FF16;
+	if (gstFreePool.Count() <= GC_TRIG_BLK_CNT)
 	{
 		Sched_TrigSyncEvt(BIT(EVT_BLK_REQ));
 	}
 	if(gstFreePool.Count() > 1)
 	{
-		return gstFreePool.PopHead();
+		nBN = gstFreePool.PopHead();
 	}
-	return FF16;
+	PRINTF("[GC] Alloc %X (free: %d)\n", nBN, gstFreePool.Count());
+	return nBN;
 }
 
 
@@ -496,12 +467,13 @@ bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
 	{
 		pCtx->eStep = ES_Init;
 	}
+	CbKey eCbKey = pCtx->eOpen == OPEN_GC ? CbKey::IOCB_Mig : CbKey::IOCB_UErs;
 	switch (pCtx->eStep)
 	{
 		case ES_Init:
 		{
-			PRINTF("[REQ] Alloc Free: %X\n", pCtx->nBN);
-			CmdInfo* pCmd = IO_Alloc(IOCB_UErs);
+			PRINTF("[GC] ERB: %X by %s\n", pCtx->nBN, pCtx->eOpen == OPEN_GC ? "GC" : "User");
+			CmdInfo* pCmd = IO_Alloc(eCbKey);
 			IO_Erase(pCmd, pCtx->nBN, FF32);
 			pCtx->eStep = ES_WaitErb;
 			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
@@ -509,11 +481,11 @@ bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
 		}
 		case ES_WaitErb:
 		{
-			CmdInfo* pCmd = IO_GetDone(IOCB_UErs);
+			CmdInfo* pCmd = IO_GetDone(eCbKey);
 			if (nullptr != pCmd)
 			{
 				IO_Free(pCmd);
-				if (JR_Busy != META_AddErbJnl(pCtx->nBN, OpenType::OPEN_USER))
+				if (JR_Busy != META_AddErbJnl(pCtx->eOpen, pCtx->nBN))
 				{
 					pCtx->eStep = ES_WaitMtSave;
 					pCtx->nMtAge = META_ReqSave();
@@ -532,7 +504,7 @@ bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
 		}
 		case ES_WaitJnlAdd:
 		{
-			if (JR_Busy != META_AddErbJnl(pCtx->nBN, OpenType::OPEN_USER))
+			if (JR_Busy != META_AddErbJnl(pCtx->eOpen, pCtx->nBN))
 			{
 				pCtx->eStep = ES_WaitMtSave;
 				pCtx->nMtAge = META_ReqSave();
@@ -545,6 +517,8 @@ bool GC_BlkErase(ErsCtx* pCtx, bool b1st)
 			if (META_GetAge() > pCtx->nMtAge)
 			{
 				pCtx->eStep = ES_Init;
+				// Start new Jnl
+				META_StartJnl(pCtx->eOpen, pCtx->nBN);
 				bRet = true;
 			}
 			else

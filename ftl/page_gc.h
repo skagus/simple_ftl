@@ -7,6 +7,11 @@
 #define GET_INDEX(x)		((x) & (FF16))
 #define GET_CHECK(x)		((x) & BIT(31))
 
+#define GC_TRIG_BLK_CNT		(3)
+#define SIZE_FREE_POOL		(5)
+
+static_assert(SIZE_FREE_POOL > GC_TRIG_BLK_CNT);
+
 enum ErbState
 {
 	ES_Init,
@@ -17,8 +22,9 @@ enum ErbState
 
 struct ErsCtx
 {
-	uint16 nBN;
 	ErbState eStep;
+	OpenType eOpen;	///< requester.
+	uint16 nBN;
 	uint32 nMtAge;
 };
 

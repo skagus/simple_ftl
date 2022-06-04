@@ -50,9 +50,10 @@ struct JnlSet
 	VAddr anActBlk[NUM_OPEN];	///< Open block information at JnlSet starting.
 	Jnl aJnl[MAX_JNL_ENTRY];
 public:
-	void Start(VAddr* astOpen)
+	void Start(OpenType eOpen, uint16 nBN)
 	{
-//		memcpy(anActBlk, astOpen, sizeof(anActBlk));
+		anActBlk[eOpen].nBN = nBN;
+		anActBlk[eOpen].nWL = 0;
 		memset(aJnl, 0, sizeof(anActBlk));
 		nCnt = 0;
 	}
@@ -117,5 +118,6 @@ BlkInfo* META_GetMinVPC(uint16* pnBN);
 void META_SetBlkState(uint16 nBN, BlkState eState);
 
 bool META_Ready();
-JnlRet META_AddErbJnl(uint16 nBN, OpenType eOpen);
+JnlRet META_AddErbJnl(OpenType eOpen, uint16 nBN);
+void META_StartJnl(OpenType eOpen, uint16 nBN);
 JnlRet META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen);

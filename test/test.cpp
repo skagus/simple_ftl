@@ -199,10 +199,10 @@ void TEST_Main(void* pParam)
 			tc_SeqWrite(0, nNumUserLPN);
 		}
 		tc_SeqRead(0, nNumUserLPN);
-		for (uint32 nLoop = 0; nLoop < 1; nLoop++)
+		for (uint32 nLoop = 0; nLoop < 10; nLoop++)
 		{
 			tc_RandRead(0, nNumUserLPN, nNumUserLPN * 2);
-			tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 128);
+			tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 32);
 		}
 		tc_StreamWrite(nNumUserLPN);
 
