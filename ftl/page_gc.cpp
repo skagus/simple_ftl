@@ -13,22 +13,23 @@
 /**
 * GC move는 
 */
-enum GcState
-{
-	GS_WaitOpen,
-	GS_WaitReq,
-	GS_GetDst,	
-	GS_ErsDst,
-	GS_Move,
-	GS_Stop,	// Stop on shutdown.
-};
+
 
 struct GcStk
 {
+	enum GcState
+	{
+		WaitOpen,
+		WaitReq,
+		GetDst,	
+		ErsDst,
+		Move,
+		Stop,	// Stop on shutdown.
+	};
 	GcState eState;
 };
 
-GcStk* gpGcRunCtx;
+GcStk* gpGcStk;
 bool gbVictimChanged;
 VAddr gstChanged;
 Queue<uint16, SIZE_FREE_POOL> gstFreePool;
@@ -38,6 +39,13 @@ Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 
 struct MoveStk
 {
+	enum MoveState
+	{
+		MS_Init,
+		MS_Run,
+	};
+	MoveState eState;
+
 	uint16 nDstBN;	// Input.
 	uint16 nDstWL;
 #if (EN_P2L_IN_DATA == 1)
@@ -204,27 +212,28 @@ void gc_SetupNewSrc(MoveStk* pCtx)
 #endif
 }
 
-bool gc_Move_SM(MoveStk* pCtx, bool b1st)
+bool gc_Move_SM(MoveStk* pStk)
 {
 	bool bRet = false;
-	if (b1st)
+	if (MoveStk::MS_Init == pStk->eState)
 	{
-		pCtx->nDstWL = 0;
-		pCtx->nReadRun = 0;
-		pCtx->nPgmRun = 0;
-		pCtx->nDataRead = 0;
+		pStk->nDstWL = 0;
+		pStk->nReadRun = 0;
+		pStk->nPgmRun = 0;
+		pStk->nDataRead = 0;
 #if (EN_P2L_IN_DATA == 1)
 		pCtx->bReadReady = false;
 #endif
-		pCtx->nRdSlot = 0;
-		MEMSET_ARRAY(pCtx->apReadRun, 0x0);
-		PRINTF("[GC] Start Move to %X\n", pCtx->nDstBN);
+		pStk->nRdSlot = 0;
+		pStk->eState = MoveStk::MS_Run;
+		MEMSET_ARRAY(pStk->apReadRun, 0x0);
+		PRINTF("[GC] Start Move to %X\n", pStk->nDstBN);
 	}
 	if (gbVictimChanged)
 	{
 		for (uint32 nIdx = 0; nIdx < MAX_GC_READ; nIdx++)
 		{
-			CmdInfo* pCmd = pCtx->apReadRun[nIdx];
+			CmdInfo* pCmd = pStk->apReadRun[nIdx];
 			if ((nullptr != pCmd) && (pCmd->nWL == gstChanged.nWL))
 			{
 				SET_CHECK(pCmd->nTag);
@@ -239,8 +248,8 @@ bool gc_Move_SM(MoveStk* pCtx, bool b1st)
 		bool bDone = true;
 		if (NC_PGM == pDone->eCmd)
 		{
-			gc_HandlePgm(pDone, pCtx);
-			pCtx->nPgmRun--;
+			gc_HandlePgm(pDone, pStk);
+			pStk->nPgmRun--;
 		}
 		else
 		{
@@ -252,10 +261,10 @@ bool gc_Move_SM(MoveStk* pCtx, bool b1st)
 			else
 #endif
 			{
-				bDone = gc_HandleRead(pDone, pCtx);
+				bDone = gc_HandleRead(pDone, pStk);
 				if (bDone)
 				{
-					pCtx->nReadRun--;
+					pStk->nReadRun--;
 				}
 			}
 		}
@@ -270,14 +279,14 @@ bool gc_Move_SM(MoveStk* pCtx, bool b1st)
 		}
 	}
 	////////// Issue New command. //////////////////
-	if (NUM_WL == pCtx->nDstWL)
+	if (NUM_WL == pStk->nDstWL)
 	{
-		if (0 == pCtx->nPgmRun)
+		if (0 == pStk->nPgmRun)
 		{
-			PRINTF("[GC] Dst fill: %X\n", pCtx->nDstBN);
-			if (FF16 != pCtx->nSrcBN)
+			PRINTF("[GC] Dst fill: %X\n", pStk->nDstBN);
+			if (FF16 != pStk->nSrcBN)
 			{
-				META_SetBlkState(pCtx->nSrcBN, BS_Closed);
+				META_SetBlkState(pStk->nSrcBN, BS_Closed);
 			}
 			bRet = true;
 		}
@@ -297,17 +306,17 @@ bool gc_Move_SM(MoveStk* pCtx, bool b1st)
 		pCtx->nPgmRun++;
 	}
 #endif
-	else if((pCtx->nReadRun < MAX_GC_READ) && (pCtx->nDataRead < NUM_DATA_PAGE))
+	else if((pStk->nReadRun < MAX_GC_READ) && (pStk->nDataRead < NUM_DATA_PAGE))
 	{
-		if (FF16 == pCtx->nSrcBN)
+		if (FF16 == pStk->nSrcBN)
 		{
 #if (EN_P2L_IN_DATA == 1)
 			if ((false == pCtx->bReadReady) && (0 == pCtx->nReadRun))
 #else
-			if (0 == pCtx->nReadRun)
+			if (0 == pStk->nReadRun)
 #endif
 			{
-				gc_SetupNewSrc(pCtx);
+				gc_SetupNewSrc(pStk);
 				Sched_Yield();
 			}
 		}
@@ -320,29 +329,29 @@ bool gc_Move_SM(MoveStk* pCtx, bool b1st)
 #if (EN_P2L_IN_DATA == 1)
 			uint16 nReadWL = gc_GetNextRead(pCtx->nSrcBN, pCtx->nSrcWL, pCtx->aSrcLPN);
 #else
-			uint16 nReadWL = gc_GetNextRead(pCtx->nSrcBN, pCtx->nSrcWL, nullptr);
+			uint16 nReadWL = gc_GetNextRead(pStk->nSrcBN, pStk->nSrcWL, nullptr);
 #endif
 			if (FF16 != nReadWL) // Issue Read.
 			{
 				uint16 nBuf4Copy = BM_Alloc();
 				CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-				PRINTF("[GC] RD:{%X,%X}\n", pCtx->nSrcBN, nReadWL);
-				IO_Read(pCmd, pCtx->nSrcBN, nReadWL, nBuf4Copy, pCtx->nRdSlot);
-				pCtx->nSrcWL = nReadWL + 1;
-				pCtx->nReadRun++;
-				pCtx->nDataRead++;
-				pCtx->apReadRun[pCtx->nRdSlot] = pCmd;
-				pCtx->nRdSlot = (pCtx->nRdSlot + 1) % MAX_GC_READ;
+				PRINTF("[GC] RD:{%X,%X}\n", pStk->nSrcBN, nReadWL);
+				IO_Read(pCmd, pStk->nSrcBN, nReadWL, nBuf4Copy, pStk->nRdSlot);
+				pStk->nSrcWL = nReadWL + 1;
+				pStk->nReadRun++;
+				pStk->nDataRead++;
+				pStk->apReadRun[pStk->nRdSlot] = pCmd;
+				pStk->nRdSlot = (pStk->nRdSlot + 1) % MAX_GC_READ;
 			}
-			else if ((0 == pCtx->nReadRun) && (0 == pCtx->nPgmRun))
+			else if ((0 == pStk->nReadRun) && (0 == pStk->nPgmRun))
 			{// After all program done related to read.(SPO safe)
-				META_SetBlkState(pCtx->nSrcBN, BS_Closed);
-				PRINTF("[GC] Close victim: %X\n", pCtx->nSrcBN);
+				META_SetBlkState(pStk->nSrcBN, BS_Closed);
+				PRINTF("[GC] Close victim: %X\n", pStk->nSrcBN);
 				if (gc_ScanFree() > 0)
 				{
 					Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
 				}
-				pCtx->nSrcBN = FF16;
+				pStk->nSrcBN = FF16;
 #if (EN_P2L_IN_DATA == 1)
 				pCtx->bReadReady = false;
 #endif
@@ -352,7 +361,7 @@ bool gc_Move_SM(MoveStk* pCtx, bool b1st)
 		}
 	}
 
-	if ((pCtx->nReadRun > 0)|| (pCtx->nPgmRun > 0))
+	if ((pStk->nReadRun > 0)|| (pStk->nPgmRun > 0))
 	{
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
@@ -380,11 +389,11 @@ uint8 gc_ScanFree()
 
 void gc_Run(void* pParam)
 {
-	GcStk* pCtx = (GcStk*)pParam;
+	GcStk* pGcStk = (GcStk*)pParam;
 
-	switch (pCtx->eState)
+	switch (pGcStk->eState)
 	{
-		case GS_WaitOpen:
+		case GcStk::WaitOpen:
 		{
 			if (NOT(META_Ready()))
 			{
@@ -392,12 +401,12 @@ void gc_Run(void* pParam)
 			}
 			else
 			{
-				pCtx->eState = GS_WaitReq;
+				pGcStk->eState = GcStk::WaitReq;
 				Sched_Yield();
 			}
 			break;
 		}
-		case GS_WaitReq:
+		case GcStk::WaitReq:
 		{
 			uint8 nFree = gstFreePool.Count();
 			if(nFree < SIZE_FREE_POOL)
@@ -410,7 +419,7 @@ void gc_Run(void* pParam)
 			}
 			if (nFree <= GC_TRIG_BLK_CNT)
 			{
-				pCtx->eState = GS_GetDst;
+				pGcStk->eState = GcStk::GetDst;
 				Sched_Yield();
 			}
 			else
@@ -420,45 +429,67 @@ void gc_Run(void* pParam)
 			}
 			break;
 		}
-		case GS_GetDst:
+		case GcStk::GetDst:
 		{
 			uint16 nFree = gstFreePool.PopHead();
 			ASSERT(FF16 != nFree);
-			pCtx->eState = GS_ErsDst;
-			ErbStk* pChild = (ErbStk*)(pCtx + 1);
-			pChild->nBN = nFree;
-			pChild->eOpen = OPEN_GC;
-			GC_BlkErase_SM(pChild, true);
+			ErbStk* pErbStk = (ErbStk*)(pGcStk + 1);
+			pErbStk->nBN = nFree;
+			pErbStk->eOpen = OPEN_GC;
+			pErbStk->eStep = ErbStk::Init;
+			GC_BlkErase_SM(pErbStk);
+			pGcStk->eState = GcStk::ErsDst;
 			break;
 		}
-		case GS_ErsDst:
+		case GcStk::ErsDst:
 		{
-			ErbStk* pChild = (ErbStk*)(pCtx + 1);
-			if (GC_BlkErase_SM(pChild, false)) // End.
+			ErbStk* pChild = (ErbStk*)(pGcStk + 1);
+			if (GC_BlkErase_SM(pChild)) // End.
 			{
 				META_SetOpen(OPEN_GC, pChild->nBN);
-				MoveStk* pMoveCtx = (MoveStk*)(pCtx + 1);
-				pMoveCtx->nDstBN = pChild->nBN;
-				pMoveCtx->nSrcBN = FF16;
-				gc_Move_SM(pMoveCtx, true);
-				pCtx->eState = GS_Move;
+				MoveStk* pMoveStk = (MoveStk*)(pGcStk + 1);
+				pMoveStk->eState = MoveStk::MS_Init;
+				pMoveStk->nDstBN = pChild->nBN;
+				pMoveStk->nSrcBN = FF16;
+				gc_Move_SM(pMoveStk);
+				pGcStk->eState = GcStk::Move;
 			}
 			break;
 		}
-		case GS_Move:
+		case GcStk::Move:
 		{
-			MoveStk* pMoveCtx = (MoveStk*)(pCtx + 1);
-			if (gc_Move_SM(pMoveCtx, false))
+			MoveStk* pMoveStk = (MoveStk*)(pGcStk + 1);
+			if (gc_Move_SM(pMoveStk))
 			{
-				META_SetBlkState(pMoveCtx->nDstBN, BS_Closed);
+				META_SetBlkState(pMoveStk->nDstBN, BS_Closed);
 				Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
-				pCtx->eState = GS_WaitReq;
+				pGcStk->eState = GcStk::WaitReq;
 				Sched_Yield();
 			}
 			break;
 		}
-		case GS_Stop:
+		case GcStk::Stop:
 		{
+			while (true)
+			{
+				CmdInfo* pDone = IO_PopDone(IOCB_Mig);
+				if (nullptr == pDone)
+				{
+					break;
+				}
+				if(NC_PGM == pDone->eCmd)
+				{
+					BM_Free(pDone->stPgm.anBufId[0]);
+				}
+				else if (NC_READ == pDone->eCmd)
+				{
+					BM_Free(pDone->stRead.anBufId[0]);
+				}
+				IO_Free(pDone);
+			}
+			Sched_TrigSyncEvt(BIT(EVT_NEW_BLK));
+			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+
 			break;
 		}
 	}
@@ -486,39 +517,36 @@ uint16 GC_ReqFree(OpenType eType)
 }
 
 
-bool GC_BlkErase_SM(ErbStk* pCtx, bool b1st)
+bool GC_BlkErase_SM(ErbStk* pErbStk)
 {
 	bool bRet = false;
-	if (b1st)
+
+	CbKey eCbKey = pErbStk->eOpen == OPEN_GC ? CbKey::IOCB_Mig : CbKey::IOCB_UErs;
+	switch (pErbStk->eStep)
 	{
-		pCtx->eStep = ES_Init;
-	}
-	CbKey eCbKey = pCtx->eOpen == OPEN_GC ? CbKey::IOCB_Mig : CbKey::IOCB_UErs;
-	switch (pCtx->eStep)
-	{
-		case ES_Init:
+		case ErbStk::Init:
 		{
-			PRINTF("[GC] ERB: %X by %s\n", pCtx->nBN, pCtx->eOpen == OPEN_GC ? "GC" : "User");
+			PRINTF("[GC] ERB: %X by %s\n", pErbStk->nBN, pErbStk->eOpen == OPEN_GC ? "GC" : "User");
 			CmdInfo* pCmd = IO_Alloc(eCbKey);
-			IO_Erase(pCmd, pCtx->nBN, FF32);
-			pCtx->eStep = ES_WaitErb;
+			IO_Erase(pCmd, pErbStk->nBN, FF32);
+			pErbStk->eStep = ErbStk::WaitErb;
 			Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 			break;
 		}
-		case ES_WaitErb:
+		case ErbStk::WaitErb:
 		{
 			CmdInfo* pCmd = IO_PopDone(eCbKey);
 			if (nullptr != pCmd)
 			{
 				IO_Free(pCmd);
-				if (JR_Busy != META_AddErbJnl(pCtx->eOpen, pCtx->nBN))
+				if (JR_Busy != META_AddErbJnl(pErbStk->eOpen, pErbStk->nBN))
 				{
-					pCtx->eStep = ES_WaitMtSave;
-					pCtx->nMtAge = META_ReqSave();
+					pErbStk->nMtAge = META_ReqSave();
+					pErbStk->eStep = ErbStk::WaitMtSave;
 				}
 				else
 				{
-					pCtx->eStep = ES_WaitJnlAdd;
+					pErbStk->eStep = ErbStk::WaitJnlAdd;
 				}
 				Sched_Wait(BIT(EVT_META), LONG_TIME);
 			}
@@ -528,23 +556,21 @@ bool GC_BlkErase_SM(ErbStk* pCtx, bool b1st)
 			}
 			break;
 		}
-		case ES_WaitJnlAdd:
+		case ErbStk::WaitJnlAdd:
 		{
-			if (JR_Busy != META_AddErbJnl(pCtx->eOpen, pCtx->nBN))
+			if (JR_Busy != META_AddErbJnl(pErbStk->eOpen, pErbStk->nBN))
 			{
-				pCtx->eStep = ES_WaitMtSave;
-				pCtx->nMtAge = META_ReqSave();
+				pErbStk->nMtAge = META_ReqSave();
+				pErbStk->eStep = ErbStk::WaitMtSave;
 			}
 			Sched_Wait(BIT(EVT_META), LONG_TIME);
 			break;
 		}
-		case ES_WaitMtSave:
+		case ErbStk::WaitMtSave:
 		{
-			if (META_GetAge() > pCtx->nMtAge)
+			if (META_GetAge() > pErbStk->nMtAge)
 			{
-				pCtx->eStep = ES_Init;
-				// Start new Jnl
-//				META_StartJnl(pCtx->eOpen, pCtx->nBN);
+				pErbStk->eStep = ErbStk::Init;
 				bRet = true;
 			}
 			else
@@ -560,16 +586,17 @@ bool GC_BlkErase_SM(ErbStk* pCtx, bool b1st)
 
 void GC_Stop()
 {
-	gpGcRunCtx->eState = GS_Stop;
+	gpGcStk->eState = GcStk::Stop;
 }
 
-static uint8 aStateCtx[4096];		///< Stack like meta context.
+static uint8 aGcStack[4096];		///< Stack like meta context.
 
 void GC_Init()
 {
-	MEMSET_ARRAY(aStateCtx, 0);
+	gpGcStk = (GcStk*)aGcStack;
+	MEMSET_ARRAY(aGcStack, 0);
 	gstFreePool.Init();
-	gpGcRunCtx = (GcStk*)aStateCtx;
-	Sched_Register(TID_GC, gc_Run, aStateCtx, BIT(MODE_NORMAL));
+	gpGcStk->eState = GcStk::WaitOpen;
+	Sched_Register(TID_GC, gc_Run, aGcStack, BIT(MODE_NORMAL));
 }
 
