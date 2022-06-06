@@ -182,17 +182,9 @@ void tc_Shutdown(ShutdownOpt eOpt)
 	}
 }
 
-/**
-Workload 생성역할.
-*/
-void TEST_Main(void* pParam)
+void sc_Long()
 {
 	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
-	if (nullptr == gaDict)
-	{
-		gaDict = new uint32[nNumUserLPN];
-		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
-	}
 
 	for(uint32 nLoop = 0; nLoop < 2; nLoop++)
 	{
@@ -201,7 +193,7 @@ void TEST_Main(void* pParam)
 			tc_SeqWrite(0, nNumUserLPN);
 		}
 		tc_SeqRead(0, nNumUserLPN);
-		while (true)
+		while(true)
 		{
 			for (uint32 nLoop = 0; nLoop < 10; nLoop++)
 			{
@@ -219,6 +211,31 @@ void TEST_Main(void* pParam)
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();
 	END_RUN;
+}
+
+void sc_Short()
+{
+	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+
+	tc_SeqWrite(0, nNumUserLPN);
+	tc_Shutdown(SD_Safe);
+
+	PRINTF("All Test Done\n");
+	POWER_SwitchOff();
+	END_RUN;
+}
+/**
+Workload 생성역할.
+*/
+void TEST_Main(void* pParam)
+{
+	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+	if (nullptr == gaDict)
+	{
+		gaDict = new uint32[nNumUserLPN];
+		memset(gaDict, 0, sizeof(uint32) * nNumUserLPN);
+	}
+	sc_Short();
 }
 
 

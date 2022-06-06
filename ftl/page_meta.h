@@ -25,6 +25,7 @@ union Jnl
 	struct
 	{
 		uint32 eJType : 2;		// JT_GC, JT_User
+		uint32 nLPN : 30;
 		VAddr stAddr;
 	} Wrt;
 	struct
@@ -56,7 +57,7 @@ public:
 		bBusy = false;
 		anActBlk[eOpen].nBN = nBN;
 		anActBlk[eOpen].nWL = 0;
-		memset(aJnl, 0, sizeof(anActBlk));
+		memset(aJnl, 0, sizeof(aJnl));
 		nCnt = 0;
 	}
 	JnlRet AddWrite(uint32 nLPN, VAddr stVA, OpenType eOpen)
@@ -64,6 +65,7 @@ public:
 		if ((false == bBusy) && (MAX_JNL_ENTRY > nCnt))
 		{
 			aJnl[nCnt].Wrt.eJType = (OPEN_GC == eOpen) ? Jnl::JT_GcW : Jnl::JT_UserW;
+			aJnl[nCnt].Wrt.nLPN = nLPN;
 			aJnl[nCnt].Wrt.stAddr = stVA;
 			nCnt++;
 			bBusy = (MAX_JNL_ENTRY == nCnt);
@@ -136,6 +138,6 @@ void META_SetBlkState(uint16 nBN, BlkState eState);
 bool META_Ready();
 JnlRet META_AddErbJnl(OpenType eOpen, uint16 nBN);
 void META_StartJnl(OpenType eOpen, uint16 nBN);
-JnlRet META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen);
+JnlRet META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen, bool bOnOpen = false);
 bool META_ReqMapUpdate(UpdateCtx* pCtx);
 
