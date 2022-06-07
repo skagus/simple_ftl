@@ -9,7 +9,6 @@
 #include "io.h"
 
 #define PRINTF			// SIM_Print
-#define NUM_NAND_CMD	(8)
 
 CmdInfo gaCmds[NUM_NAND_CMD];
 CbKey gaKeys[NUM_NAND_CMD];
@@ -47,6 +46,7 @@ void IO_Free(CmdInfo* pCmd)
 {
 	gaKeys[pCmd - gaCmds] = NUM_IOCB;
 	gNCmdPool.PushTail(pCmd);
+	Sched_TrigSyncEvt(BIT(EVT_IO_FREE));
 }
 
 CmdInfo* IO_Alloc(CbKey eKey)
@@ -59,6 +59,11 @@ CmdInfo* IO_Alloc(CbKey eKey)
 		return pRet;
 	}
 	return nullptr;
+}
+
+uint32 IO_CountFree()
+{
+	return gNCmdPool.Count();
 }
 
 void IO_WaitDone(CmdInfo* pCmd)

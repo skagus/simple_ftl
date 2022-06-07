@@ -49,14 +49,14 @@ struct CmdStk
 		Init,
 		Run,
 		BlkErsWait,
+		WaitIoDone,		///< wait all IO done.
+		WaitMtSave,
+		Done,
 	};
 	ReqStep eStep;
 	ReqInfo* pReq;	// input.
 	uint32 nWaitAge; ///< Meta save check.
-	uint16 nNextBlk;
 	uint32 nTag;
-	uint16 nIssued;
-	uint16 nDone;
 };
 
 
@@ -94,8 +94,6 @@ bool req_Write_SM(CmdStk* pCtx)
 	if (CmdStk::Init == pCtx->eStep)
 	{
 		pCtx->eStep = CmdStk::Run;
-		pCtx->nDone = 0;
-		pCtx->nIssued = 0;
 	}
 	ReqInfo* pReq = pCtx->pReq;
 	uint32 nLPN = pReq->nLPN;
@@ -189,8 +187,6 @@ bool req_Read_SM(CmdStk* pCtx)
 	if (CmdStk::Init == pCtx->eStep)
 	{
 		pCtx->eStep = CmdStk::Run;
-		pCtx->nDone = 0;
-		pCtx->nIssued = 0;
 	}
 	ReqInfo* pReq = pCtx->pReq;
 	uint32 nLPN = pReq->nLPN;
@@ -205,6 +201,8 @@ bool req_Read_SM(CmdStk* pCtx)
 	}
 	else
 	{
+		uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
+		*pnVal = nLPN;
 		req_Done(NC_READ, pCtx->nTag);
 	}
 	return true;
@@ -212,27 +210,83 @@ bool req_Read_SM(CmdStk* pCtx)
 
 bool req_Shutdown_SM(CmdStk* pCtx)
 {
-	if (CmdStk::Init == pCtx->eStep)
+	ShutdownOpt eOpt = pCtx->pReq->eOpt;
+	bool bRet = false;
+	switch (pCtx->eStep)
 	{
-		pCtx->eStep = CmdStk::Run;
-		pCtx->nDone = 0;
-		pCtx->nIssued = 0;
-		GC_Stop();
-		pCtx->nWaitAge = META_ReqSave();
+		case CmdStk::Init:
+		{
+			GC_Stop();
+			if (IO_CountFree() >= NUM_NAND_CMD)
+			{
+				if (SD_Fast == eOpt)
+				{
+					gfCbf(pCtx->pReq);
+					gstReqInfoPool.PushTail(pCtx->nTag);
+					CPU_Wakeup(CPU_WORK, SIM_USEC(2));
+					bRet = true;
+				}
+				else
+				{
+					pCtx->nWaitAge = META_ReqSave();
+					pCtx->eStep = CmdStk::WaitMtSave;
+					Sched_Wait(BIT(EVT_META), LONG_TIME);
+				}
+			}
+			else
+			{
+				pCtx->eStep = CmdStk::WaitIoDone;
+				Sched_Wait(BIT(EVT_IO_FREE), LONG_TIME);
+			}
+			break;
+		}
+		case CmdStk::WaitIoDone:
+		{
+			if (IO_CountFree() >= NUM_NAND_CMD)
+			{
+				if (SD_Fast == eOpt)
+				{
+					gfCbf(pCtx->pReq);
+					gstReqInfoPool.PushTail(pCtx->nTag);
+					CPU_Wakeup(CPU_WORK, SIM_USEC(2));
+					bRet = true;
+				}
+				else
+				{
+					pCtx->nWaitAge = META_ReqSave();
+					pCtx->eStep = CmdStk::WaitMtSave;
+					Sched_Wait(BIT(EVT_META), LONG_TIME);
+				}
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_IO_FREE), LONG_TIME);
+			}
+			break;
+		}
+		case CmdStk::WaitMtSave:
+		{
+			assert(eOpt >= SD_Safe);
+			if (META_GetAge() > pCtx->nWaitAge)
+			{
+				gfCbf(pCtx->pReq);
+				gstReqInfoPool.PushTail(pCtx->nTag);
+				CPU_Wakeup(CPU_WORK, SIM_USEC(2));
+				bRet = true;
+			}
+			else
+			{
+				Sched_Wait(BIT(EVT_META), LONG_TIME);
+			}
+			break;
+		}
+		default:
+		{
+			assert(false);
+			break;
+		}
 	}
-
-	if (META_GetAge() > pCtx->nWaitAge)
-	{
-		gfCbf(pCtx->pReq);
-		gstReqInfoPool.PushTail(pCtx->nTag);
-		CPU_Wakeup(CPU_WORK, SIM_USEC(2));
-		return true;
-	}
-	else
-	{
-		Sched_Wait(BIT(EVT_META), LONG_TIME);
-		return false;
-	}
+	return bRet;
 }
 
 CmdStk* gpDbgReqCtx;

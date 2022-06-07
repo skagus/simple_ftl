@@ -9,6 +9,7 @@ typedef enum
 	EVT_OPEN,
 	EVT_META,
 	EVT_BUF,
+	EVT_IO_FREE,
 	EVT_NAND_CMD,
 	EVT_USER_CMD,
 	EVT_BLK_REQ,

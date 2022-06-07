@@ -123,52 +123,60 @@ bool gc_HandleRead(CmdInfo* pDone, MoveStk* pCtx)
 	assert(*pSpare == pCtx->aSrcLPN[pDone->nWL]);
 #endif
 
+	if (*pSpare != MARK_ERS)
+	{
 #if (EN_P2L_IN_DATA == 0)
-	VAddr stOld = META_GetMap(*pSpare);
-	if((pCtx->nSrcBN == stOld.nBN) // Valid
-		&&(pDone->nWL == stOld.nWL))
+		VAddr stOld = META_GetMap(*pSpare);
+		if ((pCtx->nSrcBN == stOld.nBN) // Valid
+			&& (pDone->nWL == stOld.nWL))
 #else
-	bool bUnchanged = (0 == GET_CHECK(pDone->nTag));
-	if (NOT(bUnchanged))
-	{
-		bUnchanged = (pCtx->nSrcBN == META_GetMap(*pSpare).nBN);
-	}
-	if (bUnchanged)
-#endif
-	{
-		VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
-		JnlRet eJRet = META_Update(*pSpare, stAddr, OPEN_GC);
-		if (JnlRet::JR_Busy != eJRet)
+		bool bUnchanged = (0 == GET_CHECK(pDone->nTag));
+		if (NOT(bUnchanged))
 		{
-			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-			IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, *pSpare);
-			// User Data.
-			if ((*pSpare & 0xF) == pDone->nTag)
-			{
-				uint32* pMain = (uint32*)BM_GetMain(nBuf);
-				assert((*pMain & 0xF) == pDone->nTag);
-			}
-#if (EN_P2L_IN_DATA == 1)
-			pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
+			bUnchanged = (pCtx->nSrcBN == META_GetMap(*pSpare).nBN);
+		}
+		if (bUnchanged)
 #endif
-			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pCtx->nDstBN, pCtx->nDstWL, *pSpare);
-
-			pCtx->nDstWL++;
-			pCtx->nPgmRun++;
-			if (JR_Filled == eJRet)
+		{
+			VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
+			JnlRet eJRet = META_Update(*pSpare, stAddr, OPEN_GC);
+			if (JnlRet::JR_Busy != eJRet)
 			{
-				META_ReqSave();
+				CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
+				IO_Program(pNewPgm, pCtx->nDstBN, pCtx->nDstWL, nBuf, *pSpare);
+				// User Data.
+				if ((*pSpare & 0xF) == pDone->nTag)
+				{
+					uint32* pMain = (uint32*)BM_GetMain(nBuf);
+					assert((*pMain & 0xF) == pDone->nTag);
+				}
+#if (EN_P2L_IN_DATA == 1)
+				pCtx->aDstLPN[pCtx->nDstWL] = *pSpare;
+#endif
+				PRINTF("[GCW] {%X, %X}, LPN:%X\n", pCtx->nDstBN, pCtx->nDstWL, *pSpare);
+
+				pCtx->nDstWL++;
+				pCtx->nPgmRun++;
+				if (JR_Filled == eJRet)
+				{
+					META_ReqSave();
+				}
+			}
+			else
+			{
+				bDone = false;
 			}
 		}
 		else
 		{
-			bDone = false;
+			pCtx->nDataRead--;
+			PRINTF("[GC] Moved LPN:%X\n", *pSpare);
+			BM_Free(nBuf);
 		}
 	}
 	else
 	{
 		pCtx->nDataRead--;
-		PRINTF("[GC] Moved LPN:%X\n", *pSpare);
 		BM_Free(nBuf);
 	}
 	uint32 nIdx = GET_INDEX(pDone->nTag);

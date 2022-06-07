@@ -2,6 +2,8 @@
 #include "types.h"
 #include "nfc.h"
 
+#define NUM_NAND_CMD	(8)
+
 enum CbKey
 {
 	IOCB_User,
@@ -17,6 +19,7 @@ void IO_RegCbf(CbKey eId, IoCbf pfCb);
 
 void IO_Free(CmdInfo* pCmd);
 CmdInfo* IO_Alloc(CbKey eKey);
+uint32 IO_CountFree();
 
 CmdInfo* IO_PopDone(CbKey eCbId);
 CmdInfo* IO_GetDone(CbKey eCbId);

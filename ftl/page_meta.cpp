@@ -128,7 +128,16 @@ bool META_Ready()
 
 VAddr META_GetMap(uint32 nLPN)
 {
-	return gstMeta.astL2P[nLPN];
+	if (nLPN < NUM_LPN)
+	{
+		return gstMeta.astL2P[nLPN];
+	}
+	else
+	{
+		VAddr stAddr;
+		stAddr.nDW = FF32;
+		return stAddr;
+	}
 }
 
 BlkInfo* META_GetFree(uint16* pnBN, bool bFirst)
@@ -205,7 +214,7 @@ JnlRet META_Update(uint32 nLPN, VAddr stNew, OpenType eOpen, bool bOnOpen)
 			}
 		}
 	}
-	if (true == bOnOpen)
+	if (false == bOnOpen)
 	{
 		dbg_MapIntegrity();
 	}
@@ -540,7 +549,7 @@ void open_ReplayJnl(JnlSet* pJnlSet)
 		{
 			case Jnl::JT_UserW:
 			{
-				META_Update(pJnl->Wrt.nLPN, pJnl->Wrt.stAddr, OpenType::OPEN_USER);
+				META_Update(pJnl->Wrt.nLPN, pJnl->Wrt.stAddr, OpenType::OPEN_USER, true);
 				OpenBlk* pOpen = META_GetOpen(OpenType::OPEN_USER);
 				pOpen->stNextVA = pJnl->Wrt.stAddr;
 				pOpen->stNextVA.nWL++;
@@ -548,7 +557,7 @@ void open_ReplayJnl(JnlSet* pJnlSet)
 			}
 			case Jnl::JT_GcW:
 			{
-				META_Update(pJnl->Wrt.nLPN, pJnl->Wrt.stAddr, OpenType::OPEN_GC);
+				META_Update(pJnl->Wrt.nLPN, pJnl->Wrt.stAddr, OpenType::OPEN_GC, true);
 				OpenBlk* pOpen = META_GetOpen(OpenType::OPEN_GC);
 				pOpen->stNextVA = pJnl->Wrt.stAddr;
 				pOpen->stNextVA.nWL++;
@@ -754,8 +763,8 @@ bool meta_Open_SM(OpenStk* pCtx)
 		{
 			MtBlkScanStk* pChildCtx = (MtBlkScanStk*)(pCtx + 1);
 			pChildCtx->eState = MtBlkScanStk::Init;
-			bRet = open_BlkScan_SM(pChildCtx);
-
+			open_BlkScan_SM(pChildCtx);
+			MEMSET_OBJ(gstMeta, 0xFF);
 			pCtx->nMaxBO = INV_BN;
 			pCtx->eOpenStep = OpenStk::BlkScan;
 			break;
@@ -771,8 +780,7 @@ bool meta_Open_SM(OpenStk* pCtx)
 					MtPgStk* pNextChild = (MtPgStk*)(pCtx + 1);
 					pNextChild->nMaxBN = meta_MtBlk2PBN(pCtx->nMaxBO);
 					pNextChild->eState = MtPgStk::Init;
-					bRet = open_PageScan_SM(pNextChild);
-					assert(false == bRet);
+					open_PageScan_SM(pNextChild);
 					pCtx->eOpenStep = OpenStk::PageScan;
 				}
 				else
@@ -810,14 +818,18 @@ bool meta_Open_SM(OpenStk* pCtx)
 			{
 				DataScanStk* pNextChild = (DataScanStk*)(pCtx + 1);
 				pNextChild->eState = DataScanStk::Init;
-				bRet = open_UserScan_SM(pNextChild);
+				open_UserScan_SM(pNextChild);
 				pCtx->eOpenStep = OpenStk::DataScan;
+				Sched_Yield();	// User scan에서 암꺼도 안하니까..
 			}
 			break;
 		}
 		case OpenStk::DataScan:
 		{
-			bRet = open_UserScan_SM((DataScanStk*)(pCtx + 1));
+			if (open_UserScan_SM((DataScanStk*)(pCtx + 1)))
+			{
+				bRet = true;	// all done.
+			}
 			break;
 		}
 	}
@@ -826,8 +838,19 @@ bool meta_Open_SM(OpenStk* pCtx)
 
 void meta_PostOpen()
 {
+	uint16 anVPC[NUM_USER_BLK];
+	MEMSET_ARRAY(anVPC, 0x0);
+	for (uint32 nLPN = 0; nLPN < NUM_LPN; nLPN++)
+	{
+		if (gstMeta.astL2P[nLPN].nBN < NUM_USER_BLK)
+		{
+			anVPC[gstMeta.astL2P[nLPN].nBN]++;
+		}
+	}
 	for (uint16 nBN = 0; nBN < NUM_USER_BLK; nBN++)
 	{
+//		assert(gstMeta.astBI[nBN].nVPC == anVPC[nBN]);
+		gstMeta.astBI[nBN].nVPC = anVPC[nBN];
 		gstMeta.astBI[nBN].eState = BlkState::BS_Closed;
 	}
 }
