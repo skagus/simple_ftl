@@ -128,7 +128,7 @@ void META_Init();
 uint32 META_ReqSave();	// Age return.
 uint32 META_GetAge();
 
-void META_SetOpen(OpenType eType, uint16 nBN);
+void META_SetOpen(OpenType eType, uint16 nBN, uint16 nWL = 0);
 OpenBlk* META_GetOpen(OpenType eOpen);
 VAddr META_GetMap(uint32 nLPN);
 BlkInfo* META_GetFree(uint16* pnBN, bool bFirst);

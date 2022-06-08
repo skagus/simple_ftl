@@ -123,7 +123,7 @@ bool gc_HandleRead(CmdInfo* pDone, MoveStk* pCtx)
 	assert(*pSpare == pCtx->aSrcLPN[pDone->nWL]);
 #endif
 
-	if (*pSpare != MARK_ERS)
+	if ((*pSpare != MARK_ERS) &&(pCtx->nDstWL < NUM_WL))
 	{
 #if (EN_P2L_IN_DATA == 0)
 		VAddr stOld = META_GetMap(*pSpare);
@@ -225,17 +225,16 @@ bool gc_Move_SM(MoveStk* pStk)
 	bool bRet = false;
 	if (MoveStk::MS_Init == pStk->eState)
 	{
-		pStk->nDstWL = 0;
 		pStk->nReadRun = 0;
 		pStk->nPgmRun = 0;
-		pStk->nDataRead = 0;
 #if (EN_P2L_IN_DATA == 1)
 		pCtx->bReadReady = false;
 #endif
+		pStk->nDataRead = pStk->nDstWL;
 		pStk->nRdSlot = 0;
 		pStk->eState = MoveStk::MS_Run;
 		MEMSET_ARRAY(pStk->apReadRun, 0x0);
-		PRINTF("[GC] Start Move to %X\n", pStk->nDstBN);
+		PRINTF("[GC:%X] Start Move to %X, %X\n", SIM_GetSeqNo(), pStk->nDstBN, pStk->nDstWL);
 	}
 	if (gbVictimChanged)
 	{
@@ -403,14 +402,31 @@ void gc_Run(void* pParam)
 	{
 		case GcStk::WaitOpen:
 		{
-			if (NOT(META_Ready()))
+			if (META_Ready())
 			{
-				Sched_Wait(BIT(EVT_BLK_REQ), LONG_TIME);
+				OpenBlk* pOpen = META_GetOpen(OPEN_GC);
+				// Prev open block case.
+				if (pOpen->stNextVA.nWL < NUM_WL)
+				{
+					gc_ScanFree();
+					MoveStk* pMoveStk = (MoveStk*)(pGcStk + 1);
+					pMoveStk->eState = MoveStk::MS_Init;
+					pMoveStk->nDstBN = pOpen->stNextVA.nBN;
+					pMoveStk->nSrcBN = FF16;
+					pMoveStk->nDstWL = pOpen->stNextVA.nWL;
+					gc_Move_SM(pMoveStk);
+					pGcStk->eState = GcStk::Move;
+					break;
+				}
+				else
+				{
+					pGcStk->eState = GcStk::WaitReq;
+					Sched_Yield();
+				}
 			}
 			else
 			{
-				pGcStk->eState = GcStk::WaitReq;
-				Sched_Yield();
+				Sched_Wait(BIT(EVT_OPEN), LONG_TIME);
 			}
 			break;
 		}
@@ -459,6 +475,7 @@ void gc_Run(void* pParam)
 				pMoveStk->eState = MoveStk::MS_Init;
 				pMoveStk->nDstBN = pChild->nBN;
 				pMoveStk->nSrcBN = FF16;
+				pMoveStk->nDstWL = 0;
 				gc_Move_SM(pMoveStk);
 				pGcStk->eState = GcStk::Move;
 			}

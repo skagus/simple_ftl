@@ -163,13 +163,16 @@ BlkInfo* META_GetFree(uint16* pnBN, bool bFirst)
 	return nullptr;
 }
 
-void META_SetOpen(OpenType eType, uint16 nBN)
+void META_SetOpen(OpenType eType, uint16 nBN, uint16 nWL)
 {
 	OpenBlk* pOpen = gaOpen + eType;
 	pOpen->stNextVA.nBN = nBN;
-	pOpen->stNextVA.nWL = 0;
+	pOpen->stNextVA.nWL = nWL;
 	gstMeta.astBI[nBN].eState = BS_Open;
-	gstMeta.astBI[nBN].nEC++;
+	if (0 == nWL)
+	{
+		gstMeta.astBI[nBN].nEC++;
+	}
 }
 
 void META_SetBlkState(uint16 nBN, BlkState eState)
@@ -853,6 +856,13 @@ void meta_PostOpen()
 		gstMeta.astBI[nBN].nVPC = anVPC[nBN];
 		gstMeta.astBI[nBN].eState = BlkState::BS_Closed;
 	}
+	for (uint32 nOpen = 0; nOpen < NUM_OPEN; nOpen++)
+	{
+		if (gaOpen[nOpen].stNextVA.nWL < NUM_WL)
+		{
+			META_SetOpen((OpenType)nOpen, gaOpen[nOpen].stNextVA.nBN, gaOpen[nOpen].stNextVA.nWL);
+		}
+	}
 }
 
 
@@ -965,8 +975,9 @@ void META_Init()
 	gpMtStk = (MtStk*)aMtStack;
 	gpMtStk->eStep = MtStk::Mt_Init;
 
-	gaOpen[0].stNextVA.nBN = 0;
-	gaOpen[0].stNextVA.nWL = NUM_WL;	// Invalid user block.
+	MEMSET_ARRAY(gaOpen, 0xFF);
+//	gaOpen[0].stNextVA.nBN = 0;
+//	gaOpen[0].stNextVA.nWL = NUM_WL;	// Invalid user block.
 
 	MEMSET_ARRAY(gstMeta.astBI, 0);
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);
