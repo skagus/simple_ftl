@@ -18,11 +18,7 @@
 #define INV_PPO				(0xFF)
 #define MARK_ERS			(0xFFFFFFFF)
 
-#if (EN_P2L_IN_DATA == 1)
-#define NUM_DATA_PAGE		(NUM_WL - 1)
-#else 
 #define NUM_DATA_PAGE		(NUM_WL)
-#endif
 
 
 enum Cmd

@@ -217,14 +217,14 @@ void sc_Short()
 {
 	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
 
-	tc_SeqRead(0, nNumUserLPN);
+	tc_SeqRead(0, nNumUserLPN / 32);
 	if (0 == SIM_GetCycle())
 	{
 		tc_SeqWrite(0, nNumUserLPN);
 	}
 	else
 	{
-		tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 32);
+		tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 8);
 	}
 
 	tc_Shutdown(SD_Safe);

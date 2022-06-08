@@ -128,21 +128,6 @@ bool req_Write_SM(CmdStk* pCtx)
 			}
 		}
 	}
-#if (EN_P2L_IN_DATA == 1)
-	else if (pDst->nNextPage == NUM_DATA_PAGE)// P2L program in Last P2L.
-	{
-		uint16 nBuf = BM_Alloc();
-		*(uint32*)BM_GetSpare(nBuf) = P2L_MARK;
-		uint8* pMain = BM_GetMain(nBuf);
-		assert(sizeof(pDst->anP2L) <= BYTE_PER_PPG);
-		memcpy(pMain, pDst->anP2L, sizeof(pDst->anP2L));
-		CmdInfo* pCmd = IO_Alloc(IOCB_User);
-		IO_Program(pCmd, pDst->nBN, pDst->nNextPage, nBuf, P2L_MARK);
-		pDst->nNextPage++;
-		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME); ///< Wait P2L program done.
-		bRet = true;
-	}
-#endif
 	else
 	{
 		*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
@@ -154,18 +139,6 @@ bool req_Write_SM(CmdStk* pCtx)
 			IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, pCtx->nTag);
 
 			PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
-#if (EN_P2L_IN_DATA == 1)
-			pDst->anP2L[pDst->nNextPage] = pReq->nLPN;
-			pDst->nNextPage++;
-			if (pDst->nNextPage != NUM_DATA_PAGE)
-			{
-				bRet = true;
-			}
-			else
-			{
-				Sched_Yield();
-			}
-#else
 			pDst->stNextVA.nWL++;
 			bRet = true;
 			if (JR_Filled == eJRet)
@@ -177,7 +150,6 @@ bool req_Write_SM(CmdStk* pCtx)
 		{
 			Sched_Wait(BIT(EVT_META), LONG_TIME);
 		}
-#endif
 	}
 	return bRet;
 }
@@ -433,22 +405,11 @@ void reqResp_Run(void* pParam)
 		}
 		else
 		{
-#if (EN_P2L_IN_DATA == 1)
-			if (P2L_MARK == pCmd->nTag)
-			{
-				META_SetBlkState(pCmd->anBBN[0], BS_Closed);
-				BM_Free(pCmd->stPgm.anBufId[0]);
-			}
-			else
-#else
 			if (pCmd->nWL == (NUM_DATA_PAGE - 1))
 			{
 				META_SetBlkState(pCmd->anBBN[0], BS_Closed);
 			}
-#endif
-			{
-				req_Done(pCmd->eCmd, pCmd->nTag);
-			}
+			req_Done(pCmd->eCmd, pCmd->nTag);
 		}
 		IO_Free(pCmd);
 		Sched_Yield();

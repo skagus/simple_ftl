@@ -44,11 +44,6 @@ enum BlkState
 struct OpenBlk
 {
 	VAddr stNextVA;
-//	uint16 nBN;		///< Block Number.
-//	uint32 nNextPage;	// Clean WL.
-#if (EN_P2L_IN_DATA == 1)
-	uint32 anP2L[NUM_WL];
-#endif
 };
 
 struct BlkInfo
