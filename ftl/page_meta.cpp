@@ -50,6 +50,9 @@ struct MtStk
 };
 MtStk* gpMtStk;
 
+void open_PostMtLoad();
+
+
 uint16 meta_MtBlk2PBN(uint16 nMetaBN)
 {
 	return nMetaBN + BASE_META_BLK;
@@ -375,98 +378,113 @@ struct DataScanStk
 	enum ScanState
 	{
 		Init,
-		Run,
+		ScanGc,
+		ScanUser,
 	};
 	ScanState eState;
-	uint8 nLogIdx;
-	uint16 nIssue;
-	uint16 nDone;
-	bool bErsFound;
+	OpenType eOpen;
+	uint16 nBN;
+	uint16 nNextWL;
+	uint16 nErasedWL;
+	uint16 nRun;		///< Count of running nand command.
 };
 
 bool open_UserScan_SM(DataScanStk* pCtx)
 {
-#if 0
 	bool bRet = false;
-	if (b1st)
+	if (DataScanStk::Init == pCtx->eState)
 	{
-		LogMap* pLMap = gstMeta.astLog + 0;
-		pCtx->nLogIdx = 0;
-		pCtx->nIssue = pLMap->nCPO;
-		pCtx->nDone = pLMap->nCPO;
-		pCtx->bErsFound = false;
+		OpenBlk* pOpen = META_GetOpen(OpenType::OPEN_GC);
+		pCtx->eState = DataScanStk::ScanGc;
+		pCtx->nRun = 0;
+		pCtx->nErasedWL = FF16;
+		pCtx->nBN = pOpen->stNextVA.nBN;
+		pCtx->nNextWL = pOpen->stNextVA.nWL;
+		pCtx->nErasedWL = FF16;
+		pCtx->eOpen = OPEN_GC;
+
+		gstJnlSet.Start(OPEN_USER, 0);
 	}
 
-	CmdInfo* pDone = IO_GetDone(CbKey::IOCB_Meta);
-	if (nullptr != pDone)
+	CmdInfo* pDone;
+	if (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Meta)))
 	{
-		pCtx->nDone++;
+		pCtx->nRun--;
 		uint16 nBuf = pDone->stRead.anBufId[0];
 		uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
-		uint16 nPO = pDone->nTag;
-		LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
+		uint16 nWL = pDone->nTag;
 
 		if (MARK_ERS != *pnSpare)
 		{
-			uint32 nLPO = (*pnSpare) % CHUNK_PER_PBLK;
-			PRINTF("[Open] MapUpdate: LPN:%X to PHY:(%X, %X)\n", *pnSpare, pLMap->nPBN, nPO);
-			pLMap->anMap[nLPO] = nPO;
-			if (nLPO != nPO)
-			{
-				pLMap->bInPlace = false;
-			}
+			uint32 nLPN = *pnSpare;
+			VAddr stCur(0, pDone->anBBN[0], pDone->nWL);
+			PRINTF("[SCAN] MapUpdate: LPN:%X to (%X, %X), %c\n",
+				*pnSpare, pDone->anBBN[0], pDone->nWL, pCtx->eOpen == OPEN_GC ? 'G' : 'U');
+			META_Update(*pnSpare, stCur, pCtx->eOpen);
 		}
-		else if (false == pCtx->bErsFound)
+		else if (FF16 == pCtx->nErasedWL)
 		{
-			pCtx->bErsFound = true;
-			pLMap->nCPO = nPO;
+			PRINTF("[SCAN] Erased detect: (%X, %X), %c\n",
+				pDone->anBBN[0], pDone->nWL, pCtx->eOpen == OPEN_GC ? 'G' : 'U');
+			pCtx->nErasedWL = pDone->nWL;
 		}
 		BM_Free(nBuf);
 		IO_Free(pDone);
 	}
 
-	if((pCtx->nDone == pCtx->nIssue)
-		&& (pCtx->bErsFound || (pCtx->nDone >= NUM_WL)))
+	while ((FF16 == pCtx->nErasedWL) 
+		&& (pCtx->nNextWL < NUM_WL)
+		&& (pCtx->nRun < 2))
 	{
-		LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
-		pLMap->bReady = true;
-		if (NOT(pCtx->bErsFound))
-		{
-			pLMap->nCPO = NUM_WL;
-		}
-		pCtx->nLogIdx++;
-		if (pCtx->nLogIdx < NUM_LOG_BLK)
-		{
-			LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
-			pCtx->bErsFound = false;
-			pCtx->nDone = pLMap->nCPO;
-			pCtx->nIssue = pLMap->nCPO;
-			Sched_Yield();
-		}
-		else
-		{
-			bRet = true;
-		}
-	}
-
-	if ((false == pCtx->bErsFound)
-		&& (pCtx->nIssue < NUM_WL)
-		&& (pCtx->nIssue < pCtx->nDone + 2))
-	{
-		LogMap* pLMap = gstMeta.astLog + pCtx->nLogIdx;
 		uint16 nBuf = BM_Alloc();
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
-		IO_Read(pCmd, pLMap->nPBN, pCtx->nIssue, nBuf, pCtx->nIssue);
-		pCtx->nIssue++;
+		IO_Read(pCmd, pCtx->nBN, pCtx->nNextWL, nBuf, pCtx->nNextWL);
+		pCtx->nNextWL++;
+		pCtx->nRun++;
 	}
-	if (pCtx->nIssue != pCtx->nDone)
+
+	if (pCtx->nRun > 0)
 	{
 		Sched_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
+	else if ((pCtx->nNextWL >= NUM_WL) || (FF16 != pCtx->nErasedWL)) // All done.
+	{
+		if (DataScanStk::ScanGc == pCtx->eState)
+		{
+			// Close GC scan.
+			OpenBlk* pOpen = META_GetOpen(OpenType::OPEN_GC);
+			if (FF16 != pCtx->nErasedWL)
+			{
+				pOpen->stNextVA.nWL = pCtx->nErasedWL;
+			}
+			else
+			{
+				pOpen->stNextVA.nWL = NUM_WL;
+			}
+			pOpen = META_GetOpen(OpenType::OPEN_USER);
+			pCtx->eState = DataScanStk::ScanUser;
+			pCtx->nRun = 0;
+			pCtx->nBN = pOpen->stNextVA.nBN;
+			pCtx->nNextWL = pOpen->stNextVA.nWL;
+			pCtx->nErasedWL = FF16;
+			pCtx->eOpen = OPEN_USER;
+			Sched_Yield();
+		}
+		else // ScanUser.
+		{
+			OpenBlk* pOpen = META_GetOpen(OpenType::OPEN_USER);
+			if (FF16 != pCtx->nErasedWL)
+			{
+				pOpen->stNextVA.nWL = pCtx->nErasedWL;
+			}
+			else
+			{
+				pOpen->stNextVA.nWL = NUM_WL;
+			}
+			bRet = true;
+		}
+	}
 	return bRet;
-#else
-	return true;
-#endif
 }
 
 // =================== Meta Page Scan ========================
@@ -544,7 +562,6 @@ bool open_PageScan_SM(MtPgStk* pCtx)
 
 void open_ReplayJnl(JnlSet* pJnlSet)
 {
-	gstJnlSet.Start(OPEN_USER, 0);
 	for (uint16 nIdx = 0; nIdx < pJnlSet->nCnt; nIdx++)
 	{
 		Jnl* pJnl = pJnlSet->aJnl + nIdx;
@@ -569,7 +586,7 @@ void open_ReplayJnl(JnlSet* pJnlSet)
 			case Jnl::JT_ERB:
 			{
 				OpenBlk* pOpen;
-				if (OpenType::OPEN_GC == pJnl->Erb.eJType)
+				if (OpenType::OPEN_GC == pJnl->Erb.eOpenType)
 				{
 					pOpen = META_GetOpen(OpenType::OPEN_GC);
 				}
@@ -819,11 +836,11 @@ bool meta_Open_SM(OpenStk* pCtx)
 			MtPgStk* pChildCtx = (MtPgStk*)(pCtx + 1);
 			if (open_MtLoad_SM(pChildCtx))
 			{
+				open_PostMtLoad();
 				DataScanStk* pNextChild = (DataScanStk*)(pCtx + 1);
 				pNextChild->eState = DataScanStk::Init;
 				open_UserScan_SM(pNextChild);
 				pCtx->eOpenStep = OpenStk::DataScan;
-				Sched_Yield();	// User scan에서 암꺼도 안하니까..
 			}
 			break;
 		}
@@ -839,7 +856,7 @@ bool meta_Open_SM(OpenStk* pCtx)
 	return bRet;
 }
 
-void meta_PostOpen()
+void open_PostMtLoad()
 {
 	uint16 anVPC[NUM_USER_BLK];
 	MEMSET_ARRAY(anVPC, 0x0);
@@ -902,7 +919,6 @@ void meta_Run(void* pParam)
 				}
 				else
 				{
-					meta_PostOpen();
 					pMtStk->eStep = MtStk::Mt_Ready;
 					Sched_TrigSyncEvt(BIT(EVT_OPEN));
 					Sched_Yield();

@@ -108,6 +108,7 @@ bool req_Write_SM(CmdStk* pCtx)
 			if (FF16 != nBN)
 			{
 				pChild->nBN = nBN;
+				pChild->eOpen = OPEN_USER;
 				pChild->eStep = ErbStk::Init;
 				GC_BlkErase_SM(pChild);
 				pCtx->eStep = CmdStk::BlkErsWait;

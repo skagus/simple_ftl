@@ -33,7 +33,6 @@ enum ShutdownOpt
 {
 	SD_Fast,	///< running IO만 처리. 
 	SD_Safe,	///< Meta data저장. (user scan불필요)
-	SD_Full,	///< Full meta data저장 (Jnl replay불필요)
 };
 
 struct ReqInfo

@@ -217,7 +217,7 @@ void sc_Short()
 {
 	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
 
-	tc_SeqRead(0, nNumUserLPN / 32);
+	tc_SeqRead(0, nNumUserLPN);
 	if (0 == SIM_GetCycle())
 	{
 		tc_SeqWrite(0, nNumUserLPN);
@@ -227,7 +227,7 @@ void sc_Short()
 		tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 8);
 	}
 
-	tc_Shutdown(SD_Safe);
+	tc_Shutdown((SIM_GetRand(10) < 5) ? SD_Fast : SD_Safe);
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();
 	END_RUN;
