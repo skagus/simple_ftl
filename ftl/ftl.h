@@ -31,7 +31,7 @@ enum Cmd
 
 enum ShutdownOpt
 {
-	SD_Fast,	///< running IO만 처리. 
+	SD_Sudden,	///< running IO만 처리. 
 	SD_Safe,	///< Meta data저장. (user scan불필요)
 };
 

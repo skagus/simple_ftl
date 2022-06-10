@@ -1,13 +1,14 @@
 
 #include "templ.h"
 #include "cpu.h"
-#include "scheduler.h"
 #include "buf.h"
+#include "scheduler.h"
 #include "io.h"
 #include "page_gc.h"
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
+#define CMD_PRINTF		SIM_Print
 
 extern Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
@@ -66,16 +67,15 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	ReqInfo* pReq = pRun->pReq;
 	uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
 	pRun->nDone++;
-#if 0
+
 	if (NC_READ == eCmd)
 	{
-		PRINTF("[R] LPN:%X == %X\n", pReq->nLPN, *pnVal);
+		CMD_PRINTF("[R] Done LPN:%X SPR:%X\n", pReq->nLPN, *pnVal);
 	}
 	else
 	{
-		PRINTF("[W] LPN:%X (%X)\n", pReq->nLPN, *pnVal);
+		CMD_PRINTF("[W] Done LPN:%X SPR:%X\n", pReq->nLPN, *pnVal);
 	}
-#endif
 	if (MARK_ERS != *pnVal)
 	{
 		assert(pReq->nLPN == *pnVal);
@@ -139,7 +139,7 @@ bool req_Write_SM(CmdStk* pCtx)
 			CmdInfo* pCmd = IO_Alloc(IOCB_User);
 			IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, pCtx->nTag);
 
-			PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
+			CMD_PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
 			pDst->stNextVA.nWL++;
 			bRet = true;
 			if (JR_Filled == eJRet)
@@ -155,17 +155,20 @@ bool req_Write_SM(CmdStk* pCtx)
 	return bRet;
 }
 
+/**
+* Unmap read인 경우, sync response, 
+* normal read는 nand IO done에서 async response.
+*/
 bool req_Read_SM(CmdStk* pCtx)
 {
-	if (CmdStk::Init == pCtx->eStep)
-	{
-		pCtx->eStep = CmdStk::Run;
-	}
 	ReqInfo* pReq = pCtx->pReq;
 	uint32 nLPN = pReq->nLPN;
-
 	VAddr stAddr = META_GetMap(nLPN);
-	PRINTF("[R] %X: {%X,%X}\n", nLPN, stAddr.nBN, stAddr.nWL);
+	if (CmdStk::Init == pCtx->eStep)
+	{
+		CMD_PRINTF("[RD] %X: {%X,%X}\n", nLPN, stAddr.nBN, stAddr.nWL);
+		pCtx->eStep = CmdStk::Run;
+	}
 	if (FF32 != stAddr.nDW)
 	{
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
@@ -181,6 +184,9 @@ bool req_Read_SM(CmdStk* pCtx)
 	return true;
 }
 
+/**
+* Shutdown command는 항상 sync로 처리한다.
+*/
 bool req_Shutdown_SM(CmdStk* pCtx)
 {
 	ShutdownOpt eOpt = pCtx->pReq->eOpt;
@@ -189,10 +195,11 @@ bool req_Shutdown_SM(CmdStk* pCtx)
 	{
 		case CmdStk::Init:
 		{
+			CMD_PRINTF("[SD] %d\n", eOpt);
 			GC_Stop();
 			if (IO_CountFree() >= NUM_NAND_CMD)
 			{
-				if (SD_Fast == eOpt)
+				if (SD_Sudden == eOpt)
 				{
 					gfCbf(pCtx->pReq);
 					gstReqInfoPool.PushTail(pCtx->nTag);
@@ -217,7 +224,7 @@ bool req_Shutdown_SM(CmdStk* pCtx)
 		{
 			if (IO_CountFree() >= NUM_NAND_CMD)
 			{
-				if (SD_Fast == eOpt)
+				if (SD_Sudden == eOpt)
 				{
 					gfCbf(pCtx->pReq);
 					gstReqInfoPool.PushTail(pCtx->nTag);
@@ -244,6 +251,7 @@ bool req_Shutdown_SM(CmdStk* pCtx)
 			{
 				gfCbf(pCtx->pReq);
 				gstReqInfoPool.PushTail(pCtx->nTag);
+				CMD_PRINTF("[SD] Done\n");
 				CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 				bRet = true;
 			}

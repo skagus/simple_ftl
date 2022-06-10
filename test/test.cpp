@@ -7,13 +7,9 @@
 #include "ftl.h"
 #include "test.h"
 
-#if EN_BENCHMARK
-#define PRINTF			// SIM_Print
-#define CMD_PRINTF		// SIM_Print
-#else
 #define PRINTF			SIM_Print
 #define CMD_PRINTF		//SIM_Print
-#endif
+
 static uint32* gaDict;
 static bool gbDone;
 

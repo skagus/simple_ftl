@@ -1,18 +1,17 @@
 #include "types.h"
 #include "templ.h"
 #include "cpu.h"
+#include "nfc.h"
+#include "buf.h"
 #include "scheduler.h"
 #include "config.h"
-#include "nfc.h"
 #include "ftl.h"
-#include "buf.h"
 #include "io.h"
 
 #define PRINTF			// SIM_Print
 
 CmdInfo gaCmds[NUM_NAND_CMD];
 CbKey gaKeys[NUM_NAND_CMD];
-//Queue<CmdInfo*, NUM_NAND_CMD + 1> gNCmdPool;
 LinkedQueue<CmdInfo> gNCmdPool;
 IoCbf gaCbf[NUM_IOCB];
 LinkedQueue<CmdInfo> gaDone[NUM_IOCB];

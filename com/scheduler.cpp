@@ -2,6 +2,8 @@
 #include "types.h"
 #include "sim.h"
 #include "cpu.h"
+#include "timer.h"
+
 #include "macro.h"
 #include "scheduler.h"
 #include "scheduler_conf.h"
@@ -134,7 +136,7 @@ RunMode Sched_GetMode()
 }
 
 
-Cbf Sched_Init()
+void Sched_Init()
 {
 	nCurTask = 0;
 	geRunMode = RunMode::MODE_NORMAL;
@@ -147,7 +149,9 @@ Cbf Sched_Init()
 
 
 	bmRdyTask = 0;
-	return sched_TickISR;
+	TMR_Add(0, SIM_MSEC(MS_PER_TICK), sched_TickISR, true);
+
+//	return sched_TickISR;
 }
 
 /**
@@ -212,3 +216,4 @@ void Sched_Run()
 		Sched_Run();
 	}
 ****************************/
+

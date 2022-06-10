@@ -4,8 +4,9 @@
 #include "templ.h"
 #include "macro.h"
 #include "cpu.h"
-#include "scheduler.h"
 #include "buf.h"
+
+#include "scheduler.h"
 #include "io.h"
 #include "page_gc.h"
 #include "page_meta.h"
@@ -264,14 +265,6 @@ bool meta_Save_SM(MtSaveStk* pCtx)
 {
 	if (MtSaveStk::Init == pCtx->eStep)
 	{
-#if 0
-		gstJnlSet.anActBlk[OPEN_USER] = gaOpen[OPEN_USER];
-		// Backup scan point.
-		gstMeta.astOpen[OPEN_USER].nBN = gaOpen[OPEN_USER].nBN;
-		gstMeta.astOpen[OPEN_USER].nWL = gaOpen[OPEN_USER].nNextPage;
-		gstMeta.astOpen[OPEN_GC].nBN = gaOpen[OPEN_GC].nBN;
-		gstMeta.astOpen[OPEN_GC].nWL = gaOpen[OPEN_GC].nNextPage;
-#endif
 		pCtx->nIssue = 0;
 		pCtx->nDone = 0;
 
@@ -992,12 +985,9 @@ void META_Init()
 	gpMtStk->eStep = MtStk::Mt_Init;
 
 	MEMSET_ARRAY(gaOpen, 0xFF);
-//	gaOpen[0].stNextVA.nBN = 0;
-//	gaOpen[0].stNextVA.nWL = NUM_WL;	// Invalid user block.
 
 	MEMSET_ARRAY(gstMeta.astBI, 0);
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);
 	MEMSET_OBJ(gstMetaCtx, 0);
 	Sched_Register(TID_META, meta_Run, aMtStack, BIT(MODE_NORMAL));
-//	gLRU.Init();
 }

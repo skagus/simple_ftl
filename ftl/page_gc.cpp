@@ -1,8 +1,8 @@
 
 #include "templ.h"
 #include "cpu.h"
-#include "scheduler.h"
 #include "buf.h"
+#include "scheduler.h"
 #include "io.h"
 #include "page_gc.h"
 #include "page_meta.h"

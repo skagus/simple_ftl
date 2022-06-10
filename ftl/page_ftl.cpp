@@ -3,6 +3,7 @@
 #include "cpu.h"
 #include "buf.h"
 #include "timer.h"
+
 #include "scheduler.h"
 #include "io.h"
 #include "page_gc.h"
@@ -24,7 +25,7 @@ void FTL_Request(ReqInfo* pReq)
 uint32 FTL_GetNumLPN(CbfReq pfCbf)
 {
 	REQ_SetCbf(pfCbf);
-	CPU_TimePass(SIM_MSEC(1000));	// Wait open time.
+	CPU_TimePass(SIM_MSEC(1));	// Wait Init time.
 	return NUM_LPN;
 }
 
@@ -33,8 +34,7 @@ void FTL_Main(void* pParam)
 	TMR_Init();
 	BM_Init();
 
-	Cbf pfTickIsr = Sched_Init();
-	TMR_Add(0, SIM_MSEC(MS_PER_TICK), pfTickIsr, true);
+	Sched_Init();
 
 	gstReqQ.Init();
 	IO_Init();
