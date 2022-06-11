@@ -104,6 +104,10 @@ bool gc_HandleRead(CmdInfo* pDone, MoveStk* pCtx)
 		if ((pCtx->nSrcBN == stOld.nBN) // Valid
 			&& (pDone->nWL == stOld.nWL))
 		{
+			/**
+			* Meta update는 Jnl 문제로 실패할 수 있기 때문에, 
+			* Program전에 map update부터 시행한다.
+			*/
 			VAddr stAddr(0, pCtx->nDstBN, pCtx->nDstWL);
 			JnlRet eJRet = META_Update(*pSpare, stAddr, OPEN_GC);
 			if (JnlRet::JR_Busy != eJRet)
@@ -121,6 +125,8 @@ bool gc_HandleRead(CmdInfo* pDone, MoveStk* pCtx)
 				pCtx->nPgmRun++;
 				if (JR_Filled == eJRet)
 				{
+					// Meta save를 기다려야 하지만, 
+					// 다음 write에서 pending될 것이기 때문에 문제 없다.
 					META_ReqSave();
 				}
 			}
