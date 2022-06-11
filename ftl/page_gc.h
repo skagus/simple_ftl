@@ -28,7 +28,6 @@ struct ErbStk
 
 void GC_Init();
 uint16 GC_ReqFree_Blocking(OpenType eOpen);
-void GC_VictimUpdate(VAddr stOld);
 void GC_Stop();
 void GC_BlkErase_OS(OpenType eOpen, uint16 nBN);
 

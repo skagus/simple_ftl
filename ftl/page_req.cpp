@@ -90,7 +90,7 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	}
 }
 
-bool req_Write_OS(ReqInfo* pReq, uint8 nTag)
+void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 {
 	uint32 nLPN = pReq->nLPN;
 	bool bRet = false;

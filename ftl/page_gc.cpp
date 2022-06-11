@@ -29,8 +29,7 @@ struct GcStk
 	GcState eState;
 };
 
-GcStk* gpGcStk;
-VAddr gstChanged;
+bool gbStop;
 Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 
 
@@ -83,7 +82,7 @@ void gc_HandlePgm(CmdInfo* pDone)
 /**
 * 
 */
-bool gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
+void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 {
 	bool bDone = true;
 	uint16 nBuf = pDone->stRead.anBufId[0];
@@ -135,11 +134,8 @@ bool gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 
 extern void dbg_MapIntegrity();
 
-void gc_SetupNewSrc(GcInfo* pGI)
-{
-}
 
-bool gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
+void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 {
 	bool bRun = true;
 	GcInfo stGI;
@@ -149,7 +145,6 @@ bool gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 	stGI.nSrcBN = FF16;
 	stGI.nSrcWL = FF16;
 
-	uint8 nRdSlot;
 	CmdInfo* apReadRun[MAX_GC_READ];
 	MEMSET_ARRAY(apReadRun, 0x0);
 
@@ -250,9 +245,7 @@ uint8 gc_ScanFree()
 
 void gc_Run(void* pParam)
 {
-	GcStk* pGcStk = (GcStk*)pParam;
-
-	while (!META_Ready())
+	while (false == META_Ready())
 	{
 		OS_Wait(BIT(EVT_OPEN), LONG_TIME);
 	}
@@ -380,13 +373,12 @@ void GC_BlkErase_OS(OpenType eOpen, uint16 nBN)
 
 void GC_Stop()
 {
-	gpGcStk->eState = GcStk::Stop;
+	gbStop = true;
 }
 
 void GC_Init()
 {
 	gstFreePool.Init();
-	gpGcStk->eState = GcStk::WaitOpen;
 	OS_CreateTask(gc_Run, nullptr, nullptr, 0xFF);
 }
 
