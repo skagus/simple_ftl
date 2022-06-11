@@ -223,7 +223,7 @@ void sc_Short()
 		tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 8);
 	}
 
-	tc_Shutdown((SIM_GetRand(10) < 5) ? SD_Fast : SD_Safe);
+	tc_Shutdown((SIM_GetRand(10) < 5) ? SD_Sudden : SD_Safe);
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();
 	END_RUN;

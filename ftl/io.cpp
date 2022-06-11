@@ -3,7 +3,7 @@
 #include "cpu.h"
 #include "nfc.h"
 #include "buf.h"
-#include "scheduler.h"
+#include "os.h"
 #include "config.h"
 #include "ftl.h"
 #include "io.h"
@@ -37,7 +37,7 @@ void io_CbDone(uint32 nDie, uint32 nTag)
 		uint8 nId = pRet - gaCmds;
 		uint8 nTag = gaKeys[nId];
 		gaDone[nTag].PushTail(pRet);
-		Sched_TrigAsyncEvt(BIT(EVT_NAND_CMD));
+		OS_AsyncEvt(BIT(EVT_NAND_CMD));
 	}
 }
 
@@ -45,7 +45,7 @@ void IO_Free(CmdInfo* pCmd)
 {
 	gaKeys[pCmd - gaCmds] = NUM_IOCB;
 	gNCmdPool.PushTail(pCmd);
-	Sched_TrigSyncEvt(BIT(EVT_IO_FREE));
+	OS_SyncEvt(BIT(EVT_IO_FREE));
 }
 
 CmdInfo* IO_Alloc(CbKey eKey)

@@ -6,7 +6,7 @@
 #include "cpu.h"
 #include "buf.h"
 
-#include "scheduler.h"
+#include "os.h"
 #include "io.h"
 #include "page_gc.h"
 #include "page_meta.h"
@@ -973,7 +973,7 @@ uint32 META_GetAge()
 uint32 META_ReqSave()
 {
 	gbRequest = true;
-	Sched_TrigSyncEvt(BIT(EVT_META));
+	OS_SyncEvt(BIT(EVT_META));
 	return gstMetaCtx.nAge;
 }
 
@@ -989,5 +989,5 @@ void META_Init()
 	MEMSET_ARRAY(gstMeta.astBI, 0);
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);
 	MEMSET_OBJ(gstMetaCtx, 0);
-	Sched_Register(TID_META, meta_Run, aMtStack, BIT(MODE_NORMAL));
+	OS_CreateTask(meta_Run, nullptr, nullptr, 0xFF);
 }

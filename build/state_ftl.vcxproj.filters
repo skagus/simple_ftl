@@ -30,15 +30,9 @@
     <ClCompile Include="..\hw\timer.cpp">
       <Filter>hw</Filter>
     </ClCompile>
-    <ClCompile Include="..\test\test.cpp">
-      <Filter>test</Filter>
-    </ClCompile>
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\hw\power.cpp">
       <Filter>hw</Filter>
-    </ClCompile>
-    <ClCompile Include="..\com\scheduler.cpp">
-      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\hw\sim_util.cpp">
       <Filter>hw</Filter>
@@ -46,11 +40,23 @@
     <ClCompile Include="..\hw\coroutine.cpp">
       <Filter>hw</Filter>
     </ClCompile>
-    <ClCompile Include="..\ftl\io.cpp">
-      <Filter>ftl</Filter>
-    </ClCompile>
     <ClCompile Include="..\hw\cpu.cpp">
       <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hw\hw.cpp">
+      <Filter>hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\com\os.cpp">
+      <Filter>com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\com\thread.cpp">
+      <Filter>com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\test\test.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\io.cpp">
+      <Filter>ftl</Filter>
     </ClCompile>
     <ClCompile Include="..\ftl\page_ftl.cpp">
       <Filter>ftl</Filter>
@@ -63,9 +69,6 @@
     </ClCompile>
     <ClCompile Include="..\ftl\page_req.cpp">
       <Filter>ftl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\hw\hw.cpp">
-      <Filter>hw</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -102,26 +105,32 @@
     <ClInclude Include="..\hw\power.h">
       <Filter>hw</Filter>
     </ClInclude>
-    <ClInclude Include="..\com\scheduler.h">
-      <Filter>com</Filter>
-    </ClInclude>
-    <ClInclude Include="..\com\scheduler_conf.h">
-      <Filter>com</Filter>
-    </ClInclude>
     <ClInclude Include="..\hw\coroutine.h">
       <Filter>hw</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ftl\ftl.h">
-      <Filter>ftl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ftl\io.h">
-      <Filter>ftl</Filter>
     </ClInclude>
     <ClInclude Include="..\hw\cpu.h">
       <Filter>hw</Filter>
     </ClInclude>
     <ClInclude Include="..\hw\sim_conf.h">
       <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\hw.h">
+      <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\os.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\os_conf.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\com\thread.h">
+      <Filter>com</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\ftl.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\io.h">
+      <Filter>ftl</Filter>
     </ClInclude>
     <ClInclude Include="..\ftl\page_ftl.h">
       <Filter>ftl</Filter>
@@ -134,9 +143,6 @@
     </ClInclude>
     <ClInclude Include="..\ftl\page_req.h">
       <Filter>ftl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\hw\hw.h">
-      <Filter>hw</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
