@@ -37,6 +37,7 @@ static uint64 gnTick;			///< Simulation time.
 static EvtHdr gfEvtHdr[NUM_HW];	///< Event handler of each HW.
 static bool gbPowerOn;			///< Power on state.
 static uint32 gnCycle;
+static HANDLE ghSimThread;
 
 /// Event repository.
 static Evt gaEvts[NUM_EVENT];
@@ -106,6 +107,12 @@ static void sim_PowerUp()
 	CPU_Start();
 }
 
+void SIM_SwitchToSim()
+{
+	SwitchToFiber(ghSimThread);
+}
+
+
 void SIM_PowerDown()
 {
 	gbPowerOn = false;
@@ -114,6 +121,7 @@ void SIM_PowerDown()
 
 void SIM_Run()
 {
+	ghSimThread = ConvertThreadToFiber(nullptr);
 	while (true)
 	{
 		sim_PowerUp();

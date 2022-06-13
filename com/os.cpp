@@ -1,4 +1,4 @@
-﻿#include "thread.h"
+﻿#include "coroutine.h"
 #include "os.h"
 #include "sim.h"
 #include "cpu.h"
@@ -11,10 +11,6 @@ struct OS_Info
 	bool	_bInCritical;	///< The OS in critical section.(Never context switch in critical section)
 	uint32	_bmRdyTask;		///< Ready task bitmap, (_aBlockBy보다 우선순위 높음)
 
-	RunMode _eRunMode;
-	uint32	_abmRunMask[NUM_RUN_MODE];	///< Task가 돌 수 있는 mode에 대한 정보.
-	uint32  _bmRunMask;		///< Copy of run mask to apply current.
-
 	uint32	_nTick;					///< Just tick counter
 	uint32	_nTmpTick;				///< Tick count for async tick up.
 
@@ -22,7 +18,8 @@ struct OS_Info
 	int32	_aExpire[MAX_TASK];		///< Remainning tick to ready.(only for tick event)
 	Task	_pfTask[MAX_TASK];	///< Task entry.
 	void* _pParam[MAX_TASK];	///< Task parameter.
-	LPVOID	_aTCB[MAX_TASK];	///< Task handle (Fiber)
+	const char* aszName[MAX_TASK];
+	SimTaskId	_aTCB[MAX_TASK];	///< TCB 상당의 무엇인데, sim에서는 fiber id와 대응됨.
 	uint32	_bmAsyncEvt;			///< Async event중 처리되지 않은 것.
 } gstOS;
 
@@ -38,7 +35,7 @@ uint32 os_sched()
 	uint8 nNxtTID = gstOS._curTID;
 
 	os_handleAsyncEvt();
-	uint32 bmRdy = gstOS._bmRdyTask & gstOS._bmRunMask;
+	uint32 bmRdy = gstOS._bmRdyTask;
 	while (1)
 	{
 		++nNxtTID;
@@ -60,35 +57,19 @@ uint32 os_sched()
 			// simulation의 정확도 측면에선 차이가 없다.
 			CPU_Sleep();
 			os_handleAsyncEvt();
-			bmRdy = gstOS._bmRdyTask & gstOS._bmRunMask;
+			bmRdy = gstOS._bmRdyTask;
 		}
 	}
 	if (nNxtTID != gstOS._curTID)
 	{
 		gstOS._curTID = nNxtTID;
-		SwitchTo(gstOS._aTCB[gstOS._curTID]);
+//		SIM_Print("Sched: %s\n", gstOS.aszName[gstOS._curTID]);
+		CO_Switch(gstOS._aTCB[gstOS._curTID]);
 	}
 	return gstOS._aWaitEvt[gstOS._curTID];
 }
 
-/**
-전체 Fiber를 삭제하면, CPU의 기본 Fiber까지 삭제됨. 
---> 별도로 삭제할 필요가 없음.
-*/
-void OS_Terminate()
-{
-	// 0번 Fiber는 SIM에서 만들어준 것이기 때문에 지우면 안됨.
-	for (int i = 0; i < gstOS._numTask; i++)
-	{
-		if (nullptr != gstOS._aTCB[i])
-		{
-			FinThread(gstOS._aTCB[i]);
-			gstOS._aTCB[i] = nullptr;
-		}
-	}
-}
-
-uint8 OS_CreateTask(Task pfEntry, uint8* pStkTop, void* nParam, uint8 bmRunMode)
+uint8 OS_CreateTask(Task pfEntry, uint8* pStkTop, void* nParam, const char* szName)
 {
 	uint8 nTaskID = gstOS._numTask;
 	ASSERT(nTaskID < MAX_TASK);
@@ -96,14 +77,7 @@ uint8 OS_CreateTask(Task pfEntry, uint8* pStkTop, void* nParam, uint8 bmRunMode)
 	gstOS._bmRdyTask |= BIT(nTaskID); // initial state = ready.
 	gstOS._pfTask[nTaskID] = pfEntry;
 	gstOS._pParam[nTaskID] = nParam;
-	for (uint32 nIdx = 0; nIdx < NUM_RUN_MODE; nIdx++)
-	{
-		if (bmRunMode & BIT(nIdx))
-		{
-			BIT_SET(gstOS._abmRunMask[nIdx], BIT(nTaskID));
-		}
-	}
-	gstOS._bmRunMask |= gstOS._abmRunMask[gstOS._eRunMode];
+	gstOS.aszName[nTaskID] = szName;
 	gstOS._numTask++;
 	CPU_TimePass(SIM_USEC(2));
 	return nTaskID;
@@ -120,10 +94,9 @@ void OS_Start()
 {
 	for (int i = 1; i < gstOS._numTask; i++)
 	{
-		gstOS._aTCB[i] = CreateThread(0, gstOS._pfTask[i], gstOS._pParam[i]);
-		ASSERT(nullptr != gstOS._aTCB[i]);
+		gstOS._aTCB[i] = CO_RegTask(gstOS._pfTask[i], gstOS._pParam[i]);
 	}
-	gstOS._aTCB[0] = GetCurrentTread();
+	gstOS._aTCB[0] = CO_GetCurTask();
 	// Call task 0 (not return).
 	gstOS._curTID = 0;
 	gstOS._pfTask[0](gstOS._pParam[0]);

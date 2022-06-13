@@ -151,7 +151,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\com\os.cpp" />
-    <ClCompile Include="..\com\thread.cpp" />
     <ClCompile Include="..\ftl\io.cpp" />
     <ClCompile Include="..\ftl\page_ftl.cpp" />
     <ClCompile Include="..\ftl\page_gc.cpp" />
@@ -176,7 +175,6 @@
     <ClInclude Include="..\com\os.h" />
     <ClInclude Include="..\com\os_conf.h" />
     <ClInclude Include="..\com\templ.h" />
-    <ClInclude Include="..\com\thread.h" />
     <ClInclude Include="..\com\types.h" />
     <ClInclude Include="..\ftl\ftl.h" />
     <ClInclude Include="..\ftl\io.h" />

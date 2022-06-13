@@ -97,8 +97,21 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 		{
 			VAddr stAddr(0, pGI->nDstBN, pGI->nDstWL);
 			JnlRet eJRet;
-			while (JnlRet::JR_Busy != (eJRet = META_Update(*pSpare, stAddr, OPEN_GC)))
+			while(true)
 			{
+				eJRet = META_Update(*pSpare, stAddr, OPEN_GC);
+				if (JR_Busy != eJRet)
+				{
+					if (JR_Filled == eJRet)
+					{
+						uint32 nAge = META_ReqSave();
+						while (nAge >= META_GetAge())
+						{
+							OS_Wait(BIT(EVT_META), LONG_TIME);
+						}
+					}
+					break;
+				}
 				OS_Wait(BIT(EVT_META), LONG_TIME);
 			}
 			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
@@ -132,8 +145,6 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 	}
 }
 
-extern void dbg_MapIntegrity();
-
 
 void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 {
@@ -144,6 +155,8 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 	stGI.nDstWL = nDstWL;
 	stGI.nSrcBN = FF16;
 	stGI.nSrcWL = FF16;
+	stGI.nPgmRun = 0;
+	stGI.nReadRun = 0;
 
 	CmdInfo* apReadRun[MAX_GC_READ];
 	MEMSET_ARRAY(apReadRun, 0x0);
@@ -168,9 +181,9 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 		}
 
 		////////// Issue New command. //////////////////
-		if (NUM_WL == nDstWL)
+		if (NUM_WL <= stGI.nDstWL) // Check end condition.
 		{
-			if (0 == stGI.nPgmRun)
+			if ((0 == stGI.nPgmRun) && (0 == stGI.nReadRun))
 			{
 				PRINTF("[GC] Dst fill: %X\n", stGI.nDstBN);
 				if (FF16 != stGI.nSrcBN)
@@ -180,31 +193,20 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 				bRun = false;
 			}
 		}
-		else if ((stGI.nReadRun < MAX_GC_READ) && (stGI.nSrcWL < NUM_DATA_PAGE))
+		// Issue more!.
+		else if (stGI.nReadRun < MAX_GC_READ)
 		{
-			if (FF16 == stGI.nSrcBN)
+			if ((FF16 == stGI.nSrcBN) || (FF16 == stGI.nSrcWL)) // No valid victim.
 			{
-				if (0 == stGI.nReadRun)
-				{
-					META_GetMinVPC(&stGI.nSrcBN);
-					PRINTF("[GC] New Victim: %X\n", stGI.nSrcBN);
-					META_SetBlkState(stGI.nSrcBN, BS_Victim);
-					stGI.nSrcWL = 0;
-				}
+				META_GetMinVPC(&stGI.nSrcBN);
+				PRINTF("[GC] New Victim: %X\n", stGI.nSrcBN);
+				META_SetBlkState(stGI.nSrcBN, BS_Victim);
+				stGI.nSrcWL = 0;
 			}
-			else
+			else if (stGI.nSrcWL >= NUM_WL) // Source End.
 			{
-				if(stGI.nSrcWL <= NUM_WL)
+				if ((0 == stGI.nPgmRun) && (0 == stGI.nReadRun))
 				{
-					uint16 nBuf4Copy = BM_Alloc();
-					CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-					PRINTF("[GC] RD:{%X,%X}\n", stGI.nSrcBN, stGI.nSrcWL);
-					IO_Read(pCmd, stGI.nSrcBN, stGI.nSrcWL, nBuf4Copy, 0);
-					stGI.nSrcWL++;
-					stGI.nReadRun++;
-				}
-				else if ((0 == stGI.nReadRun) && (0 == stGI.nPgmRun))
-				{// After all program done related to read.(SPO safe)
 					META_SetBlkState(stGI.nSrcBN, BS_Closed);
 					PRINTF("[GC] Close victim: %X\n", stGI.nSrcBN);
 					if (gc_ScanFree() > 0)
@@ -214,6 +216,15 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 					stGI.nSrcBN = FF16;
 					stGI.nSrcWL = FF16;
 				}
+			}
+			else
+			{
+				uint16 nBuf4Copy = BM_Alloc();
+				CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
+				PRINTF("[GC] RD:{%X,%X}\n", stGI.nSrcBN, stGI.nSrcWL);
+				IO_Read(pCmd, stGI.nSrcBN, stGI.nSrcWL, nBuf4Copy, 0);
+				stGI.nSrcWL++;
+				stGI.nReadRun++;
 			}
 		}
 
@@ -379,6 +390,6 @@ void GC_Stop()
 void GC_Init()
 {
 	gstFreePool.Init();
-	OS_CreateTask(gc_Run, nullptr, nullptr, 0xFF);
+	OS_CreateTask(gc_Run, nullptr, nullptr, "gc");
 }
 

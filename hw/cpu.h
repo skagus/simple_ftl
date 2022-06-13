@@ -1,10 +1,12 @@
 #pragma once
 
 #include "types.h"
-#include "coroutine.h"
 
 // Add this on FW end. (because, if exit on running coroutine, some problem)
 #define END_RUN			while(true){CPU_TimePass(100000000);}
+
+typedef void(*Routine)(void* pParam);
+
 
 enum CpuIDs
 {

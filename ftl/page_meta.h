@@ -6,6 +6,15 @@
 #define MARK_META		(0xFABCBEAF)
 
 
+enum MtState
+{
+	Mt_Init,
+	Mt_Open,		///< In openning.
+	Mt_Format,	///< In formatting.
+	Mt_Ready,
+	Mt_Saving,
+};
+
 union Jnl
 {
 	enum JnlType

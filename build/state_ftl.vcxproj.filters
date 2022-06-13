@@ -49,9 +49,6 @@
     <ClCompile Include="..\com\os.cpp">
       <Filter>com</Filter>
     </ClCompile>
-    <ClCompile Include="..\com\thread.cpp">
-      <Filter>com</Filter>
-    </ClCompile>
     <ClCompile Include="..\test\test.cpp">
       <Filter>test</Filter>
     </ClCompile>
@@ -121,9 +118,6 @@
       <Filter>com</Filter>
     </ClInclude>
     <ClInclude Include="..\com\os_conf.h">
-      <Filter>com</Filter>
-    </ClInclude>
-    <ClInclude Include="..\com\thread.h">
       <Filter>com</Filter>
     </ClInclude>
     <ClInclude Include="..\ftl\ftl.h">

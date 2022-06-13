@@ -20,36 +20,9 @@ bool gbRequest;
 OpenBlk gaOpen[NUM_OPEN];
 MetaCtx gstMetaCtx;
 JnlSet gstJnlSet;
-
-struct MtSaveStk
-{
-	enum MtSaveStep
-	{
-		Init,
-		Erase,
-		Program,
-		Done,
-	};
-	MtSaveStep eStep;
-	uint8 nIssue;	///< count of issued NAND operation.
-	uint8 nDone;	///< count of done NAND operation.
-};
+MtState geState;
 
 
-
-struct MtStk
-{
-	enum MtStep
-	{
-		Mt_Init,
-		Mt_Open,		///< In openning.
-		Mt_Format,	///< In formatting.
-		Mt_Ready,
-		Mt_Saving,
-	};
-	MtStep eStep;
-};
-MtStk* gpMtStk;
 
 void open_PostMtLoad();
 
@@ -92,7 +65,7 @@ void dbg_MapIntegrity()
 
 bool META_Ready()
 {
-	return (gpMtStk->eStep == MtStk::Mt_Ready);
+	return (geState == Mt_Ready);
 }
 
 VAddr META_GetMap(uint32 nLPN)
@@ -256,7 +229,8 @@ void meta_Save_OS()
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
 		IO_Program(pCmd, gstMetaCtx.nCurBN, nWL, nBuf, 0);
 	}
-	while (nIssue > 0)
+
+	while (true)
 	{
 		CmdInfo* pDone;
 		while (pDone = IO_PopDone(IOCB_Meta))
@@ -265,7 +239,13 @@ void meta_Save_OS()
 			IO_Free(pDone);
 			nIssue--;
 		}
+		if (nIssue == 0)
+		{
+			break;
+		}
+		OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
+
 	gstMetaCtx.nAge++;
 	gstMetaCtx.nNextSlice++;
 	if (gstMetaCtx.nNextSlice >= NUM_MAP_SLICE)
@@ -285,31 +265,15 @@ void meta_Save_OS()
 }
 
 // =========================================
-struct DataScanStk
-{
-	enum ScanState
-	{
-		Init,
-		ScanGc,
-		ScanUser,
-	};
-	ScanState eState;
-	OpenType eOpen;
-	uint16 nBN;
-	uint16 nNextWL;
-	uint16 nErasedWL;
-	uint16 nRun;		///< Count of running nand command.
-};
-
 void open_UserScan_OS(OpenType eOpen)
 {
-	OpenBlk* pOpen = META_GetOpen(OpenType::OPEN_GC);
+	OpenBlk* pOpen = META_GetOpen(eOpen);
 	uint16 nBN = pOpen->stNextVA.nBN;
 	uint16 nNextWL = pOpen->stNextVA.nWL;
 	uint16 nErasedWL = FF16;
 	uint8 nRun = 0;
 	bool bRun = true;
-
+	PRINTF("[OPEN] Data scan %s {%X,%X}\n", eOpen == OpenType::OPEN_GC ? "GC" : "User", nBN, nNextWL);
 	gstJnlSet.Start(OPEN_USER, 0);
 
 	while (bRun)
@@ -370,21 +334,6 @@ void open_UserScan_OS(OpenType eOpen)
 }
 
 // =================== Meta Page Scan ========================
-struct MtPgStk
-{
-	enum State
-	{
-		Init,
-		Run,
-	};
-	State eState;
-	uint16 nMaxBO;	// Input
-	uint16 nMaxBN;	// == meta_MtBlk2PBN(nMaxBO)
-	uint16 nCPO;	// Output.
-	uint16 nIssued;	// Internal.
-	uint16 nDone;	// Internal.
-};
-
 uint16 open_PageScan_OS(uint16 nBN)
 {
 	uint16 nIssued = 0;
@@ -554,25 +503,12 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 
 
 // ========================== Meta Block Scan ====================================
-struct MtBlkScanStk
-{
-	enum State
-	{
-		Init,
-		Run,
-	};
-	State eState;
-	uint16 nMaxBO;	// for return.
-	uint32 nMaxAge;
-	uint16 nIssued;
-	uint16 nDone;
-};
 
 uint16 open_BlkScan_SM()
 {
 	uint8 nIssued = 0;
 	uint8 nDone = 0;
-	uint16 nMaxBO = INV_BN;
+	uint16 nMaxBO = FF16;
 	uint32 nMaxAge = 0;
 
 	while (true)
@@ -611,6 +547,10 @@ uint16 open_BlkScan_SM()
 			PRINTF("[OPEN] Latest Blk Offset: %X\n", nMaxBO);
 			break;
 		}
+		if (nIssued > nDone)
+		{
+			OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
+		}
 	}
 	return nMaxBO;
 }
@@ -618,28 +558,12 @@ uint16 open_BlkScan_SM()
 
 // =====================================================
 
-
-struct OpenStk
-{
-	enum MetaStep
-	{
-		Init,
-		BlkScan,
-		PageScan,
-		MtLoad,
-		DataScan,
-	};
-	MetaStep eOpenStep;
-	uint16 nMaxBO;	// for return.
-};
-
 /**
 * @return success, if failure format again.
 */
 bool meta_Open_OS()
 {
 	bool bRet = false;
-
 	uint16 nMaxBO = open_BlkScan_SM();
 	if (FF16 != nMaxBO)
 	{
@@ -647,6 +571,7 @@ bool meta_Open_OS()
 		gstMetaCtx.nCurBN = meta_MtBlk2PBN(nMaxBO);
 		gstMetaCtx.nNextWL = open_PageScan_OS(gstMetaCtx.nCurBN);
 		open_MtLoad_OS(nMaxBO, gstMetaCtx.nNextWL);
+		open_PostMtLoad();
 		open_UserScan_OS(OPEN_GC);
 		open_UserScan_OS(OPEN_USER);
 	}
@@ -683,10 +608,13 @@ void open_PostMtLoad()
 
 void meta_Run(void* pParam)
 {
+	geState = Mt_Open;
 	if (false == meta_Open_OS())
 	{
+		geState = Mt_Format;
 		meta_Format();
 	}
+	geState = Mt_Ready;
 	OS_SyncEvt(BIT(EVT_OPEN));
 
 	while (true)
@@ -694,8 +622,11 @@ void meta_Run(void* pParam)
 		if (gbRequest)
 		{
 			gbRequest = false;
+			geState = Mt_Saving;
 			meta_Save_OS();
 			META_StartJnl(OPEN_GC, 0);
+			geState = Mt_Ready;
+			OS_SyncEvt(BIT(EVT_META));
 			continue;
 		}
 
@@ -715,17 +646,13 @@ uint32 META_ReqSave()
 	return gstMetaCtx.nAge;
 }
 
-static uint8 aMtStack[4096];		///< Stack like meta context.
 void META_Init()
 {
-	MEMSET_ARRAY(aMtStack, 0);
-	gpMtStk = (MtStk*)aMtStack;
-	gpMtStk->eStep = MtStk::Mt_Init;
+	geState = Mt_Init;
 
 	MEMSET_ARRAY(gaOpen, 0xFF);
-
 	MEMSET_ARRAY(gstMeta.astBI, 0);
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);
 	MEMSET_OBJ(gstMetaCtx, 0);
-	OS_CreateTask(meta_Run, nullptr, nullptr, 0xFF);
+	OS_CreateTask(meta_Run, nullptr, nullptr, "meta");
 }

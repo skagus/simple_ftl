@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include <Windows.h>
 #include "types.h"
 #include "os_conf.h"
 
@@ -14,8 +13,7 @@
 typedef void(*Task)(void* param);
 
 void OS_Init();
-void OS_Terminate();
-uint8 OS_CreateTask(Task pfEntry, uint8* pStkTop, void* nParam, uint8 bmRunMode);
+uint8 OS_CreateTask(Task pfEntry, uint8* pStkTop, void* nParam, const char* szName);
 void OS_Start();
 uint32 OS_GetTick();
 uint32 OS_Wait(uint32 bmEvt, uint32 nTO);

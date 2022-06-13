@@ -8,7 +8,7 @@
 #include "ftl.h"
 #include "io.h"
 
-#define PRINTF			// SIM_Print
+#define PRINTF			SIM_Print
 
 CmdInfo gaCmds[NUM_NAND_CMD];
 CbKey gaKeys[NUM_NAND_CMD];

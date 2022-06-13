@@ -105,10 +105,15 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 	*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
 	assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
 	JnlRet eJRet;
-	do
+	while(true)
 	{
 		eJRet = META_Update(pReq->nLPN, pDst->stNextVA, OPEN_USER);
-	} while (JR_Busy == eJRet);
+		if (JR_Busy != eJRet)
+		{
+			break;
+		}
+		OS_Wait(BIT(EVT_META), LONG_TIME);
+	}
 
 	CmdInfo* pCmd = IO_Alloc(IOCB_User);
 	IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, nTag);
@@ -157,7 +162,7 @@ void req_Shutdown_OS(ReqInfo* pReq, uint8 nTag)
 {
 	CMD_PRINTF("[SD] %d\n", pReq->eOpt);
 	GC_Stop();
-	while (IO_CountFree() >= NUM_NAND_CMD)
+	while (IO_CountFree() < NUM_NAND_CMD)
 	{
 		OS_Wait(BIT(EVT_IO_FREE), LONG_TIME);
 	}
@@ -196,6 +201,9 @@ void req_Run(void* pParam)
 		RunInfo* pRun = gaIssued + nCurSlot;
 		ReqInfo* pReq = gstReqQ.PopHead();
 		pRun->pReq = pReq;
+		pRun->nIssued = 0;
+		pRun->nDone = 0;
+		pRun->nTotal = 1;
 		switch (pReq->eCmd)
 		{
 			case CMD_READ:
@@ -260,6 +268,6 @@ void REQ_Init()
 	{
 		gstReqInfoPool.PushTail(nIdx);
 	}
-	OS_CreateTask(req_Run, nullptr, nullptr, 0xFF);
-	OS_CreateTask(reqResp_Run, nullptr, nullptr, 0xFF);
+	OS_CreateTask(req_Run, nullptr, nullptr, "req");
+	OS_CreateTask(reqResp_Run, nullptr, nullptr, "req_resp");
 }

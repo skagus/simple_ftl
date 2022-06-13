@@ -43,5 +43,6 @@ void SIM_Run();	// infinite running.
 bool SIM_PeekTick(uint32 nTick);
 uint32 SIM_GetRand(uint32 nMod);
 uint32 SIM_GetSeqNo();
+void SIM_SwitchToSim();		///< used by CPU.
 
 void SIM_UtilInit();
