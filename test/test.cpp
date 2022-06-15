@@ -8,7 +8,7 @@
 #include "test.h"
 
 #define PRINTF			SIM_Print
-#define CMD_PRINTF		//SIM_Print
+#define CMD_PRINTF		// SIM_Print
 
 static uint32* gaDict;
 static bool gbDone;
@@ -19,6 +19,8 @@ void _FillData(uint16 nBuf, uint32 nLPN)
 	uint32* pnData = (uint32*)BM_GetMain(nBuf);
 	pnData[0] = nLPN;
 	pnData[1] = gaDict[nLPN];
+	uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+	pnSpare[1] = gaDict[nLPN];
 }
 
 void _CheckData(uint16 nBuf, uint32 nLPN)
@@ -49,8 +51,8 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 		stReq.nBuf = BM_Alloc();
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
+		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Write Req: %d\n", nCur);
 		CPU_TimePass(SIM_USEC(4));
 		while (false == gbDone)
 		{
@@ -71,8 +73,8 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 		stReq.nLPN = nCur;
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
+		CMD_PRINTF("[CMD] R %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Read Req: %d\n", nCur);
 		CPU_TimePass(SIM_USEC(3));
 		while (false == gbDone)
 		{
@@ -95,8 +97,8 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 		stReq.nBuf = BM_Alloc();
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
+		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Write Req\n");
 		CPU_TimePass(SIM_USEC(6));
 		while (false == gbDone)
 		{
@@ -119,7 +121,7 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Read Req\n");
+		CMD_PRINTF("[CMD] R %X\n", stReq.nLPN);
 		CPU_TimePass(SIM_USEC(4));
 		while (false == gbDone)
 		{
@@ -150,7 +152,7 @@ void tc_StreamWrite(uint32 nMaxLPN)
 			stReq.nBuf = BM_Alloc();
 			_FillData(stReq.nBuf, stReq.nLPN);
 			gbDone = false;
-			CMD_PRINTF("[TC] Write Req: %d\n", stReq.nLPN);
+			CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 			FTL_Request(&stReq);
 			CPU_TimePass(SIM_USEC(5));
 			while (false == gbDone)
@@ -169,7 +171,7 @@ void tc_Shutdown(ShutdownOpt eOpt)
 	stReq.eCmd = CMD_SHUTDOWN;
 	stReq.eOpt = eOpt;
 	gbDone = false;
-	CMD_PRINTF("[TC] Shutdown Req\n");
+	CMD_PRINTF("[CMD] SD\n");
 	FTL_Request(&stReq);
 	CPU_TimePass(SIM_USEC(5));
 	while (false == gbDone)

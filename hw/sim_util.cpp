@@ -41,6 +41,14 @@ void SIM_UtilInit()
 {
 	gnSeqNo = 0;
 	gRand.seed(10);
-	fopen_s(&fpLog, "sim.log", "w");
+
+	time_t cur;
+	time(&cur);
+	struct tm tm2;
+	localtime_s(&tm2, &cur);
+	char szName[20];
+	sprintf_s(szName, 20, "sim_%02d%02d%02d.log", tm2.tm_hour, tm2.tm_min, tm2.tm_sec);
+//	fopen_s(&fpLog, szName, "w");
+	fpLog = _fsopen(szName, "w", _SH_DENYWR);
 }
 
