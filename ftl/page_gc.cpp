@@ -102,14 +102,6 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 				eJRet = META_Update(*pSpare, stAddr, OPEN_GC);
 				if (JR_Busy != eJRet)
 				{
-					if (JR_Filled == eJRet)
-					{
-						uint32 nAge = META_ReqSave();
-						while (nAge >= META_GetAge())
-						{
-							OS_Wait(BIT(EVT_META), LONG_TIME);
-						}
-					}
 					break;
 				}
 				OS_Wait(BIT(EVT_META), LONG_TIME);
@@ -125,10 +117,11 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pGI->nDstBN, pGI->nDstWL, *pSpare);
 			pGI->nDstWL++;
 			pGI->nPgmRun++;
+
 			if (JR_Filled == eJRet)
 			{
 				uint32 nAge = META_ReqSave();
-				while (META_GetAge() <= nAge)
+				while (nAge >= META_GetAge())
 				{
 					OS_Wait(BIT(EVT_META), LONG_TIME);
 				}
@@ -221,7 +214,6 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 			{
 				uint16 nBuf4Copy = BM_Alloc();
 				CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-				PRINTF("[GC] RD:{%X,%X}\n", stGI.nSrcBN, stGI.nSrcWL);
 				IO_Read(pCmd, stGI.nSrcBN, stGI.nSrcWL, nBuf4Copy, 0);
 				stGI.nSrcWL++;
 				stGI.nReadRun++;

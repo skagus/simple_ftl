@@ -8,7 +8,7 @@
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
-#define CMD_PRINTF		SIM_Print
+#define CMD_PRINTF
 
 extern Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
@@ -69,14 +69,6 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
 	pRun->nDone++;
 
-	if (NC_READ == eCmd)
-	{
-		CMD_PRINTF("[R] Done LPN:%X SPR:%X\n", pReq->nLPN, *pnVal);
-	}
-	else
-	{
-		CMD_PRINTF("[W] Done LPN:%X SPR:%X\n", pReq->nLPN, *pnVal);
-	}
 	if (MARK_ERS != *pnVal)
 	{
 		assert(pReq->nLPN == *pnVal);
@@ -118,7 +110,6 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 	CmdInfo* pCmd = IO_Alloc(IOCB_User);
 	IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, nTag);
 
-	CMD_PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
 	pDst->stNextVA.nWL++;
 	
 	if (JR_Filled == eJRet)

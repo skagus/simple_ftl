@@ -146,5 +146,4 @@ bool META_Ready();
 JnlRet META_AddErbJnl(OpenType eOpen, uint16 nBN);
 void META_StartJnl(OpenType eOpen, uint16 nBN);
 JnlRet META_Update(uint32 nLPN, VAddr stVA, OpenType eOpen, bool bOnOpen = false);
-bool META_ReqMapUpdate(UpdateCtx* pCtx);
 

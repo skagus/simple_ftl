@@ -12,6 +12,7 @@
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
+#define MAP_PRINTF
 
 #define PAGE_PER_META	(1)
 
@@ -154,6 +155,7 @@ JnlRet META_Update(uint32 nLPN, VAddr stNew, OpenType eOpen, bool bOnOpen)
 				gstMeta.astBI[stNew.nBN].nVPC++;
 			}
 		}
+		MAP_PRINTF("[MAP] %X --> {%X,%X}\n", nLPN, stNew.nBN, stNew.nWL);
 	}
 	if (false == bOnOpen)
 	{
@@ -387,8 +389,9 @@ uint16 open_PageScan_OS(uint16 nBN)
 	return nCPO;
 }
 
-void open_ReplayJnl(JnlSet* pJnlSet)
+void open_ReplayJnl(JnlSet* pJnlSet, uint32 nAge)
 {
+	PRINTF("[OPEN] Replay Jnl Age:%d, Cnt: %d, start with %X\n", nAge, pJnlSet->nCnt, pJnlSet->aJnl[0].Com.nValue);
 	for (uint16 nIdx = 0; nIdx < pJnlSet->nCnt; nIdx++)
 	{
 		Jnl* pJnl = pJnlSet->aJnl + nIdx;
@@ -459,10 +462,11 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 			nDone++;
 			uint16 nBuf = pDone->stRead.anBufId[0];
 			uint8* pMain = BM_GetMain(nBuf);
-			uint32 nSlice = ((uint32*)BM_GetSpare(nBuf))[1];
-			PRINTF("[OPEN] Mt Loaded (%X,%X) --> %X\n", pDone->anBBN[0], pDone->nWL, nSlice);
+			uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
+			uint32 nSlice = pSpare[1];
+			PRINTF("[OPEN] Mt Loaded {%X,%X} (%d,%d)\n", pDone->anBBN[0], pDone->nWL, pSpare[0], pSpare[1]);
 			assert(nSlice < NUM_MAP_SLICE);
-			open_ReplayJnl((JnlSet*)pMain);
+			open_ReplayJnl((JnlSet*)pMain, pSpare[0]);
 			uint8* pSrc = pMain + sizeof(JnlSet);
 			uint8* pDst = (uint8*)(&gstMeta) + (nSlice * SIZE_MAP_PER_SAVE);
 			uint32 nSize = SIZE_MAP_PER_SAVE;
@@ -570,6 +574,14 @@ bool meta_Open_OS()
 		gstMetaCtx.nCurBO = nMaxBO;
 		gstMetaCtx.nCurBN = meta_MtBlk2PBN(nMaxBO);
 		gstMetaCtx.nNextWL = open_PageScan_OS(gstMetaCtx.nCurBN);
+		if (gstMetaCtx.nNextWL >= NUM_WL)
+		{
+			nMaxBO = (nMaxBO + 1) % NUM_META_BLK;
+			gstMetaCtx.nCurBO = nMaxBO;
+			gstMetaCtx.nCurBN = meta_MtBlk2PBN(nMaxBO);
+			gstMetaCtx.nNextWL = 0;
+			PRINTF("[OPEN] Mt Blk boundary {%X,%X}\n", gstMetaCtx.nCurBN, gstMetaCtx.nNextWL);
+		}
 		open_MtLoad_OS(nMaxBO, gstMetaCtx.nNextWL);
 		open_PostMtLoad();
 		open_UserScan_OS(OPEN_GC);
