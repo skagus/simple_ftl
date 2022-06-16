@@ -43,8 +43,8 @@ void _BusyWaitDone()
 
 void _CmdDone(ReqInfo* pReq)
 {
-//	PRINTF("Done\n");
 	gbDone = true;
+	CPU_Wakeup(CPU_WORK, SIM_USEC(2)); // wake up me.
 }
 
 void tc_SeqWrite(uint32 nStart, uint32 nSize)

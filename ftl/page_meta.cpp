@@ -3,7 +3,6 @@
 #include "config.h"
 #include "templ.h"
 #include "macro.h"
-#include "cpu.h"
 #include "buf.h"
 
 #include "scheduler.h"

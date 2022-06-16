@@ -1,9 +1,7 @@
 #include "templ.h"
-#include "sim.h"
 #include "cpu.h"
 #include "buf.h"
 #include "timer.h"
-
 #include "scheduler.h"
 #include "io.h"
 #include "page_gc.h"

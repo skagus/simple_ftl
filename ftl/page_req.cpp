@@ -1,6 +1,5 @@
 
 #include "templ.h"
-#include "cpu.h"
 #include "buf.h"
 #include "scheduler.h"
 #include "io.h"
@@ -77,7 +76,6 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	{
 		gfCbf(pReq);
 		gstReqInfoPool.PushTail(nTag);
-		CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 	}
 }
 
@@ -192,7 +190,6 @@ bool req_Shutdown_SM(CmdStk* pCtx)
 				{
 					gfCbf(pCtx->pReq);
 					gstReqInfoPool.PushTail(pCtx->nTag);
-					CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 					bRet = true;
 				}
 				else
@@ -217,7 +214,6 @@ bool req_Shutdown_SM(CmdStk* pCtx)
 				{
 					gfCbf(pCtx->pReq);
 					gstReqInfoPool.PushTail(pCtx->nTag);
-					CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 					bRet = true;
 				}
 				else
@@ -241,7 +237,6 @@ bool req_Shutdown_SM(CmdStk* pCtx)
 				gfCbf(pCtx->pReq);
 				gstReqInfoPool.PushTail(pCtx->nTag);
 				CMD_PRINTF("[SD] Done\n");
-				CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 				bRet = true;
 			}
 			else

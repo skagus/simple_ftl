@@ -1,6 +1,5 @@
 
 #include "templ.h"
-#include "cpu.h"
 #include "buf.h"
 #include "scheduler.h"
 #include "io.h"
