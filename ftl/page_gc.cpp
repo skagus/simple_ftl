@@ -120,11 +120,7 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 
 			if (JR_Filled == eJRet)
 			{
-				uint32 nAge = META_ReqSave();
-				while (nAge >= META_GetAge())
-				{
-					OS_Wait(BIT(EVT_META), LONG_TIME);
-				}
+				META_ReqSave(true);
 			}
 		}
 		else
@@ -366,11 +362,7 @@ void GC_BlkErase_OS(OpenType eOpen, uint16 nBN)
 	}
 
 	// Meta save.
-	uint32 nAge = META_ReqSave();
-	while (META_GetAge() <= nAge)
-	{
-		OS_Wait(BIT(EVT_META), LONG_TIME);
-	}
+	META_ReqSave(true);
 }
 
 

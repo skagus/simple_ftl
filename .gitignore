@@ -6,3 +6,4 @@ build/Release/
 test_code/x64/
 build/
 lib_sim/x64/
+*.bak

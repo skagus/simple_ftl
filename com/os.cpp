@@ -80,7 +80,6 @@ uint8 OS_CreateTask(Task pfEntry, uint8* pStkTop, void* nParam, const char* szNa
 	gstOS._pParam[nTaskID] = nParam;
 	gstOS.aszName[nTaskID] = szName;
 	gstOS._numTask++;
-	CPU_TimePass(SIM_USEC(2));
 	return nTaskID;
 }
 

@@ -39,10 +39,10 @@
     <ClCompile Include="..\hw\nfc.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\hw\sim_util.cpp">
+    <ClCompile Include="..\hw\timer.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\hw\timer.cpp">
+    <ClCompile Include="..\com\os.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

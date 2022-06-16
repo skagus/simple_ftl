@@ -31,37 +31,6 @@ void REQ_SetCbf(CbfReq pfCbf)
 	gfCbf = pfCbf;
 }
 
-#if 0
-struct ReqStk
-{
-	enum ReqState
-	{
-		WaitOpen,
-		WaitCmd,
-		Run,
-	};
-	ReqState eState;
-	uint8 nCurSlot;
-};
-
-struct CmdStk
-{
-	enum ReqStep
-	{
-		Init,
-		Run,
-		BlkErsWait,
-		WaitIoDone,		///< wait all IO done.
-		WaitMtSave,
-		Done,
-	};
-	ReqStep eStep;
-	ReqInfo* pReq;	// input.
-	uint32 nWaitAge; ///< Meta save check.
-	uint32 nTag;
-};
-#endif
-
 void req_Done(NCmd eCmd, uint32 nTag)
 {
 	RunInfo* pRun = gaIssued + nTag;
@@ -85,6 +54,7 @@ void req_Done(NCmd eCmd, uint32 nTag)
 void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 {
 	uint32 nLPN = pReq->nLPN;
+
 	bool bRet = false;
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
 	if (nullptr == pDst || pDst->stNextVA.nWL >= NUM_WL)
@@ -114,11 +84,7 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 	
 	if (JR_Filled == eJRet)
 	{
-		uint32 nWaitAge = META_ReqSave();	// wait till meta save.
-		while (META_GetAge() <= nWaitAge)
-		{
-			OS_Wait(BIT(EVT_META), LONG_TIME);
-		}
+		META_ReqSave(false);	// wait till meta save.
 	}
 }
 
@@ -159,11 +125,7 @@ void req_Shutdown_OS(ReqInfo* pReq, uint8 nTag)
 
 	if (SD_Safe == pReq->eOpt)
 	{
-		uint32 nWaitAge = META_ReqSave();
-		while (META_GetAge() <= nWaitAge)
-		{
-			OS_Wait(BIT(EVT_META), LONG_TIME);
-		}
+		META_ReqSave(true);
 	}
 
 	gfCbf(pReq);

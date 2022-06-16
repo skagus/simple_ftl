@@ -6,15 +6,6 @@
 #define MARK_META		(0xFABCBEAF)
 
 
-enum MtState
-{
-	Mt_Init,
-	Mt_Open,		///< In openning.
-	Mt_Format,	///< In formatting.
-	Mt_Ready,
-	Mt_Saving,
-};
-
 union Jnl
 {
 	enum JnlType
@@ -132,7 +123,7 @@ struct MetaCtx
 
 
 void META_Init();
-uint32 META_ReqSave();	// Age return.
+uint32 META_ReqSave(bool bSync);	// Age return.
 uint32 META_GetAge();
 
 void META_SetOpen(OpenType eType, uint16 nBN, uint16 nWL = 0);

@@ -23,7 +23,6 @@ uint32 IO_CountFree();
 
 CmdInfo* IO_PopDone(CbKey eCbId);
 CmdInfo* IO_GetDone(CbKey eCbId);
-void IO_WaitDone(CmdInfo* pCmd);
 void IO_Read(CmdInfo* pCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag);
 void IO_Program(CmdInfo* pCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag);
 void IO_Erase(CmdInfo* pCmd, uint16 nPBN, uint32 nTag);

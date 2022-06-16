@@ -21,7 +21,7 @@ bool gbRequest;
 OpenBlk gaOpen[NUM_OPEN];
 MetaCtx gstMetaCtx;
 JnlSet gstJnlSet;
-MtState geState;
+bool gbReady;
 
 
 
@@ -45,6 +45,7 @@ void meta_Format()
 	gstMetaCtx.nAge = 1;
 	gstMetaCtx.nCurBO = 0;
 	gstMetaCtx.nNextSlice = 0;
+	// TODO: Map save sequence.
 }
 
 void dbg_MapIntegrity()
@@ -66,7 +67,7 @@ void dbg_MapIntegrity()
 
 bool META_Ready()
 {
-	return (geState == Mt_Ready);
+	return gbReady;
 }
 
 VAddr META_GetMap(uint32 nLPN)
@@ -362,7 +363,6 @@ uint16 open_PageScan_OS(uint16 nBN)
 			}
 			BM_Free(nBuf);
 			IO_Free(pDone);
-
 		}
 		
 		while ((NUM_WL == nCPO)
@@ -477,12 +477,8 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 			BM_Free(nBuf);
 			IO_Free(pDone);
 		}
-		if (nDone >= NUM_MAP_SLICE)
-		{
-			break;
-		}
 
-		while ((nIssued < NUM_MAP_SLICE) && (nIssued - nDone <= 2))
+		while ((nIssued < NUM_MAP_SLICE) && (nIssued - nDone < 2))
 		{
 			uint16 nWL = nStartWL + nIssued;
 			uint16 nBN = nMaxBN;
@@ -497,7 +493,11 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 			nIssued++;
 		}
 
-		if (nIssued > nDone)
+		if (nDone >= NUM_MAP_SLICE)
+		{
+			break;
+		}
+		else if (nIssued > nDone)
 		{
 			OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 		}
@@ -621,13 +621,11 @@ void open_PostMtLoad()
 
 void meta_Run(void* pParam)
 {
-	geState = Mt_Open;
 	if (false == meta_Open_OS())
 	{
-		geState = Mt_Format;
 		meta_Format();
 	}
-	geState = Mt_Ready;
+	gbReady = true;
 	OS_SyncEvt(BIT(EVT_OPEN));
 
 	while (true)
@@ -635,10 +633,8 @@ void meta_Run(void* pParam)
 		if (gbRequest)
 		{
 			gbRequest = false;
-			geState = Mt_Saving;
 			meta_Save_OS();
 			META_StartJnl(OPEN_GC, 0);
-			geState = Mt_Ready;
 			OS_SyncEvt(BIT(EVT_META));
 			continue;
 		}
@@ -652,17 +648,21 @@ uint32 META_GetAge()
 	return gstMetaCtx.nAge;
 }
 
-uint32 META_ReqSave()
+uint32 META_ReqSave(bool bSync)
 {
 	gbRequest = true;
 	OS_SyncEvt(BIT(EVT_META));
+	uint32 nAge = gstMetaCtx.nAge;
+	while (nAge >= META_GetAge())
+	{
+		OS_Wait(BIT(EVT_META), LONG_TIME);
+	}
 	return gstMetaCtx.nAge;
 }
 
 void META_Init()
 {
-	geState = Mt_Init;
-
+	gbReady = false;
 	MEMSET_ARRAY(gaOpen, 0xFF);
 	MEMSET_ARRAY(gstMeta.astBI, 0);
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);

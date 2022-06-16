@@ -16,6 +16,8 @@ LinkedQueue<CmdInfo> gNCmdPool;
 IoCbf gaCbf[NUM_IOCB];
 LinkedQueue<CmdInfo> gaDone[NUM_IOCB];
 
+const char* gaIoName[NUM_IOCB] = { "US", "MT", "GC", "UE" };	// to print.
+
 CmdInfo* IO_PopDone(CbKey eCbId)
 {
 	CmdInfo* pRet = gaDone[eCbId].PopHead();
@@ -31,25 +33,30 @@ CmdInfo* IO_GetDone(CbKey eCbId)
 
 void io_Print(CmdInfo* pCmd)
 {
+	uint8 nId = pCmd - gaCmds;
 	switch (pCmd->eCmd)
 	{
 		case NCmd::NC_ERB:
 		{
-			PRINTF("[IO:%X] ERB {%X}\n", pCmd->nDbgSN, pCmd->anBBN[0]);
+			PRINTF("[IO:%X] %s ERB {%X}\n",
+				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
+				pCmd->anBBN[0]);
 			break;
 		}
 		case NCmd::NC_READ:
 		{
 			uint32* pBuf = (uint32*)BM_GetSpare(pCmd->stRead.anBufId[0]);
-			PRINTF("[IO:%X] Rd  {%X,%X} SPR [%X,%X]\n", 
-				pCmd->nDbgSN, pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
+			PRINTF("[IO:%X] %s Rd  {%X,%X} SPR [%X,%X]\n", 
+				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
+				pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
 			break;
 		}
 		case NCmd::NC_PGM:
 		{
 			uint32* pBuf = (uint32*)BM_GetSpare(pCmd->stPgm.anBufId[0]);
-			PRINTF("[IO:%X] Pgm {%X,%X} SPR [%X,%X]\n", 
-				pCmd->nDbgSN, pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
+			PRINTF("[IO:%X] %s Pgm {%X,%X} SPR [%X,%X]\n", 
+				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
+				pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
 			break;
 		}
 		default:
@@ -96,18 +103,6 @@ CmdInfo* IO_Alloc(CbKey eKey)
 uint32 IO_CountFree()
 {
 	return gNCmdPool.Count();
-}
-
-void IO_WaitDone(CmdInfo* pCmd)
-{
-	CbKey eKey = gaKeys[pCmd - gaCmds];
-	CmdInfo* pDone = gaDone[eKey].PopHead();
-	while (nullptr == pDone)
-	{
-		OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
-		pDone = gaDone[eKey].PopHead();
-	}
-	assert(pDone == pCmd);
 }
 
 void IO_Read(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag)

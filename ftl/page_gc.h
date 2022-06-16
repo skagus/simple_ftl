@@ -8,24 +8,6 @@
 
 static_assert(SIZE_FREE_POOL > GC_TRIG_BLK_CNT);
 
-
-
-struct ErbStk
-{
-	enum ErbState
-	{
-		Init,
-		WaitErb,
-		WaitJnlAdd,
-		WaitMtSave,
-	};
-	ErbState eStep;
-	OpenType eOpen;	///< requester.
-	uint16 nBN;
-	uint32 nMtAge;
-};
-
-
 void GC_Init();
 uint16 GC_ReqFree_Blocking(OpenType eOpen);
 void GC_Stop();

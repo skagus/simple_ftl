@@ -56,8 +56,6 @@ void cpu_HandleEvt(void* pEvt)
 	}
 }
 
-#define STK_SIZE	(16 * 1024)
-
 void CPU_Add(uint32 eID, Routine pfEntry, void* pParam)
 {
 	SIM_AddHW(HW_CPU, cpu_HandleEvt);
