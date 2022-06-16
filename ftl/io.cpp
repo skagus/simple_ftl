@@ -8,13 +8,15 @@
 #include "ftl.h"
 #include "io.h"
 
-#define PRINTF			// SIM_Print
+#define PRINTF			SIM_Print
 
 CmdInfo gaCmds[NUM_NAND_CMD];
 CbKey gaKeys[NUM_NAND_CMD];
 LinkedQueue<CmdInfo> gNCmdPool;
 IoCbf gaCbf[NUM_IOCB];
 LinkedQueue<CmdInfo> gaDone[NUM_IOCB];
+
+const char* gaIoName[NUM_IOCB] = { "US", "MT", "GC", "UE" };	// to print.
 
 CmdInfo* IO_PopDone(CbKey eCbId)
 {
@@ -29,11 +31,49 @@ CmdInfo* IO_GetDone(CbKey eCbId)
 }
 
 
+void io_Print(CmdInfo* pCmd)
+{
+	uint8 nId = pCmd - gaCmds;
+	switch (pCmd->eCmd)
+	{
+		case NCmd::NC_ERB:
+		{
+			PRINTF("[IO:%X] %s ERB {%X}\n",
+				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
+				pCmd->anBBN[0]);
+			break;
+		}
+		case NCmd::NC_READ:
+		{
+			uint32* pBuf = (uint32*)BM_GetSpare(pCmd->stRead.anBufId[0]);
+			PRINTF("[IO:%X] %s Rd  {%X,%X} SPR [%X,%X]\n", 
+				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
+				pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
+			break;
+		}
+		case NCmd::NC_PGM:
+		{
+			uint32* pBuf = (uint32*)BM_GetSpare(pCmd->stPgm.anBufId[0]);
+			PRINTF("[IO:%X] %s Pgm {%X,%X} SPR [%X,%X]\n", 
+				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
+				pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
+			break;
+		}
+		default:
+		{
+			assert(false);
+		}
+	}
+
+}
+
 void io_CbDone(uint32 nDie, uint32 nTag)
 {
 	CmdInfo* pRet = NFC_GetDone();
 	if (nullptr != pRet)
 	{
+		io_Print(pRet);
+
 		uint8 nId = pRet - gaCmds;
 		uint8 nTag = gaKeys[nId];
 		gaDone[nTag].PushTail(pRet);
@@ -65,18 +105,6 @@ uint32 IO_CountFree()
 	return gNCmdPool.Count();
 }
 
-void IO_WaitDone(CmdInfo* pCmd)
-{
-	CbKey eKey = gaKeys[pCmd - gaCmds];
-	CmdInfo* pDone = gaDone[eKey].PopHead();
-	while (nullptr == pDone)
-	{
-		pDone = gaDone[eKey].PopHead();
-		CPU_TimePass(SIM_USEC(10));
-	}
-	assert(pDone == pCmd);
-}
-
 void IO_Read(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag)
 {
 	pstCmd->eCmd = NCmd::NC_READ;
@@ -89,8 +117,6 @@ void IO_Read(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 n
 	pstCmd->nTag = nTag;
 
 	NFC_Issue(pstCmd);
-	PRINTF("IO Rd (%X,%X)-->%X\n", nPBN, nPage, *(uint32*)BM_GetSpare(nBufId));
-	CPU_TimePass(SIM_USEC(3));
 }
 
 void IO_Program(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag)
@@ -104,10 +130,7 @@ void IO_Program(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint3
 	pstCmd->stPgm.anBufId[0] = nBufId;
 	pstCmd->nTag = nTag;
 
-	PRINTF("IO Pgm (%X,%X) %X\n", nPBN, nPage, *(uint32*)BM_GetSpare(nBufId));
-
 	NFC_Issue(pstCmd);
-	CPU_TimePass(SIM_USEC(3));
 }
 
 void IO_Erase(CmdInfo* pstCmd, uint16 nPBN, uint32 nTag)
@@ -119,7 +142,6 @@ void IO_Erase(CmdInfo* pstCmd, uint16 nPBN, uint32 nTag)
 	pstCmd->bmPln = BIT(nPBN % NUM_PLN);
 	pstCmd->nTag = nTag;
 	NFC_Issue(pstCmd);
-	CPU_TimePass(SIM_USEC(3));
 }
 
 void IO_RegCbf(CbKey eId, IoCbf pfCb)

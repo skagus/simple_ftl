@@ -30,10 +30,7 @@ struct GcStk
 };
 
 GcStk* gpGcStk;
-bool gbVictimChanged;
-VAddr gstChanged;
 Queue<uint16, SIZE_FREE_POOL> gstFreePool;
-
 
 #define MAX_GC_READ		(2)
 
@@ -57,7 +54,6 @@ struct MoveStk
 	uint16 nDataRead; // Total data read: to check read end.
 
 	uint8 nRdSlot;
-	CmdInfo* apReadRun[MAX_GC_READ];
 };
 
 
@@ -138,7 +134,6 @@ bool gc_HandleRead(CmdInfo* pDone, MoveStk* pCtx)
 		else
 		{
 			pCtx->nDataRead--;
-			PRINTF("[GC] Moved LPN:%X\n", *pSpare);
 			BM_Free(nBuf);
 		}
 	}
@@ -147,12 +142,7 @@ bool gc_HandleRead(CmdInfo* pDone, MoveStk* pCtx)
 		pCtx->nDataRead--;
 		BM_Free(nBuf);
 	}
-	uint32 nIdx = GET_INDEX(pDone->nTag);
-	assert(pCtx->apReadRun[nIdx] == pDone);
-	if (bDone)
-	{
-		pCtx->apReadRun[nIdx] = nullptr;
-	}
+
 	return bDone;
 }
 
@@ -176,20 +166,7 @@ bool gc_Move_SM(MoveStk* pStk)
 		pStk->nDataRead = pStk->nDstWL;
 		pStk->nRdSlot = 0;
 		pStk->eState = MoveStk::MS_Run;
-		MEMSET_ARRAY(pStk->apReadRun, 0x0);
 		PRINTF("[GC:%X] Start Move to %X, %X\n", SIM_GetSeqNo(), pStk->nDstBN, pStk->nDstWL);
-	}
-	if (gbVictimChanged)
-	{
-		for (uint32 nIdx = 0; nIdx < MAX_GC_READ; nIdx++)
-		{
-			CmdInfo* pCmd = pStk->apReadRun[nIdx];
-			if ((nullptr != pCmd) && (pCmd->nWL == gstChanged.nWL))
-			{
-				SET_CHECK(pCmd->nTag);
-			}
-		}
-		gbVictimChanged = false;
 	}
 	////////////// Process done command. ///////////////
 	CmdInfo* pDone;
@@ -254,7 +231,6 @@ bool gc_Move_SM(MoveStk* pStk)
 				pStk->nSrcWL = nReadWL + 1;
 				pStk->nReadRun++;
 				pStk->nDataRead++;
-				pStk->apReadRun[pStk->nRdSlot] = pCmd;
 				pStk->nRdSlot = (pStk->nRdSlot + 1) % MAX_GC_READ;
 			}
 			else if ((0 == pStk->nReadRun) && (0 == pStk->nPgmRun))
@@ -422,12 +398,6 @@ void gc_Run(void* pParam)
 			break;
 		}
 	}
-}
-
-void GC_VictimUpdate(VAddr stOld)
-{
-	gbVictimChanged = true;
-	gstChanged = stOld;
 }
 
 uint16 GC_ReqFree(OpenType eType)

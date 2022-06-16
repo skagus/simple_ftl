@@ -1,4 +1,5 @@
 
+#include "sim_hw.h"
 #include "sim.h"
 #include "cpu.h"		// for CPU_Wakeup
 #include "timer.h"

@@ -159,42 +159,45 @@ void Sched_Init()
 */
 void Sched_Run()
 {
-	// disable interrupt.
-	while (gnIntEnable.test_and_set());
-	Evts bmEvt = bmAsyncEvt;
-	bmAsyncEvt = 0;
-	gnIntEnable.clear();
-	uint16 nTick = nAsyncTick;
-	nAsyncTick = 0;
-	// enable interrupt.
-	bmEvt |= bmSyncEvt;
-	bmSyncEvt = 0;
-	TaskBtm bmRdy = bmRdyTask | sched_HandleEvt(bmEvt, nTick);
-	bmRdyTask = 0;
-	if (bmRdy != 0)
+	while (true)
 	{
-		while (bmRdy & gabmModeRun[geRunMode])
+		// disable interrupt.
+		while (gnIntEnable.test_and_set());
+		Evts bmEvt = bmAsyncEvt;
+		bmAsyncEvt = 0;
+		gnIntEnable.clear();
+		uint16 nTick = nAsyncTick;
+		nAsyncTick = 0;
+		// enable interrupt.
+		bmEvt |= bmSyncEvt;
+		bmSyncEvt = 0;
+		TaskBtm bmRdy = bmRdyTask | sched_HandleEvt(bmEvt, nTick);
+		bmRdyTask = 0;
+		if (bmRdy != 0)
 		{
-			if (BIT(nCurTask) & bmRdy & gabmModeRun[geRunMode])
+			while (bmRdy & gabmModeRun[geRunMode])
 			{
-				TaskInfo* pTask = astTask + nCurTask;
-				Evts bmEvt = pTask->bmWaitEvt;
-				pTask->bmWaitEvt = 0;
-				pTask->pfTask(pTask->pParam);	// paramter is triggered event.
+				if (BIT(nCurTask) & bmRdy & gabmModeRun[geRunMode])
+				{
+					TaskInfo* pTask = astTask + nCurTask;
+					Evts bmEvt = pTask->bmWaitEvt;
+					pTask->bmWaitEvt = 0;
+					pTask->pfTask(pTask->pParam);	// paramter is triggered event.
+					CPU_TimePass(SIM_USEC(50));
 #if DBG_SCHEDULER
-				ASSERT(pTask->bmWaitEvt || pTask->nTimeOut || (bmRdyTask & BIT(nCurTask)));
+					ASSERT(pTask->bmWaitEvt || pTask->nTimeOut || (bmRdyTask & BIT(nCurTask)));
 #endif
-				bmRdy &= ~BIT(nCurTask);
+					bmRdy &= ~BIT(nCurTask);
+				}
+				nCurTask = (nCurTask + 1) % NUM_TASK;
 			}
-			nCurTask = (nCurTask + 1) % NUM_TASK;
+			// Mode에 따라 실행되지 않은 task는 이후에 mode가 복귀했을 때 실행할 것.
+			bmRdyTask |= bmRdy;
 		}
-		CPU_TimePass(SIM_USEC(10));
-		// Mode에 따라 실행되지 않은 task는 이후에 mode가 복귀했을 때 실행할 것.
-		bmRdyTask |= bmRdy;
-	}
-	else
-	{
-		CPU_Sleep();
+		else
+		{
+			CPU_Sleep();
+		}
 	}
 }
 

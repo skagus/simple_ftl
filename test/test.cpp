@@ -19,6 +19,8 @@ void _FillData(uint16 nBuf, uint32 nLPN)
 	uint32* pnData = (uint32*)BM_GetMain(nBuf);
 	pnData[0] = nLPN;
 	pnData[1] = gaDict[nLPN];
+	uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+	pnSpare[1] = gaDict[nLPN];
 }
 
 void _CheckData(uint16 nBuf, uint32 nLPN)
@@ -26,12 +28,20 @@ void _CheckData(uint16 nBuf, uint32 nLPN)
 	uint32* pnData = (uint32*)BM_GetMain(nBuf);
 	if (gaDict[nLPN] > 0)
 	{
-		assert(pnData[0] == nLPN);
-		assert(pnData[1] == gaDict[nLPN]);
+		ASSERT(pnData[0] == nLPN);
+		ASSERT(pnData[1] == gaDict[nLPN]);
 	}
 }
 
-void test_DoneCmd(ReqInfo* pReq)
+void _BusyWaitDone()
+{
+	while (false == gbDone)
+	{
+		CPU_Sleep();
+	}
+}
+
+void _CmdDone(ReqInfo* pReq)
 {
 //	PRINTF("Done\n");
 	gbDone = true;
@@ -49,13 +59,9 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 		stReq.nBuf = BM_Alloc();
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
+		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Write Req: %d\n", nCur);
-		CPU_TimePass(SIM_USEC(4));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		_BusyWaitDone();
 		BM_Free(stReq.nBuf);
 	}
 }
@@ -71,13 +77,9 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 		stReq.nLPN = nCur;
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
+		CMD_PRINTF("[CMD] R %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Read Req: %d\n", nCur);
-		CPU_TimePass(SIM_USEC(3));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		_BusyWaitDone();
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);
 	}
@@ -95,13 +97,9 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 		stReq.nBuf = BM_Alloc();
 		_FillData(stReq.nBuf, stReq.nLPN);
 		gbDone = false;
+		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Write Req\n");
-		CPU_TimePass(SIM_USEC(6));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		_BusyWaitDone();
 		BM_Free(stReq.nBuf);
 	}
 }
@@ -118,13 +116,9 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 		stReq.nLPN = nBase + SIM_GetRand(nRange);
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
+		CMD_PRINTF("[CMD] R %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CMD_PRINTF("[TC] Read Req\n");
-		CPU_TimePass(SIM_USEC(4));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		_BusyWaitDone();
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);
 	}
@@ -150,13 +144,9 @@ void tc_StreamWrite(uint32 nMaxLPN)
 			stReq.nBuf = BM_Alloc();
 			_FillData(stReq.nBuf, stReq.nLPN);
 			gbDone = false;
-			CMD_PRINTF("[TC] Write Req: %d\n", stReq.nLPN);
+			CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 			FTL_Request(&stReq);
-			CPU_TimePass(SIM_USEC(5));
-			while (false == gbDone)
-			{
-				CPU_Sleep();
-			}
+			_BusyWaitDone();
 			BM_Free(stReq.nBuf);
 		}
 	}
@@ -169,18 +159,14 @@ void tc_Shutdown(ShutdownOpt eOpt)
 	stReq.eCmd = CMD_SHUTDOWN;
 	stReq.eOpt = eOpt;
 	gbDone = false;
-	CMD_PRINTF("[TC] Shutdown Req\n");
+	CMD_PRINTF("[CMD] SD\n");
 	FTL_Request(&stReq);
-	CPU_TimePass(SIM_USEC(5));
-	while (false == gbDone)
-	{
-		CPU_Sleep();
-	}
+	_BusyWaitDone();
 }
 
 void sc_Long()
 {
-	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+	uint32 nNumUserLPN = FTL_GetNumLPN(_CmdDone);
 
 	for(uint32 nLoop = 0; nLoop < 2; nLoop++)
 	{
@@ -211,7 +197,7 @@ void sc_Long()
 
 void sc_Short()
 {
-	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+	uint32 nNumUserLPN = FTL_GetNumLPN(_CmdDone);
 
 	tc_SeqRead(0, nNumUserLPN);
 	if (0 == SIM_GetCycle())
@@ -223,7 +209,7 @@ void sc_Short()
 		tc_RandWrite(0, nNumUserLPN, nNumUserLPN / 8);
 	}
 
-	tc_Shutdown((SIM_GetRand(10) < 5) ? SD_Fast : SD_Safe);
+	tc_Shutdown((SIM_GetRand(10) < 5) ? SD_Sudden : SD_Safe);
 	PRINTF("All Test Done\n");
 	POWER_SwitchOff();
 	END_RUN;
@@ -233,7 +219,7 @@ Workload 생성역할.
 */
 void TEST_Main(void* pParam)
 {
-	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+	uint32 nNumUserLPN = FTL_GetNumLPN(_CmdDone);
 	if (nullptr == gaDict)
 	{
 		gaDict = new uint32[nNumUserLPN];

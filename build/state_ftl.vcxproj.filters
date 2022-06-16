@@ -40,9 +40,6 @@
     <ClCompile Include="..\com\scheduler.cpp">
       <Filter>com</Filter>
     </ClCompile>
-    <ClCompile Include="..\hw\sim_util.cpp">
-      <Filter>hw</Filter>
-    </ClCompile>
     <ClCompile Include="..\hw\coroutine.cpp">
       <Filter>hw</Filter>
     </ClCompile>

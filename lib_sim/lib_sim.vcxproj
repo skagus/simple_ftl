@@ -24,6 +24,7 @@
     <ProjectGuid>{9d4a5aaf-a827-4f77-b73d-19883f3f8315}</ProjectGuid>
     <RootNamespace>libsim</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>sm_lib</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -154,7 +155,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\com\scheduler.cpp" />
-    <ClCompile Include="..\hw\buf.cpp" />
     <ClCompile Include="..\hw\coroutine.cpp" />
     <ClCompile Include="..\hw\cpu.cpp" />
     <ClCompile Include="..\hw\die.cpp" />
@@ -162,7 +162,6 @@
     <ClCompile Include="..\hw\nfc.cpp" />
     <ClCompile Include="..\hw\power.cpp" />
     <ClCompile Include="..\hw\sim.cpp" />
-    <ClCompile Include="..\hw\sim_util.cpp" />
     <ClCompile Include="..\hw\timer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

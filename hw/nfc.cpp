@@ -1,5 +1,5 @@
 
-#include "sim.h"
+#include "sim_hw.h"
 #include "templ.h"	// Queue.
 #include "cpu.h"	// for CPU_Wakeup/CPU_GetCpuId;
 #include "buf.h"

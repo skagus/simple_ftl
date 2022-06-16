@@ -14,18 +14,24 @@
 
 Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
+/**
+* Called by other CPU.
+*/
 void FTL_Request(ReqInfo* pReq)
 {
 	pReq->nSeqNo = SIM_GetSeqNo();
 	gstReqQ.PushTail(pReq);
 	Sched_TrigAsyncEvt(BIT(EVT_USER_CMD));
+	CPU_TimePass(SIM_USEC(5));
 	CPU_Wakeup(CPU_FTL, SIM_USEC(1));
 }
 
+/**
+* Called by other CPU.
+*/
 uint32 FTL_GetNumLPN(CbfReq pfCbf)
 {
 	REQ_SetCbf(pfCbf);
-	CPU_TimePass(SIM_MSEC(1));	// Wait Init time.
 	return NUM_LPN;
 }
 
@@ -43,9 +49,6 @@ void FTL_Main(void* pParam)
 	GC_Init();
 
 	PRINTF("[FTL] Init done\n");
-	while (true)
-	{
-		Sched_Run();
-	}
+	Sched_Run();
 }
 

@@ -1,15 +1,13 @@
 #pragma once
 #include "types.h"
 
-#define CO_FIBER		1
-#define CO_SETJMP		2
+#define MAX_CO_ROUTINE			(33)
 
-#define OPT_CO			(CO_FIBER)		///< Selection between coroutine type.
-
-#define MAX_ROUTINE			(4)
-
+typedef uint32 SimTaskId;
 typedef void(*Routine)(void* pParam);
-void CO_RegTask(int nIdx, Routine pfEntry, void* pParam);
+
+SimTaskId CO_RegTask(Routine pfEntry, void* pParam);
+SimTaskId CO_GetCurTask();
+void CO_Switch(SimTaskId nIdx);
+void CO_Fine();
 void CO_Start();
-void CO_Switch(int nIdx);
-void CO_ToMain();

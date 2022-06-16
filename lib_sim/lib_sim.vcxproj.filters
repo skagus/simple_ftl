@@ -24,9 +24,6 @@
     <ClCompile Include="..\com\scheduler.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\hw\buf.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="..\hw\coroutine.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -40,9 +37,6 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="..\hw\nfc.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\hw\sim_util.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="..\hw\timer.cpp">

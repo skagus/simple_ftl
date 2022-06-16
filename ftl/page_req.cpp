@@ -8,7 +8,7 @@
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
-#define CMD_PRINTF		SIM_Print
+#define CMD_PRINTF
 
 extern Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 
@@ -68,17 +68,9 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
 	pRun->nDone++;
 
-	if (NC_READ == eCmd)
-	{
-		CMD_PRINTF("[R] Done LPN:%X SPR:%X\n", pReq->nLPN, *pnVal);
-	}
-	else
-	{
-		CMD_PRINTF("[W] Done LPN:%X SPR:%X\n", pReq->nLPN, *pnVal);
-	}
 	if (MARK_ERS != *pnVal)
 	{
-		assert(pReq->nLPN == *pnVal);
+		ASSERT(pReq->nLPN == *pnVal);
 	}
 	// Calls CPU_WORK cpu function --> treat as ISR.
 	if (pRun->nDone == pRun->nTotal)
@@ -132,14 +124,13 @@ bool req_Write_SM(CmdStk* pCtx)
 	else
 	{
 		*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
-		assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
+		ASSERT(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
 		JnlRet eJRet = META_Update(pReq->nLPN, pDst->stNextVA, OPEN_USER);
 		if (JR_Busy != eJRet)
 		{
 			CmdInfo* pCmd = IO_Alloc(IOCB_User);
 			IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, pCtx->nTag);
 
-			CMD_PRINTF("[W] %X: {%X,%X}\n", pReq->nLPN, pDst->stNextVA.nBN, pDst->stNextVA.nWL);
 			pDst->stNextVA.nWL++;
 			bRet = true;
 			if (JR_Filled == eJRet)
@@ -166,14 +157,12 @@ bool req_Read_SM(CmdStk* pCtx)
 	VAddr stAddr = META_GetMap(nLPN);
 	if (CmdStk::Init == pCtx->eStep)
 	{
-		CMD_PRINTF("[RD] %X: {%X,%X}\n", nLPN, stAddr.nBN, stAddr.nWL);
 		pCtx->eStep = CmdStk::Run;
 	}
 	if (FF32 != stAddr.nDW)
 	{
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
 		IO_Read(pCmd, stAddr.nBN, stAddr.nWL, pReq->nBuf, pCtx->nTag);
-		CPU_TimePass(SIM_USEC(3));
 	}
 	else
 	{
