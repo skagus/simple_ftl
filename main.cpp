@@ -10,8 +10,8 @@
 
 int main()
 {
+	SIM_Init(100);
 	HW_InitSim();
-	SIM_UtilInit(100);
 
 	CPU_Add(CPU_FTL, FTL_Main, (void*)4);
 	CPU_Add(CPU_WORK, TEST_Main, (void*)4);

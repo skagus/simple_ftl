@@ -9,6 +9,8 @@
 #define TIME_PGM_BUSY			SIM_USEC(800)
 #define TIME_ERASE_BUSY			SIM_USEC(1000)
 
+typedef void(*CbFunc)(uint32 nParam, uint32 nTag);	/// for Callback.
+
 enum NCmd
 {
 	NC_READ,

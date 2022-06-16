@@ -22,6 +22,7 @@ void FTL_Request(ReqInfo* pReq)
 	pReq->nSeqNo = SIM_GetSeqNo();
 	gstReqQ.PushTail(pReq);
 	OS_AsyncEvt(BIT(EVT_USER_CMD));
+	CPU_TimePass(SIM_USEC(5));
 	CPU_Wakeup(CPU_FTL, SIM_USEC(1));
 }
 
@@ -31,7 +32,6 @@ void FTL_Request(ReqInfo* pReq)
 uint32 FTL_GetNumLPN(CbfReq pfCbf)
 {
 	REQ_SetCbf(pfCbf);
-	CPU_TimePass(SIM_MSEC(1));	// Wait Init time.
 	return NUM_LPN;
 }
 

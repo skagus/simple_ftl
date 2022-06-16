@@ -34,9 +34,6 @@
     <ClCompile Include="..\hw\power.cpp">
       <Filter>hw</Filter>
     </ClCompile>
-    <ClCompile Include="..\hw\sim_util.cpp">
-      <Filter>hw</Filter>
-    </ClCompile>
     <ClCompile Include="..\hw\coroutine.cpp">
       <Filter>hw</Filter>
     </ClCompile>
@@ -137,6 +134,9 @@
     </ClInclude>
     <ClInclude Include="..\ftl\page_req.h">
       <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hw\sim_hw.h">
+      <Filter>hw</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

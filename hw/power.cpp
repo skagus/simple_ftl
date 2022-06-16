@@ -1,5 +1,6 @@
 
 #include "types.h"
+#include "sim_hw.h"
 #include "sim.h"
 #include "power.h"
 

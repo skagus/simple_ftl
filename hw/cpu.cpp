@@ -1,5 +1,6 @@
 #include <Windows.h>
-#include "sim.h"
+#include "macro.h"
+#include "sim_hw.h"
 #include "cpu.h"
 #include "coroutine.h"
 

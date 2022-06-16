@@ -135,7 +135,6 @@ bool req_Read_OS(ReqInfo* pReq, uint8 nTag)
 	{
 		CmdInfo* pCmd = IO_Alloc(IOCB_User);
 		IO_Read(pCmd, stAddr.nBN, stAddr.nWL, pReq->nBuf, nTag);
-		CPU_TimePass(SIM_USEC(3));
 	}
 	else
 	{

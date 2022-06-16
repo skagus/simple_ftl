@@ -33,7 +33,15 @@ void _CheckData(uint16 nBuf, uint32 nLPN)
 	}
 }
 
-void test_DoneCmd(ReqInfo* pReq)
+void _BusyWaitDone()
+{
+	while (false == gbDone)
+	{
+		CPU_Sleep();
+	}
+}
+
+void _CmdDone(ReqInfo* pReq)
 {
 //	PRINTF("Done\n");
 	gbDone = true;
@@ -53,11 +61,7 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 		gbDone = false;
 		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CPU_TimePass(SIM_USEC(4));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		_BusyWaitDone();
 		BM_Free(stReq.nBuf);
 	}
 }
@@ -75,11 +79,7 @@ void tc_SeqRead(uint32 nStart, uint32 nSize)
 		gbDone = false;
 		CMD_PRINTF("[CMD] R %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CPU_TimePass(SIM_USEC(3));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		_BusyWaitDone();
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);
 	}
@@ -99,11 +99,7 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 		gbDone = false;
 		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
-		CPU_TimePass(SIM_USEC(6));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		_BusyWaitDone();
 		BM_Free(stReq.nBuf);
 	}
 }
@@ -120,13 +116,9 @@ void tc_RandRead(uint32 nBase, uint32 nRange, uint32 nCount)
 		stReq.nLPN = nBase + SIM_GetRand(nRange);
 		stReq.nBuf = BM_Alloc();
 		gbDone = false;
-		FTL_Request(&stReq);
 		CMD_PRINTF("[CMD] R %X\n", stReq.nLPN);
-		CPU_TimePass(SIM_USEC(4));
-		while (false == gbDone)
-		{
-			CPU_Sleep();
-		}
+		FTL_Request(&stReq);
+		_BusyWaitDone();
 		_CheckData(stReq.nBuf, stReq.nLPN);
 		BM_Free(stReq.nBuf);
 	}
@@ -154,11 +146,7 @@ void tc_StreamWrite(uint32 nMaxLPN)
 			gbDone = false;
 			CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 			FTL_Request(&stReq);
-			CPU_TimePass(SIM_USEC(5));
-			while (false == gbDone)
-			{
-				CPU_Sleep();
-			}
+			_BusyWaitDone();
 			BM_Free(stReq.nBuf);
 		}
 	}
@@ -173,16 +161,12 @@ void tc_Shutdown(ShutdownOpt eOpt)
 	gbDone = false;
 	CMD_PRINTF("[CMD] SD\n");
 	FTL_Request(&stReq);
-	CPU_TimePass(SIM_USEC(5));
-	while (false == gbDone)
-	{
-		CPU_Sleep();
-	}
+	_BusyWaitDone();
 }
 
 void sc_Long()
 {
-	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+	uint32 nNumUserLPN = FTL_GetNumLPN(_CmdDone);
 
 	for(uint32 nLoop = 0; nLoop < 2; nLoop++)
 	{
@@ -213,7 +197,7 @@ void sc_Long()
 
 void sc_Short()
 {
-	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+	uint32 nNumUserLPN = FTL_GetNumLPN(_CmdDone);
 
 	tc_SeqRead(0, nNumUserLPN);
 	if (0 == SIM_GetCycle())
@@ -235,7 +219,7 @@ Workload 생성역할.
 */
 void TEST_Main(void* pParam)
 {
-	uint32 nNumUserLPN = FTL_GetNumLPN(test_DoneCmd);
+	uint32 nNumUserLPN = FTL_GetNumLPN(_CmdDone);
 	if (nullptr == gaDict)
 	{
 		gaDict = new uint32[nNumUserLPN];

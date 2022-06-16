@@ -65,6 +65,7 @@ uint32 os_sched()
 		gstOS._curTID = nNxtTID;
 //		SIM_Print("Sched: %s\n", gstOS.aszName[gstOS._curTID]);
 		CO_Switch(gstOS._aTCB[gstOS._curTID]);
+		CPU_TimePass(SIM_USEC(50));
 	}
 	return gstOS._aWaitEvt[gstOS._curTID];
 }

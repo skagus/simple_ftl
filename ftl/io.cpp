@@ -104,8 +104,8 @@ void IO_WaitDone(CmdInfo* pCmd)
 	CmdInfo* pDone = gaDone[eKey].PopHead();
 	while (nullptr == pDone)
 	{
+		OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 		pDone = gaDone[eKey].PopHead();
-		CPU_TimePass(SIM_USEC(10));
 	}
 	assert(pDone == pCmd);
 }
@@ -122,7 +122,6 @@ void IO_Read(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 n
 	pstCmd->nTag = nTag;
 
 	NFC_Issue(pstCmd);
-	CPU_TimePass(SIM_USEC(3));
 }
 
 void IO_Program(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag)
@@ -137,7 +136,6 @@ void IO_Program(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint3
 	pstCmd->nTag = nTag;
 
 	NFC_Issue(pstCmd);
-	CPU_TimePass(SIM_USEC(3));
 }
 
 void IO_Erase(CmdInfo* pstCmd, uint16 nPBN, uint32 nTag)
@@ -149,7 +147,6 @@ void IO_Erase(CmdInfo* pstCmd, uint16 nPBN, uint32 nTag)
 	pstCmd->bmPln = BIT(nPBN % NUM_PLN);
 	pstCmd->nTag = nTag;
 	NFC_Issue(pstCmd);
-	CPU_TimePass(SIM_USEC(3));
 }
 
 void IO_RegCbf(CbKey eId, IoCbf pfCb)
