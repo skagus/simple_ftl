@@ -24,6 +24,7 @@
     <ProjectGuid>{9d4a5aaf-a827-4f77-b73d-19883f3f8315}</ProjectGuid>
     <RootNamespace>libsim</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>os_lib</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

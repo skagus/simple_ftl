@@ -1,10 +1,9 @@
 #include "types.h"
 #include "templ.h"
-#include "cpu.h"
+#include "config.h"
 #include "nfc.h"
 #include "buf.h"
 #include "os.h"
-#include "config.h"
 #include "ftl.h"
 #include "io.h"
 

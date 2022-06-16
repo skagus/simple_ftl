@@ -1,6 +1,5 @@
 
 #include "templ.h"
-#include "cpu.h"
 #include "buf.h"
 #include "os.h"
 #include "io.h"
@@ -47,7 +46,6 @@ void req_Done(NCmd eCmd, uint32 nTag)
 	{
 		gfCbf(pReq);
 		gstReqInfoPool.PushTail(nTag);
-		CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 	}
 }
 
@@ -131,7 +129,6 @@ void req_Shutdown_OS(ReqInfo* pReq, uint8 nTag)
 	gfCbf(pReq);
 	gstReqInfoPool.PushTail(nTag);
 	CMD_PRINTF("[SD] Done\n");
-	CPU_Wakeup(CPU_WORK, SIM_USEC(2));
 }
 
 void req_Run(void* pParam)
