@@ -276,7 +276,6 @@ void open_UserScan_OS(OpenType eOpen)
 	uint8 nRun = 0;
 	bool bRun = true;
 	PRINTF("[OPEN] Data scan %s {%X,%X}\n", eOpen == OpenType::OPEN_GC ? "GC" : "User", nBN, nNextWL);
-	gstJnlSet.Start(OPEN_USER, 0);
 
 	while (bRun)
 	{
@@ -584,6 +583,7 @@ bool meta_Open_OS()
 		}
 		open_MtLoad_OS(nMaxBO, gstMetaCtx.nNextWL);
 		open_PostMtLoad();
+		gstJnlSet.Start(OPEN_USER, 0); // Prepare Jnl to add on data scan.
 		open_UserScan_OS(OPEN_GC);
 		open_UserScan_OS(OPEN_USER);
 	}
