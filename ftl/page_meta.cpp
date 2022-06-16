@@ -60,7 +60,7 @@ void dbg_MapIntegrity()
 	}
 	for (uint16 nBN = 0; nBN < NUM_USER_BLK; nBN++)
 	{
-		assert(gstMeta.astBI[nBN].nVPC == anVPC[nBN]);
+		ASSERT(gstMeta.astBI[nBN].nVPC == anVPC[nBN]);
 	}
 }
 
@@ -227,8 +227,8 @@ void meta_Save_OS()
 		}
 
 		uint16 nWL = gstMetaCtx.nNextWL + nIssue;
-		PRINTF("[MT] PGM (%X,%X) Age:%X, Slice: %X\n", gstMetaCtx.nCurBN, nWL, gstMetaCtx.nAge, gstMetaCtx.nNextSlice);
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
+		PRINTF("[MT:%X] \t==== PGM (%X,%X) Age:%X, Slice: %X ====\n", pCmd->nDbgSN, gstMetaCtx.nCurBN, nWL, gstMetaCtx.nAge, gstMetaCtx.nNextSlice);
 		IO_Program(pCmd, gstMetaCtx.nCurBN, nWL, nBuf, 0);
 	}
 
@@ -352,7 +352,7 @@ uint16 open_PageScan_OS(uint16 nBN)
 				pDone->anBBN[0], pDone->nWL, pnSpare[0], pnSpare[1]);
 			if (MARK_ERS != *pnSpare)
 			{
-				assert(NUM_WL == nCPO);
+				ASSERT(NUM_WL == nCPO);
 				gstMetaCtx.nAge = pnSpare[0];
 				gstMetaCtx.nNextSlice = (pnSpare[1] + NUM_MAP_SLICE + 1) % NUM_MAP_SLICE;
 			}
@@ -429,7 +429,7 @@ void open_ReplayJnl(JnlSet* pJnlSet, uint32 nAge)
 			}
 			default:
 			{
-				assert(false);
+				ASSERT(false);
 			}
 		}
 	}
@@ -464,7 +464,7 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 			uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
 			uint32 nSlice = pSpare[1];
 			PRINTF("[OPEN] Mt Loaded {%X,%X} (%d,%d)\n", pDone->anBBN[0], pDone->nWL, pSpare[0], pSpare[1]);
-			assert(nSlice < NUM_MAP_SLICE);
+			ASSERT(nSlice < NUM_MAP_SLICE);
 			open_ReplayJnl((JnlSet*)pMain, pSpare[0]);
 			uint8* pSrc = pMain + sizeof(JnlSet);
 			uint8* pDst = (uint8*)(&gstMeta) + (nSlice * SIZE_MAP_PER_SAVE);
@@ -583,6 +583,7 @@ bool meta_Open_OS()
 		}
 		open_MtLoad_OS(nMaxBO, gstMetaCtx.nNextWL);
 		open_PostMtLoad();
+
 		gstJnlSet.Start(OPEN_USER, 0); // Prepare Jnl to add on data scan.
 		open_UserScan_OS(OPEN_GC);
 		open_UserScan_OS(OPEN_USER);
@@ -604,7 +605,7 @@ void open_PostMtLoad()
 	}
 	for (uint16 nBN = 0; nBN < NUM_USER_BLK; nBN++)
 	{
-//		assert(gstMeta.astBI[nBN].nVPC == anVPC[nBN]);
+//		ASSERT(gstMeta.astBI[nBN].nVPC == anVPC[nBN]);
 		gstMeta.astBI[nBN].nVPC = anVPC[nBN];
 		gstMeta.astBI[nBN].eState = BlkState::BS_Closed;
 	}

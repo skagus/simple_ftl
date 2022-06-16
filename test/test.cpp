@@ -28,8 +28,8 @@ void _CheckData(uint16 nBuf, uint32 nLPN)
 	uint32* pnData = (uint32*)BM_GetMain(nBuf);
 	if (gaDict[nLPN] > 0)
 	{
-		assert(pnData[0] == nLPN);
-		assert(pnData[1] == gaDict[nLPN]);
+		ASSERT(pnData[0] == nLPN);
+		ASSERT(pnData[1] == gaDict[nLPN]);
 	}
 }
 

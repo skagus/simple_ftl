@@ -6,6 +6,7 @@
 
 static std::mt19937_64 gRand;		///< Random number generator.
 static uint32 gnSeqNo;			///< Sequence number for debug.
+static uint32 gnBrkSN;
 static FILE* fpLog;
 
 uint32 SIM_GetRand(uint32 nMod)
@@ -17,7 +18,7 @@ uint32 SIM_GetRand(uint32 nMod)
 uint32 SIM_GetSeqNo()
 {
 	gnSeqNo++;
-	if ((0 == gnSeqNo) && (gnSeqNo != 0))
+	if (gnBrkSN == gnSeqNo)
 	{
 		__debugbreak();
 	}
@@ -37,10 +38,11 @@ void SIM_Print(const char* szFormat, ...)
 	fflush(fpLog);
 }
 
-void SIM_UtilInit()
+void SIM_UtilInit(uint32 nSeed, uint32 nBrkNo)
 {
 	gnSeqNo = 0;
-	gRand.seed(10);
+	gnBrkSN = nBrkNo;
+	gRand.seed(nSeed);
 
 	time_t cur;
 	time(&cur);

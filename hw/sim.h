@@ -45,4 +45,4 @@ uint32 SIM_GetRand(uint32 nMod);
 uint32 SIM_GetSeqNo();
 void SIM_SwitchToSim();		///< used by CPU.
 
-void SIM_UtilInit();
+void SIM_UtilInit(uint32 nSeed, uint32 nBrkNo = 0);

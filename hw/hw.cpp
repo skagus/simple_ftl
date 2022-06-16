@@ -12,6 +12,5 @@ void HW_InitSim()
 	NFC_InitSim();
 	TMR_InitSim();
 	POWER_InitSim();
-	SIM_UtilInit();
 }
 

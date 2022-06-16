@@ -71,7 +71,7 @@ void req_Done(NCmd eCmd, uint32 nTag)
 
 	if (MARK_ERS != *pnVal)
 	{
-		assert(pReq->nLPN == *pnVal);
+		ASSERT(pReq->nLPN == *pnVal);
 	}
 	// Calls CPU_WORK cpu function --> treat as ISR.
 	if (pRun->nDone == pRun->nTotal)
@@ -90,12 +90,12 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 	if (nullptr == pDst || pDst->stNextVA.nWL >= NUM_WL)
 	{
 		uint16 nBN = GC_ReqFree_Blocking(OPEN_USER);
-		assert(FF16 != nBN);
+		ASSERT(FF16 != nBN);
 		GC_BlkErase_OS(OPEN_USER, nBN);
 		META_SetOpen(OPEN_USER, nBN);
 	}
 	*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
-	assert(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
+	ASSERT(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
 	JnlRet eJRet;
 	while(true)
 	{
@@ -214,7 +214,7 @@ void req_Run(void* pParam)
 			}
 			default:
 			{
-				assert(false);
+				ASSERT(false);
 			}
 		}
 	}

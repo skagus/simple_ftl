@@ -13,14 +13,14 @@ Queue<uint16, NUM_BUF + 1> gFreeQue;
 
 uint8* BM_GetMain(uint16 nBufId)
 {
-	assert(gbAlloc[nBufId]);
+	ASSERT(gbAlloc[nBufId]);
 	return gaMBuf[nBufId];
 }
 
 
 uint8* BM_GetSpare(uint16 nBufId)
 {
-	assert(gbAlloc[nBufId]);
+	ASSERT(gbAlloc[nBufId]);
 	return gaSBuf[nBufId];
 }
 
@@ -31,9 +31,9 @@ uint16 BM_CountFree()
 
 uint16 BM_Alloc()
 {
-	assert(gFreeQue.Count() > 0);
+	ASSERT(gFreeQue.Count() > 0);
 	uint16 nBuf = gFreeQue.PopHead();
-	assert(gbAlloc[nBuf] == false);
+	ASSERT(gbAlloc[nBuf] == false);
 	gbAlloc[nBuf] = true;
 	return nBuf;
 }

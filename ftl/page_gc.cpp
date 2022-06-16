@@ -112,7 +112,7 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 			if ((*pSpare & 0xF) == pDone->nTag)
 			{
 				uint32* pMain = (uint32*)BM_GetMain(nBuf);
-				assert((*pMain & 0xF) == pDone->nTag);
+				ASSERT((*pMain & 0xF) == pDone->nTag);
 			}
 			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pGI->nDstBN, pGI->nDstWL, *pSpare);
 			pGI->nDstWL++;
@@ -326,7 +326,7 @@ uint16 GC_ReqFree_Blocking(OpenType eType)
 
 	uint16 nBN = gstFreePool.PopHead();
 
-	PRINTF("[GC] Alloc %X (free: %d)\n", nBN, gstFreePool.Count());
+	PRINTF("[GC:%X] Alloc %X (free: %d)\n", SIM_GetSeqNo(),  nBN, gstFreePool.Count());
 	return nBN;
 }
 
@@ -335,10 +335,10 @@ void GC_BlkErase_OS(OpenType eOpen, uint16 nBN)
 {
 	CbKey eCbKey = eOpen == OPEN_GC ? CbKey::IOCB_Mig : CbKey::IOCB_UErs;
 
-	PRINTF("[GC] ERB: %X by %s\n", nBN, eOpen == OPEN_GC ? "GC" : "User");
 
 	// Erase block.
 	CmdInfo* pCmd = IO_Alloc(eCbKey);
+	PRINTF("[GC:%X] ERB: %X by %s\n", pCmd->nDbgSN, nBN, eOpen == OPEN_GC ? "GC" : "User");
 	IO_Erase(pCmd, nBN, FF32);
 	CmdInfo* pDone;
 	while (true)
@@ -350,7 +350,7 @@ void GC_BlkErase_OS(OpenType eOpen, uint16 nBN)
 		}
 		OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 	}
-	assert(pCmd == pDone);
+	ASSERT(pCmd == pDone);
 	IO_Free(pDone);
 
 	// Add Journal.
