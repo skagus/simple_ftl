@@ -293,7 +293,10 @@ void open_UserScan_OS(OpenType eOpen)
 				VAddr stCur(0, pDone->anBBN[0], pDone->nWL);
 				PRINTF("[SCAN] MapUpdate: LPN:%X to (%X, %X), %c\n",
 					*pnSpare, pDone->anBBN[0], pDone->nWL, eOpen == OPEN_GC ? 'G' : 'U');
-				META_Update(*pnSpare, stCur, eOpen);
+				if (JR_Filled == META_Update(*pnSpare, stCur, eOpen))
+				{
+					META_ReqSave(false);
+				}
 			}
 			else if (FF16 == nErasedWL)
 			{
@@ -652,7 +655,7 @@ uint32 META_ReqSave(bool bSync)
 	gbRequest = true;
 	OS_SyncEvt(BIT(EVT_META));
 	uint32 nAge = gstMetaCtx.nAge;
-	while (nAge >= META_GetAge())
+	while (bSync && nAge >= META_GetAge())
 	{
 		OS_Wait(BIT(EVT_META), LONG_TIME);
 	}
@@ -662,6 +665,8 @@ uint32 META_ReqSave(bool bSync)
 void META_Init()
 {
 	gbReady = false;
+	gbRequest = false;
+	MEMSET_PTR(&gstJnlSet, 0);
 	MEMSET_ARRAY(gaOpen, 0xFF);
 	MEMSET_ARRAY(gstMeta.astBI, 0);
 	MEMSET_ARRAY(gstMeta.astL2P, 0xFF);

@@ -14,6 +14,7 @@ CbKey gaKeys[NUM_NAND_CMD];
 LinkedQueue<CmdInfo> gNCmdPool;
 IoCbf gaCbf[NUM_IOCB];
 LinkedQueue<CmdInfo> gaDone[NUM_IOCB];
+bool gabStop[NUM_IOCB];
 
 const char* gaIoName[NUM_IOCB] = { "US", "MT", "GC", "UE" };	// to print.
 
@@ -63,7 +64,6 @@ void io_Print(CmdInfo* pCmd)
 			assert(false);
 		}
 	}
-
 }
 
 void io_CbDone(uint32 nDie, uint32 nTag)
@@ -89,6 +89,10 @@ void IO_Free(CmdInfo* pCmd)
 
 CmdInfo* IO_Alloc(CbKey eKey)
 {
+	while (true == gabStop[eKey])
+	{
+		OS_Wait(BIT(EVT_IO_FREE), LONG_TIME);
+	}
 	if (gNCmdPool.Count() > 0)
 	{
 		CmdInfo* pRet = gNCmdPool.PopHead();
@@ -143,6 +147,16 @@ void IO_Erase(CmdInfo* pstCmd, uint16 nPBN, uint32 nTag)
 	NFC_Issue(pstCmd);
 }
 
+void IO_SetStop(CbKey eKey, bool bStop)
+{
+	gabStop[eKey] = bStop;
+	if (NOT(bStop))
+	{
+		OS_SyncEvt(BIT(EVT_IO_FREE));
+	}
+}
+
+
 void IO_RegCbf(CbKey eId, IoCbf pfCb)
 {
 	gaCbf[eId] = pfCb;
@@ -153,6 +167,8 @@ void IO_Init()
 {
 	NFC_Init(io_CbDone);
 	gNCmdPool.Init();
+	MEMSET_ARRAY(gabStop, 0x0);
+	MEMSET_ARRAY(gaDone, 0x0);
 	for (uint16 nIdx = 0; nIdx < NUM_NAND_CMD; nIdx++)
 	{
 		IO_Free(gaCmds + nIdx);

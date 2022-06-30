@@ -66,6 +66,7 @@ public:
 	}
 	void PushTail(T* pEntry)
 	{
+		assert(nullptr != pEntry);
 		pEntry->pNext = nullptr;
 		if (0 == nCount)
 		{
@@ -88,12 +89,12 @@ public:
 		}
 		T* pPop = pHead;
 		pHead = pHead->pNext;
-		nCount--;
 		if (0 == nCount)
 		{
 			assert(nullptr == pHead);
 			pTail = nullptr;
 		}
+		nCount--;
 		pPop->pNext = nullptr;
 		return pPop;
 	}

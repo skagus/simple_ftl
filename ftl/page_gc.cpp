@@ -7,59 +7,9 @@
 #include "page_meta.h"
 
 #define PRINTF			SIM_Print
-
-
-/**
-* GC move는 
-*/
-
-
-struct GcStk
-{
-	enum GcState
-	{
-		WaitOpen,
-		WaitReq,
-		GetDst,	
-		ErsDst,
-		Move,
-		Stop,	// Stop on shutdown.
-	};
-	GcState eState;
-};
-
-bool gbStop;
-Queue<uint16, SIZE_FREE_POOL> gstFreePool;
-
-
 #define MAX_GC_READ		(2)
 
-struct MoveStk
-{
-	enum MoveState
-	{
-		MS_Init,
-		MS_Run,
-	};
-	MoveState eState;
-
-	uint16 nDstBN;	// Input.
-	uint16 nDstWL;
-
-	uint16 nSrcBN;	// Block map PBN.
-	uint16 nSrcWL;
-
-	uint8 nReadRun;
-	uint8 nPgmRun;
-	uint16 nDataRead; // Total data read: to check read end.
-
-	uint8 nRdSlot;
-	CmdInfo* apReadRun[MAX_GC_READ];
-};
-
-
-uint8 gc_ScanFree();
-
+Queue<uint16, SIZE_FREE_POOL> gstFreePool;
 
 struct GcInfo
 {
@@ -70,6 +20,8 @@ struct GcInfo
 	uint8 nPgmRun;
 	uint8 nReadRun;
 };
+
+uint8 gc_ScanFree();
 
 void gc_HandlePgm(CmdInfo* pDone)
 {
@@ -95,6 +47,8 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 			&& (pDone->nWL == stOld.nWL))
 		{
 			VAddr stAddr(0, pGI->nDstBN, pGI->nDstWL);
+			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
+			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, nBuf, *pSpare);
 			JnlRet eJRet;
 			while(true)
 			{
@@ -105,8 +59,6 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 				}
 				OS_Wait(BIT(EVT_META), LONG_TIME);
 			}
-			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, nBuf, *pSpare);
 			// User Data.
 			if ((*pSpare & 0xF) == pDone->nTag)
 			{
@@ -153,7 +105,7 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 	{
 		////////////// Process done command. ///////////////
 		CmdInfo* pDone;
-		while (pDone = IO_PopDone(IOCB_Mig))
+		while (nullptr != (pDone = IO_PopDone(IOCB_Mig)))
 		{
 			if (NC_PGM == pDone->eCmd)
 			{
@@ -283,29 +235,6 @@ void gc_Run(void* pParam)
 			OS_Wait(BIT(EVT_BLK_REQ), LONG_TIME);
 		}
 	}
-
-STOP:
-	while (true)
-	{
-		while (true)
-		{
-			CmdInfo* pDone = IO_PopDone(IOCB_Mig);
-			if (nullptr == pDone)
-			{
-				break;
-			}
-			if (NC_PGM == pDone->eCmd)
-			{
-				BM_Free(pDone->stPgm.anBufId[0]);
-			}
-			else if (NC_READ == pDone->eCmd)
-			{
-				BM_Free(pDone->stRead.anBufId[0]);
-			}
-			IO_Free(pDone);
-		}
-		OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
-	}
 }
 
 uint16 GC_ReqFree_Blocking(OpenType eType)
@@ -362,12 +291,6 @@ void GC_BlkErase_OS(OpenType eOpen, uint16 nBN)
 
 	// Meta save.
 	META_ReqSave(true);
-}
-
-
-void GC_Stop()
-{
-	gbStop = true;
 }
 
 void GC_Init()

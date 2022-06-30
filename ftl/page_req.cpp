@@ -114,12 +114,9 @@ bool req_Read_OS(ReqInfo* pReq, uint8 nTag)
 */
 void req_Shutdown_OS(ReqInfo* pReq, uint8 nTag)
 {
-	CMD_PRINTF("[SD] %d\n", pReq->eOpt);
-	GC_Stop();
-	while (IO_CountFree() < NUM_NAND_CMD)
-	{
-		OS_Wait(BIT(EVT_IO_FREE), LONG_TIME);
-	}
+	PRINTF("[SD] %d\n", pReq->eOpt);
+	IO_SetStop(CbKey::IOCB_Mig, true);
+	OS_Idle(OS_MSEC(5));
 
 	if (SD_Safe == pReq->eOpt)
 	{
@@ -128,7 +125,7 @@ void req_Shutdown_OS(ReqInfo* pReq, uint8 nTag)
 
 	gfCbf(pReq);
 	gstReqInfoPool.PushTail(nTag);
-	CMD_PRINTF("[SD] Done\n");
+	PRINTF("[SD] Done\n");
 }
 
 void req_Run(void* pParam)

@@ -10,4 +10,3 @@ SimTaskId CO_RegTask(Routine pfEntry, void* pParam);
 SimTaskId CO_GetCurTask();
 void CO_Switch(SimTaskId nIdx);
 void CO_Fine();
-void CO_Start();

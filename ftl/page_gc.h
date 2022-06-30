@@ -10,6 +10,5 @@ static_assert(SIZE_FREE_POOL > GC_TRIG_BLK_CNT);
 
 void GC_Init();
 uint16 GC_ReqFree_Blocking(OpenType eOpen);
-void GC_Stop();
 void GC_BlkErase_OS(OpenType eOpen, uint16 nBN);
 
