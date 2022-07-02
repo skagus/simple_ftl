@@ -58,18 +58,6 @@ struct MoveStk
 
 uint8 gc_ScanFree();
 
-/**
-* Next를 알아내는 방법
-* 1안:
-*	- Source선택 직후, P2L map은 filtering하는 방법.
-* 2안:
-*	- 매번 Next read를 찾아낼 때마다, Map query하는 방법.
-* 
-* 어차피 memory를 random read하는 것이기에, 1안의 장점은 없다.
-* 2안으로 하는 경우, move중에 update된 최신 map정보를 기반으로 동작 가능하다.
-* 
-* 추후 2안으로 수정할 것.
-*/
 uint16 gc_GetNextRead(uint16 nCurBN, uint16 nCurPage, uint32* aLPN)
 {
 	if (nCurPage < NUM_DATA_PAGE)
