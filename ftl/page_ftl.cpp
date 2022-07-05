@@ -8,6 +8,7 @@
 #include "page_gc.h"
 #include "page_req.h"
 #include "page_meta.h"
+#include "buf_cache.h"
 
 #define PRINTF		//	SIM_Print
 
@@ -46,6 +47,9 @@ void FTL_Main(void* pParam)
 	REQ_Init();
 	META_Init();
 	GC_Init();
+#if EN_BUF_CACHE
+	BC_Init();
+#endif
 
 	PRINTF("[FTL] Init done\n");
 	OS_Start();

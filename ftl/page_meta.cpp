@@ -214,9 +214,9 @@ void meta_Save_OS()
 	for (nIssue = 0; nIssue < PAGE_PER_META; nIssue++)
 	{
 		uint16 nBuf = BM_Alloc();
-		uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-		pSpare[0] = gstMetaCtx.nAge;
-		pSpare[1] = gstMetaCtx.nNextSlice;
+		Spare* pSpare = BM_GetSpare(nBuf);
+		pSpare->Meta.nAge = gstMetaCtx.nAge;
+		pSpare->Meta.nSlice = gstMetaCtx.nNextSlice;
 		uint8* pDst = BM_GetMain(nBuf);
 		if (0 == nIssue)
 		{
@@ -284,16 +284,16 @@ void open_UserScan_OS(OpenType eOpen)
 		{
 			nRun--;
 			uint16 nBuf = pDone->stRead.anBufId[0];
-			uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+			Spare* pSpare = BM_GetSpare(nBuf);
 			uint16 nWL = pDone->nTag;
 
-			if (MARK_ERS != *pnSpare)
+			if (MARK_ERS != pSpare->User.nLPN)
 			{
-				uint32 nLPN = *pnSpare;
+				uint32 nLPN = pSpare->User.nLPN;
 				VAddr stCur(0, pDone->anBBN[0], pDone->nWL);
 				PRINTF("[SCAN] MapUpdate: LPN:%X to (%X, %X), %c\n",
-					*pnSpare, pDone->anBBN[0], pDone->nWL, eOpen == OPEN_GC ? 'G' : 'U');
-				if (JR_Filled == META_Update(*pnSpare, stCur, eOpen))
+					pSpare->User.nLPN, pDone->anBBN[0], pDone->nWL, eOpen == OPEN_GC ? 'G' : 'U');
+				if (JR_Filled == META_Update(pSpare->User.nLPN, stCur, eOpen))
 				{
 					META_ReqSave(false);
 				}
@@ -350,14 +350,14 @@ uint16 open_PageScan_OS(uint16 nBN)
 		{
 			nDone++;
 			uint16 nBuf = pDone->stRead.anBufId[0];
-			uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+			Spare* pSpare = BM_GetSpare(nBuf);
 			PRINTF("[OPEN] PageScan (%X,%X) -> Age:%X, Slice:%X\n",
-				pDone->anBBN[0], pDone->nWL, pnSpare[0], pnSpare[1]);
-			if (MARK_ERS != *pnSpare)
+				pDone->anBBN[0], pDone->nWL, pSpare->Meta.nAge, pSpare->Meta.nSlice);
+			if (MARK_ERS != pSpare->Meta.nAge)
 			{
 				ASSERT(NUM_WL == nCPO);
-				gstMetaCtx.nAge = pnSpare[0];
-				gstMetaCtx.nNextSlice = (pnSpare[1] + NUM_MAP_SLICE + 1) % NUM_MAP_SLICE;
+				gstMetaCtx.nAge = pSpare->Meta.nAge;
+				gstMetaCtx.nNextSlice = (pSpare->Meta.nSlice + NUM_MAP_SLICE + 1) % NUM_MAP_SLICE;
 			}
 			else if (NUM_WL == nCPO)
 			{
@@ -463,11 +463,12 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 			nDone++;
 			uint16 nBuf = pDone->stRead.anBufId[0];
 			uint8* pMain = BM_GetMain(nBuf);
-			uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-			uint32 nSlice = pSpare[1];
-			PRINTF("[OPEN] Mt Loaded {%X,%X} (%d,%d)\n", pDone->anBBN[0], pDone->nWL, pSpare[0], pSpare[1]);
+			Spare* pSpare = BM_GetSpare(nBuf);
+			uint32 nSlice = pSpare->Meta.nSlice;
+			PRINTF("[OPEN] Mt Loaded {%X,%X} (%d,%d)\n",
+				pDone->anBBN[0], pDone->nWL, pSpare->Meta.nAge, pSpare->Meta.nSlice);
 			ASSERT(nSlice < NUM_MAP_SLICE);
-			open_ReplayJnl((JnlSet*)pMain, pSpare[0]);
+			open_ReplayJnl((JnlSet*)pMain, pSpare->Meta.nAge);
 			uint8* pSrc = pMain + sizeof(JnlSet);
 			uint8* pDst = (uint8*)(&gstMeta) + (nSlice * SIZE_MAP_PER_SAVE);
 			uint32 nSize = SIZE_MAP_PER_SAVE;
@@ -535,13 +536,13 @@ uint16 open_BlkScan_SM()
 		{
 			nDone++;
 			uint16 nBuf = pDone->stRead.anBufId[0];
-			uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
+			Spare* pSpare = BM_GetSpare(nBuf);
 
-			PRINTF("[OPEN] BlkScan BO:%2X, SPR:%2X\n", pDone->nTag, *pnSpare);
+			PRINTF("[OPEN] BlkScan BO:%2X, SPR:%2X\n", pDone->nTag, pSpare->Meta.nAge);
 
-			if ((*pnSpare > nMaxAge) && (*pnSpare != MARK_ERS))
+			if ((pSpare->Meta.nAge > nMaxAge) && (pSpare->Meta.nAge != MARK_ERS))
 			{
-				nMaxAge = *pnSpare;
+				nMaxAge = pSpare->Meta.nAge;
 				nMaxBO = pDone->nTag;
 			}
 			BM_Free(nBuf);

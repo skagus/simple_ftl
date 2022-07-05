@@ -26,7 +26,6 @@ uint8 gc_ScanFree();
 void gc_HandlePgm(CmdInfo* pDone)
 {
 	uint16 nBuf = pDone->stPgm.anBufId[0];
-	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
 	BM_Free(nBuf);
 }
 
@@ -37,19 +36,18 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 {
 	bool bDone = true;
 	uint16 nBuf = pDone->stRead.anBufId[0];
-	uint32* pSpare = (uint32*)BM_GetSpare(nBuf);
-	PRINTF("[GCR] {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, *pSpare);
+	Spare* pSpare = BM_GetSpare(nBuf);
+	PRINTF("[GCR] {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, pSpare->User.nLPN);
 
-	if ((*pSpare != MARK_ERS) &&(pGI->nDstWL < NUM_WL))
+	if ((pSpare->User.nLPN != MARK_ERS) &&(pGI->nDstWL < NUM_WL))
 	{
-		VAddr stOld = META_GetMap(*pSpare);
+		VAddr stOld = META_GetMap(pSpare->User.nLPN);
 		if ((pGI->nSrcBN == stOld.nBN) // Valid
 			&& (pDone->nWL == stOld.nWL))
 		{
-
 			VAddr stAddr(0, pGI->nDstBN, pGI->nDstWL);
 			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, nBuf, *pSpare);
+			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, nBuf, pSpare->User.nLPN);
 			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pGI->nDstBN, pGI->nDstWL, *pSpare);
 			pGI->nDstWL++;
 			pGI->nPgmRun++;
@@ -57,7 +55,7 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 			JnlRet eJRet;
 			while(true)
 			{
-				eJRet = META_Update(*pSpare, stAddr, OPEN_GC);
+				eJRet = META_Update(pSpare->User.nLPN, stAddr, OPEN_GC);
 				if (JR_Busy != eJRet)
 				{
 					break;

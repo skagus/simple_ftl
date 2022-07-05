@@ -16,7 +16,7 @@ IoCbf gaCbf[NUM_IOCB];
 LinkedQueue<CmdInfo> gaDone[NUM_IOCB];
 bool gabStop[NUM_IOCB];
 
-const char* gaIoName[NUM_IOCB] = { "US", "MT", "GC", "UE" };	// to print.
+const char* gaIoName[NUM_IOCB] = { "UR", "UW", "MT", "GC", "UE" };	// to print.
 
 CmdInfo* IO_PopDone(CbKey eCbId)
 {
@@ -45,18 +45,18 @@ void io_Print(CmdInfo* pCmd)
 		}
 		case NCmd::NC_READ:
 		{
-			uint32* pBuf = (uint32*)BM_GetSpare(pCmd->stRead.anBufId[0]);
+			Spare* pSpare = BM_GetSpare(pCmd->stRead.anBufId[0]);
 			PRINTF("[IO:%X] %s Rd  {%X,%X} SPR [%X,%X]\n", 
 				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
-				pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
+				pCmd->anBBN[0], pCmd->nWL, pSpare->Com.nDW0, pSpare->Com.nDW1);
 			break;
 		}
 		case NCmd::NC_PGM:
 		{
-			uint32* pBuf = (uint32*)BM_GetSpare(pCmd->stPgm.anBufId[0]);
+			Spare* pSpare = BM_GetSpare(pCmd->stPgm.anBufId[0]);
 			PRINTF("[IO:%X] %s Pgm {%X,%X} SPR [%X,%X]\n", 
 				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
-				pCmd->anBBN[0], pCmd->nWL, pBuf[0], pBuf[1]);
+				pCmd->anBBN[0], pCmd->nWL, pSpare->Com.nDW0, pSpare->Com.nDW1);
 			break;
 		}
 		default:

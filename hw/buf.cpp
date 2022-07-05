@@ -7,7 +7,7 @@
 #define NUM_BUF		(128)
 
 uint8 gaMBuf[NUM_BUF][BYTE_PER_CHUNK];
-uint8 gaSBuf[NUM_BUF][BYTE_PER_SPARE];
+Spare gaSBuf[NUM_BUF];
 bool gbAlloc[NUM_BUF];
 Queue<uint16, NUM_BUF + 1> gFreeQue;
 
@@ -18,10 +18,10 @@ uint8* BM_GetMain(uint16 nBufId)
 }
 
 
-uint8* BM_GetSpare(uint16 nBufId)
+Spare* BM_GetSpare(uint16 nBufId)
 {
 	ASSERT(gbAlloc[nBufId]);
-	return gaSBuf[nBufId];
+	return gaSBuf + nBufId;
 }
 
 uint16 BM_CountFree()

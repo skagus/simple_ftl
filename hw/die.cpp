@@ -66,9 +66,9 @@ public:
 		return true;
 	}
 
-	void DataIn(uint8 nOffset, uint8* pMain, uint8* pSpare, bool bFull) override
+	void DataIn(uint8 nOffset, uint8* pMain, Spare* pSpare, bool bFull) override
 	{
-		a4DIn[nOffset / CHUNK_PER_PPG][nOffset % CHUNK_PER_PPG].Store(pMain, pSpare);
+		a4DIn[nOffset / CHUNK_PER_PPG][nOffset % CHUNK_PER_PPG].Store(pMain, (uint8*)pSpare);
 		return;
 	}
 
@@ -122,7 +122,7 @@ public:
 		return;
 	}
 
-	NErr DataOut(uint8 nOffset, uint8* pMain, uint8* pSpare, bool* pbFull) override
+	NErr DataOut(uint8 nOffset, uint8* pMain, Spare* pSpare, bool* pbFull) override
 	{
 		Chunk* pChunk = ap4DOut[nOffset / CHUNK_PER_PPG][nOffset % CHUNK_PER_PPG];
 		if (nullptr == pChunk)
@@ -132,7 +132,7 @@ public:
 			return NErr::ERASED;
 		}
 
-		pChunk->Load(pMain, pSpare);
+		pChunk->Load(pMain, (uint8*)pSpare);
 		return NErr::OK;
 	}
 

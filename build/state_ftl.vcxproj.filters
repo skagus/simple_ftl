@@ -64,6 +64,9 @@
     <ClCompile Include="..\ftl\page_req.cpp">
       <Filter>ftl</Filter>
     </ClCompile>
+    <ClCompile Include="..\ftl\buf_cache.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\hw\buf.h">
@@ -137,6 +140,9 @@
     </ClInclude>
     <ClInclude Include="..\hw\sim_hw.h">
       <Filter>hw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\buf_cache.h">
+      <Filter>ftl</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

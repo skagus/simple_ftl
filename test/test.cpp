@@ -19,8 +19,8 @@ void _FillData(uint16 nBuf, uint32 nLPN)
 	uint32* pnData = (uint32*)BM_GetMain(nBuf);
 	pnData[0] = nLPN;
 	pnData[1] = gaDict[nLPN];
-	uint32* pnSpare = (uint32*)BM_GetSpare(nBuf);
-	pnSpare[1] = gaDict[nLPN];
+	Spare* pSpare = BM_GetSpare(nBuf);
+	pSpare->User.nDummy = gaDict[nLPN];
 }
 
 void _CheckData(uint16 nBuf, uint32 nLPN)
@@ -62,7 +62,6 @@ void tc_SeqWrite(uint32 nStart, uint32 nSize)
 		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
 		_BusyWaitDone();
-		BM_Free(stReq.nBuf);
 	}
 }
 
@@ -100,7 +99,6 @@ void tc_RandWrite(uint32 nBase, uint32 nRange, uint32 nCount)
 		CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 		FTL_Request(&stReq);
 		_BusyWaitDone();
-		BM_Free(stReq.nBuf);
 	}
 }
 
@@ -147,7 +145,6 @@ void tc_StreamWrite(uint32 nMaxLPN)
 			CMD_PRINTF("[CMD] W %X\n", stReq.nLPN);
 			FTL_Request(&stReq);
 			_BusyWaitDone();
-			BM_Free(stReq.nBuf);
 		}
 	}
 }

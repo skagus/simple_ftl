@@ -3,6 +3,7 @@
 #include "buf.h"
 #include "os.h"
 #include "io.h"
+#include "buf_cache.h"
 #include "page_gc.h"
 #include "page_meta.h"
 
@@ -30,16 +31,16 @@ void REQ_SetCbf(CbfReq pfCbf)
 	gfCbf = pfCbf;
 }
 
-void req_Done(NCmd eCmd, uint32 nTag)
+void REQ_Done(uint32 nTag)
 {
 	RunInfo* pRun = gaIssued + nTag;
 	ReqInfo* pReq = pRun->pReq;
-	uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
+	Spare* pSpare = BM_GetSpare(pReq->nBuf);
 	pRun->nDone++;
 
-	if (MARK_ERS != *pnVal)
+	if (MARK_ERS != pSpare->User.nLPN)
 	{
-		ASSERT(pReq->nLPN == *pnVal);
+		ASSERT(pReq->nLPN == pSpare->User.nLPN);
 	}
 	// Calls CPU_WORK cpu function --> treat as ISR.
 	if (pRun->nDone == pRun->nTotal)
@@ -53,8 +54,9 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 {
 	uint32 nLPN = pReq->nLPN;
 	uint16 nBuf = pReq->nBuf;
-
-	bool bRet = false;
+#if EN_BUF_CACHE
+	BC_AddWrite(nLPN, nBuf, nTag);
+#else
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
 	if (nullptr == pDst || pDst->stNextVA.nWL >= NUM_WL)
 	{
@@ -63,11 +65,11 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 		GC_BlkErase_OS(OPEN_USER, nBN);
 		META_SetOpen(OPEN_USER, nBN);
 	}
-	*(uint32*)BM_GetSpare(nBuf) = nLPN;
+	BM_GetSpare(nBuf)->User.nLPN = nLPN;
 	ASSERT(nLPN == *(uint32*)BM_GetMain(nBuf));
 	VAddr stVA = pDst->stNextVA;
 
-	CmdInfo* pCmd = IO_Alloc(IOCB_User);
+	CmdInfo* pCmd = IO_Alloc(IOCB_URead);
 	IO_Program(pCmd, stVA.nBN, stVA.nWL, nBuf, nTag);
 	pDst->stNextVA.nWL++;
 
@@ -86,6 +88,7 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 	{
 		META_ReqSave(false);	// wait till meta save.
 	}
+#endif
 }
 
 /**
@@ -99,14 +102,13 @@ bool req_Read_OS(ReqInfo* pReq, uint8 nTag)
 
 	if (FF32 != stAddr.nDW)
 	{
-		CmdInfo* pCmd = IO_Alloc(IOCB_User);
+		CmdInfo* pCmd = IO_Alloc(IOCB_URead);
 		IO_Read(pCmd, stAddr.nBN, stAddr.nWL, pReq->nBuf, nTag);
 	}
 	else
 	{
-		uint32* pnVal = (uint32*)BM_GetSpare(pReq->nBuf);
-		*pnVal = nLPN;
-		req_Done(NC_READ, nTag);
+		BM_GetSpare(pReq->nBuf)->User.nLPN = nLPN;
+		REQ_Done(nTag);
 	}
 	return true;
 }
@@ -117,6 +119,9 @@ bool req_Read_OS(ReqInfo* pReq, uint8 nTag)
 void req_Shutdown_OS(ReqInfo* pReq, uint8 nTag)
 {
 	PRINTF("[SD] %d\n", pReq->eOpt);
+#if EN_BUF_CACHE
+	BC_ReqFlush(true);
+#endif
 	IO_SetStop(CbKey::IOCB_Mig, true);
 	OS_Idle(OS_MSEC(5));
 
@@ -184,16 +189,20 @@ void reqResp_Run(void* pParam)
 {
 	while (true)
 	{
-		CmdInfo* pCmd = IO_PopDone(IOCB_User);
+		CmdInfo* pCmd = IO_PopDone(IOCB_URead);
 		if (nullptr == pCmd)
 		{
 			OS_Wait(BIT(EVT_NAND_CMD), LONG_TIME);
 		}
 		else
 		{
+#if EN_BUF_CACHE
+			ASSERT(NC_READ == pCmd->eCmd);
+			REQ_Done(pCmd->nTag);
+#else
 			if (NC_READ == pCmd->eCmd)
 			{
-				req_Done(pCmd->eCmd, pCmd->nTag);
+				REQ_Done(pCmd->nTag);
 			}
 			else
 			{
@@ -201,8 +210,9 @@ void reqResp_Run(void* pParam)
 				{
 					META_SetBlkState(pCmd->anBBN[0], BS_Closed);
 				}
-				req_Done(pCmd->eCmd, pCmd->nTag);
+				REQ_Done(pCmd->nTag);
 			}
+#endif
 			IO_Free(pCmd);
 			OS_Wait(0, 0);
 		}

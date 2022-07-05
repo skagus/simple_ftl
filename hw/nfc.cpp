@@ -108,7 +108,7 @@ void nfc_HandleRead(NFCEvt* pOldEvt, CurRun* pRun)
 		case NStep::NS_WAIT_DMA_OUT:
 		{
 			uint8* pMain = BM_GetMain(pCmd->stRead.anBufId[pOldEvt->nOffset]);
-			uint8* pSpare = BM_GetSpare(pCmd->stRead.anBufId[pOldEvt->nOffset]);
+			Spare* pSpare = BM_GetSpare(pCmd->stRead.anBufId[pOldEvt->nOffset]);
 			NErr eErr = pDie->DataOut(pOldEvt->nOffset, pMain, pSpare);
 
 			pRun->bmRest &= ~BIT(pOldEvt->nOffset);
@@ -163,7 +163,7 @@ void nfc_HandleProgram(NFCEvt* pOldEvt, CurRun* pRun)
 		case NStep::NS_WAIT_DMA_IN:
 		{
 			uint8* pMain = BM_GetMain(pCmd->stPgm.anBufId[pOldEvt->nOffset]);
-			uint8* pSpare = BM_GetSpare(pCmd->stPgm.anBufId[pOldEvt->nOffset]);
+			Spare* pSpare = BM_GetSpare(pCmd->stPgm.anBufId[pOldEvt->nOffset]);
 			pDie->DataIn(pOldEvt->nOffset, pMain, pSpare);
 			pRun->bmRest &= ~BIT(pOldEvt->nOffset);
 			if (0 != pRun->bmRest) // continue;

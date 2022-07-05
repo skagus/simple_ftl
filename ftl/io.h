@@ -6,7 +6,8 @@
 
 enum CbKey
 {
-	IOCB_User,
+	IOCB_URead,
+	IOCB_UWrite,
 	IOCB_Meta,
 	IOCB_Mig,
 	IOCB_UErs,
