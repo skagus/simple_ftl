@@ -46,9 +46,14 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 		if ((pGI->nSrcBN == stOld.nBN) // Valid
 			&& (pDone->nWL == stOld.nWL))
 		{
+
 			VAddr stAddr(0, pGI->nDstBN, pGI->nDstWL);
 			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
 			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, nBuf, *pSpare);
+			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pGI->nDstBN, pGI->nDstWL, *pSpare);
+			pGI->nDstWL++;
+			pGI->nPgmRun++;
+
 			JnlRet eJRet;
 			while(true)
 			{
@@ -59,15 +64,6 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 				}
 				OS_Wait(BIT(EVT_META), LONG_TIME);
 			}
-			// User Data.
-			if ((*pSpare & 0xF) == pDone->nTag)
-			{
-				uint32* pMain = (uint32*)BM_GetMain(nBuf);
-				ASSERT((*pMain & 0xF) == pDone->nTag);
-			}
-			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pGI->nDstBN, pGI->nDstWL, *pSpare);
-			pGI->nDstWL++;
-			pGI->nPgmRun++;
 
 			if (JR_Filled == eJRet)
 			{

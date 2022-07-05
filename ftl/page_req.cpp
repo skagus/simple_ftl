@@ -52,6 +52,7 @@ void req_Done(NCmd eCmd, uint32 nTag)
 void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 {
 	uint32 nLPN = pReq->nLPN;
+	uint16 nBuf = pReq->nBuf;
 
 	bool bRet = false;
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
@@ -62,12 +63,18 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 		GC_BlkErase_OS(OPEN_USER, nBN);
 		META_SetOpen(OPEN_USER, nBN);
 	}
-	*(uint32*)BM_GetSpare(pReq->nBuf) = pReq->nLPN;
-	ASSERT(pReq->nLPN == *(uint32*)BM_GetMain(pReq->nBuf));
+	*(uint32*)BM_GetSpare(nBuf) = nLPN;
+	ASSERT(nLPN == *(uint32*)BM_GetMain(nBuf));
+	VAddr stVA = pDst->stNextVA;
+
+	CmdInfo* pCmd = IO_Alloc(IOCB_User);
+	IO_Program(pCmd, stVA.nBN, stVA.nWL, nBuf, nTag);
+	pDst->stNextVA.nWL++;
+
 	JnlRet eJRet;
-	while(true)
+	while (true)
 	{
-		eJRet = META_Update(pReq->nLPN, pDst->stNextVA, OPEN_USER);
+		eJRet = META_Update(nLPN, stVA, OPEN_USER);
 		if (JR_Busy != eJRet)
 		{
 			break;
@@ -75,11 +82,6 @@ void req_Write_OS(ReqInfo* pReq, uint8 nTag)
 		OS_Wait(BIT(EVT_META), LONG_TIME);
 	}
 
-	CmdInfo* pCmd = IO_Alloc(IOCB_User);
-	IO_Program(pCmd, pDst->stNextVA.nBN, pDst->stNextVA.nWL, pReq->nBuf, nTag);
-
-	pDst->stNextVA.nWL++;
-	
 	if (JR_Filled == eJRet)
 	{
 		META_ReqSave(false);	// wait till meta save.
