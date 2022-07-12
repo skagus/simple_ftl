@@ -108,29 +108,37 @@ uint32 IO_CountFree()
 	return gNCmdPool.Count();
 }
 
-void IO_Read(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag)
+void IO_SetReadBuf(CmdInfo* pstCmd, uint16* anBuf, uint32 bmValid)
+{
+	pstCmd->stRead.anBufId[0] = anBuf[0];
+	pstCmd->stRead.bmChunk = bmValid;
+}
+
+void IO_Read(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint32 nTag)
 {
 	pstCmd->eCmd = NCmd::NC_READ;
 	pstCmd->nDie = 0;
 	pstCmd->nWL = nPage;
 	pstCmd->anBBN[0] = nPBN / NUM_PLN;
 	pstCmd->bmPln = BIT(nPBN % NUM_PLN);
-	pstCmd->stRead.bmChunk = 1;
-	pstCmd->stRead.anBufId[0] = nBufId;
 	pstCmd->nTag = nTag;
 
 	NFC_Issue(pstCmd);
 }
 
-void IO_Program(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag)
+void IO_SetPgmBuf(CmdInfo* pstCmd, uint16* anBufId, uint32 bmValid)
+{
+	pstCmd->stPgm.anBufId[0] = anBufId[0];
+	pstCmd->stPgm.bmChunk = bmValid;
+}
+
+void IO_Program(CmdInfo* pstCmd, uint16 nPBN, uint16 nPage, uint32 nTag)
 {
 	pstCmd->eCmd = NCmd::NC_PGM;
 	pstCmd->nDie = 0;
 	pstCmd->nWL = nPage;
 	pstCmd->anBBN[0] = nPBN / NUM_PLN;
 	pstCmd->bmPln = BIT(nPBN % NUM_PLN);
-	pstCmd->stPgm.bmChunk = 1;
-	pstCmd->stPgm.anBufId[0] = nBufId;
 	pstCmd->nTag = nTag;
 
 	NFC_Issue(pstCmd);

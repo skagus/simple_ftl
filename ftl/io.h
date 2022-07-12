@@ -24,8 +24,13 @@ uint32 IO_CountFree();
 
 CmdInfo* IO_PopDone(CbKey eCbId);
 CmdInfo* IO_GetDone(CbKey eCbId);
-void IO_Read(CmdInfo* pCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag);
-void IO_Program(CmdInfo* pCmd, uint16 nPBN, uint16 nPage, uint16 nBufId, uint32 nTag);
+
+// IO utility.
+void IO_SetPgmBuf(CmdInfo* pstCmd, uint16* anBufId, uint32 bmValid);
+void IO_SetReadBuf(CmdInfo* pstCmd, uint16* anBufId, uint32 bmValid);
+
+void IO_Read(CmdInfo* pCmd, uint16 nPBN, uint16 nPage, uint32 nTag);
+void IO_Program(CmdInfo* pCmd, uint16 nPBN, uint16 nPage, uint32 nTag);
 void IO_Erase(CmdInfo* pCmd, uint16 nPBN, uint32 nTag);
 void IO_SetStop(CbKey eKey, bool bRun);
 void IO_Init();

@@ -47,7 +47,8 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 		{
 			VAddr stAddr(0, pGI->nDstBN, pGI->nDstWL);
 			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
-			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, nBuf, pSpare->User.nLPN);
+			IO_SetPgmBuf(pNewPgm, &nBuf, BIT(0));
+			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, pSpare->User.nLPN);
 			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pGI->nDstBN, pGI->nDstWL, *pSpare);
 			pGI->nDstWL++;
 			pGI->nPgmRun++;
@@ -155,7 +156,8 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 			{
 				uint16 nBuf4Copy = BM_Alloc();
 				CmdInfo* pCmd = IO_Alloc(IOCB_Mig);
-				IO_Read(pCmd, stGI.nSrcBN, stGI.nSrcWL, nBuf4Copy, 0);
+				IO_SetReadBuf(pCmd, &nBuf4Copy, BIT(0));
+				IO_Read(pCmd, stGI.nSrcBN, stGI.nSrcWL, 0);
 				stGI.nSrcWL++;
 				stGI.nReadRun++;
 			}

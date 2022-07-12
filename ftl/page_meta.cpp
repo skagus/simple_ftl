@@ -228,8 +228,10 @@ void meta_Save_OS()
 
 		uint16 nWL = gstMetaCtx.nNextWL + nIssue;
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
-		PRINTF("[MT:%X] \t==== PGM (%X,%X) Age:%X, Slice: %X ====\n", pCmd->nDbgSN, gstMetaCtx.nCurBN, nWL, gstMetaCtx.nAge, gstMetaCtx.nNextSlice);
-		IO_Program(pCmd, gstMetaCtx.nCurBN, nWL, nBuf, 0);
+		PRINTF("[MT:%X] \t==== PGM (%X,%X) Age:%X, Slice: %X ====\n",
+			pCmd->nDbgSN, gstMetaCtx.nCurBN, nWL, gstMetaCtx.nAge, gstMetaCtx.nNextSlice);
+		IO_SetPgmBuf(pCmd, &nBuf, BIT(0));
+		IO_Program(pCmd, gstMetaCtx.nCurBN, nWL, 0);
 	}
 
 	while (true)
@@ -293,9 +295,16 @@ void open_UserScan_OS(OpenType eOpen)
 				VAddr stCur(0, pDone->anBBN[0], pDone->nWL);
 				PRINTF("[SCAN] MapUpdate: LPN:%X to (%X, %X), %c\n",
 					pSpare->User.nLPN, pDone->anBBN[0], pDone->nWL, eOpen == OPEN_GC ? 'G' : 'U');
-				if (JR_Filled == META_Update(pSpare->User.nLPN, stCur, eOpen))
+				JnlRet eJRet = META_Update(pSpare->User.nLPN, stCur, eOpen);
+				if (JR_Filled == eJRet)
 				{
-					META_ReqSave(false);
+					meta_Save_OS();
+					META_StartJnl(OPEN_GC, 0);
+//					META_ReqSave(false);
+				}
+				else
+				{
+					ASSERT(JR_Done == eJRet);
 				}
 			}
 			else if (FF16 == nErasedWL)
@@ -312,7 +321,8 @@ void open_UserScan_OS(OpenType eOpen)
 		{
 			uint16 nBuf = BM_Alloc();
 			CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
-			IO_Read(pCmd, nBN, nNextWL, nBuf, nNextWL);
+			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
+			IO_Read(pCmd, nBN, nNextWL, nNextWL);
 			nNextWL++;
 			nRun++;
 		}
@@ -374,7 +384,8 @@ uint16 open_PageScan_OS(uint16 nBN)
 			uint16 nWL = nIssued * PAGE_PER_META;
 			uint16 nBuf = BM_Alloc();
 			CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
-			IO_Read(pCmd, nBN, nWL, nBuf, nIssued);
+			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
+			IO_Read(pCmd, nBN, nWL, nIssued);
 			nIssued++;
 		}
 		if (nIssued > nDone)
@@ -492,7 +503,8 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 			}
 			uint16 nBuf = BM_Alloc();
 			CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
-			IO_Read(pCmd, nBN, nWL, nBuf, nIssued);
+			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
+			IO_Read(pCmd, nBN, nWL, nIssued);
 			nIssued++;
 		}
 
@@ -526,7 +538,8 @@ uint16 open_BlkScan_SM()
 			CmdInfo* pCmd;
 			uint16 nBN = meta_MtBlk2PBN(nIssued);
 			pCmd = IO_Alloc(IOCB_Meta);
-			IO_Read(pCmd, nBN, 0, nBuf, nIssued);
+			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
+			IO_Read(pCmd, nBN, 0, nIssued);
 			PRINTF("[OPEN] BlkScan Issue %X\n", nIssued);
 			nIssued++;
 		}

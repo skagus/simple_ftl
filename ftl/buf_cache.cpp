@@ -59,12 +59,6 @@ void BC_AddWrite(uint32 nLPN, uint16 nBuf, uint16 nTag)
 
 void bc_Flush()
 {
-	uint32 nDW = gstCache.PopHead();
-	uint16 nBuf = nDW >> 16;
-	uint16 nTag = nDW & 0xFFFF;
-
-	Spare* pSpare = BM_GetSpare(nBuf);
-
 	OpenBlk* pDst = META_GetOpen(OPEN_USER);
 	if (nullptr == pDst || pDst->stNextVA.nWL >= NUM_WL)
 	{
@@ -73,11 +67,17 @@ void bc_Flush()
 		GC_BlkErase_OS(OPEN_USER, nBN);
 		META_SetOpen(OPEN_USER, nBN);
 	}
+
+	uint32 nDW = gstCache.PopHead();
+	uint16 nBuf = nDW >> 16;
+	uint16 nTag = nDW & 0xFFFF;
+	Spare* pSpare = BM_GetSpare(nBuf);
 	ASSERT(pSpare->User.nLPN == *(uint32*)BM_GetMain(nBuf));
 	VAddr stVA = pDst->stNextVA;
 
 	CmdInfo* pCmd = IO_Alloc(IOCB_UWrite);
-	IO_Program(pCmd, stVA.nBN, stVA.nWL, nBuf, nTag);
+	IO_SetPgmBuf(pCmd, &nBuf, BIT(0));
+	IO_Program(pCmd, stVA.nBN, stVA.nWL, nTag);
 	pDst->stNextVA.nWL++;
 	gstIssued.PushTail(pCmd);
 

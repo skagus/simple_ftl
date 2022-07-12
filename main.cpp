@@ -9,7 +9,7 @@
 
 int main()
 {
-	SIM_Init(100);
+	SIM_Init(100, 0xE080EC);
 	HW_InitSim();
 
 	CPU_Add(CPU_FTL, FTL_Main, (void*)4);

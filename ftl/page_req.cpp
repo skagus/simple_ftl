@@ -103,7 +103,8 @@ bool req_Read_OS(ReqInfo* pReq, uint8 nTag)
 	if (FF32 != stAddr.nDW)
 	{
 		CmdInfo* pCmd = IO_Alloc(IOCB_URead);
-		IO_Read(pCmd, stAddr.nBN, stAddr.nWL, pReq->nBuf, nTag);
+		IO_SetReadBuf(pCmd, &(pReq->nBuf), BIT(0));
+		IO_Read(pCmd, stAddr.nBN, stAddr.nWL, nTag);
 	}
 	else
 	{
@@ -167,6 +168,7 @@ void req_Run(void* pParam)
 			case CMD_WRITE:
 			{
 				req_Write_OS(pReq, nCurSlot);
+				BC_ReqFlush(true);
 				break;
 			}
 			case CMD_SHUTDOWN:
