@@ -200,8 +200,8 @@ void meta_Save_OS()
 	if (0 == gstMetaCtx.nNextWL)
 	{
 		gstMetaCtx.nCurBN = meta_MtBlk2PBN(gstMetaCtx.nCurBO);
-		PRINTF("[MT] ERS BO:%X, BN:%X\n", gstMetaCtx.nCurBO, gstMetaCtx.nCurBN);
 		CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
+		PRINTF("[MT:%X] ERS BO:%X, BN:%X\n", pCmd->nDbgSN, gstMetaCtx.nCurBO, gstMetaCtx.nCurBN);
 		IO_Erase(pCmd, gstMetaCtx.nCurBN, 0);
 		while (nullptr == (pCmd = IO_PopDone(IOCB_Meta)))
 		{

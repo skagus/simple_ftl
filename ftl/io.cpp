@@ -16,7 +16,7 @@ IoCbf gaCbf[NUM_IOCB];
 LinkedQueue<CmdInfo> gaDone[NUM_IOCB];
 bool gabStop[NUM_IOCB];
 
-const char* gaIoName[NUM_IOCB] = { "UR", "UW", "MT", "GC", "UE" };	// to print.
+const char* gaIoName[NUM_IOCB] = { "UR", "UW", "OP", "MT", "GC", "EB" };	// to print.
 
 CmdInfo* IO_PopDone(CbKey eCbId)
 {
@@ -38,7 +38,7 @@ void io_Print(CmdInfo* pCmd)
 	{
 		case NCmd::NC_ERB:
 		{
-			PRINTF("[IO:%X] %s ERB {%X}\n",
+			PRINTF("[IO:%X] %s E {%X}\n",
 				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
 				pCmd->anBBN[0]);
 			break;
@@ -46,7 +46,7 @@ void io_Print(CmdInfo* pCmd)
 		case NCmd::NC_READ:
 		{
 			Spare* pSpare = BM_GetSpare(pCmd->stRead.anBufId[0]);
-			PRINTF("[IO:%X] %s Rd  {%X,%X} SPR [%X,%X]\n", 
+			PRINTF("[IO:%X] %s R {%X,%X} SPR [%X,%X]\n", 
 				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
 				pCmd->anBBN[0], pCmd->nWL, pSpare->Com.nDW0, pSpare->Com.nDW1);
 			break;
@@ -54,7 +54,7 @@ void io_Print(CmdInfo* pCmd)
 		case NCmd::NC_PGM:
 		{
 			Spare* pSpare = BM_GetSpare(pCmd->stPgm.anBufId[0]);
-			PRINTF("[IO:%X] %s Pgm {%X,%X} SPR [%X,%X]\n", 
+			PRINTF("[IO:%X] %s P {%X,%X} SPR [%X,%X]\n", 
 				pCmd->nDbgSN, gaIoName[gaKeys[nId]],
 				pCmd->anBBN[0], pCmd->nWL, pSpare->Com.nDW0, pSpare->Com.nDW1);
 			break;
@@ -71,7 +71,7 @@ void io_CbDone(uint32 nDie, uint32 nTag)
 	CmdInfo* pRet = NFC_GetDone();
 	if (nullptr != pRet)
 	{
-		io_Print(pRet);
+//		io_Print(pRet);
 
 		uint8 nId = pRet - gaCmds;
 		uint8 nTag = gaKeys[nId];
@@ -96,7 +96,7 @@ CmdInfo* IO_Alloc(CbKey eKey)
 	if (gNCmdPool.Count() > 0)
 	{
 		CmdInfo* pRet = gNCmdPool.PopHead();
-		pRet->nDbgSN = SIM_GetSeqNo();
+		pRet->nDbgSN = SIM_IncSeqNo();
 		gaKeys[pRet - gaCmds] = eKey;
 		return pRet;
 	}

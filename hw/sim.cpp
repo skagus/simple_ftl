@@ -59,7 +59,7 @@ void* SIM_NewEvt(HwID eOwn, uint32 nTick)
 	Evt* pEvt = gEvtPool.PopHead();
 	pEvt->nTick = gnTick + nTick;
 	pEvt->nOwner = eOwn;
-	pEvt->nSeqNo = SIM_GetSeqNo();
+	pEvt->nSeqNo = SIM_IncSeqNo();
 	gEvtQue.push(pEvt);
 	return pEvt->aParams;
 }
@@ -154,8 +154,21 @@ uint32 SIM_GetRand(uint32 nMod)
 	return gRand() % nMod;
 }
 
-
+/**
+* GetSeqNo와 IncSeqNo의 용법.
+* IncSeqNo()는 호출을 안하면 SeqNo기반 break위치가 바뀔 수 있으므로 조심해서 사용.
+* GetSeqNo()는 호출되던 곳을 제외해도 재현에 영향이 없으므로  추가/삭제가 자유로워서 print같은데 사용 가능.
+*/
 uint32 SIM_GetSeqNo()
+{
+	if (gnBrkSN == gnSeqNo)
+	{
+		__debugbreak();
+	}
+	return gnSeqNo;
+}
+
+uint32 SIM_IncSeqNo()
 {
 	gnSeqNo++;
 	if (gnBrkSN == gnSeqNo)
@@ -190,7 +203,6 @@ void SIM_Init(uint32 nSeed, uint32 nBrkNo)
 	localtime_s(&tm2, &cur);
 	char szName[20];
 	sprintf_s(szName, 20, "sim_%02d%02d%02d.log", tm2.tm_hour, tm2.tm_min, tm2.tm_sec);
-	//	fopen_s(&fpLog, szName, "w");
 	fpLog = _fsopen(szName, "w", _SH_DENYWR);
 }
 

@@ -17,16 +17,16 @@
 extern void SIM_Print(const char* szFormat, ...);
 
 #define NOT(x)						(!(x))
-#define BRK_IF(cond, print)			do{ if (cond){								\
-										if(print){SIM_Print("BRK: %s(%d) %s\n", __FILE__, __LINE__, #cond);} \
-										__debugbreak(); }}while(0)
-#define ASSERT(cond)				BRK_IF(NOT(cond), true)
-
-#define IF_THEN(cond, check)		ASSERT(NOT(exp) || (check))
-#define DIV_CEIL(val, mod)			(((val) + (mod) - 1) / (mod))
+#define BRK_IF(bCond, bPrint)		do{ if (bCond){								\
+									if(bPrint){SIM_Print("BRK: %s(%d) %s\n", __FILE__, __LINE__, #bCond);} \
+									__debugbreak(); }}while(0)
+#define ASSERT(bCond)				BRK_IF(NOT(bCond), true)
+#define IF_THEN(bCond, bAssert)		ASSERT(NOT(bCond) || (bAssert))
 
 #define STATIC_ASSERT(exp, str)		static_assert(exp, str);
 
+
+#define DIV_CEIL(val, mod)			(((val) + (mod) - 1) / (mod))
 
 #define BIT(shift)					(1 <<(shift))
 #define BIT_SET(dst, mask)			((dst) |= (mask))

@@ -304,7 +304,6 @@ void NFC_InitSim()
 void NFC_Issue(CmdInfo* pCmd)
 {
 	uint8 nDie = pCmd->nDie;
-	pCmd->nDbgSN = SIM_GetSeqNo();
 	gstDieQue[nDie].PushTail(pCmd);
 	if (1 == gstDieQue[nDie].Count())
 	{

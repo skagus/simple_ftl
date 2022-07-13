@@ -37,7 +37,6 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 	bool bDone = true;
 	uint16 nBuf = pDone->stRead.anBufId[0];
 	Spare* pSpare = BM_GetSpare(nBuf);
-	PRINTF("[GCR] {%X, %X}, LPN:%X\n", pDone->anBBN[0], pDone->nWL, pSpare->User.nLPN);
 
 	if ((pSpare->User.nLPN != MARK_ERS) &&(pGI->nDstWL < NUM_WL))
 	{
@@ -49,7 +48,6 @@ void gc_HandleRead(CmdInfo* pDone, GcInfo* pGI)
 			CmdInfo* pNewPgm = IO_Alloc(IOCB_Mig);
 			IO_SetPgmBuf(pNewPgm, &nBuf, BIT(0));
 			IO_Program(pNewPgm, pGI->nDstBN, pGI->nDstWL, pSpare->User.nLPN);
-			PRINTF("[GCW] {%X, %X}, LPN:%X\n", pGI->nDstBN, pGI->nDstWL, *pSpare);
 			pGI->nDstWL++;
 			pGI->nPgmRun++;
 
@@ -120,7 +118,7 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 		{
 			if ((0 == stGI.nPgmRun) && (0 == stGI.nReadRun))
 			{
-				PRINTF("[GC] Dst fill: %X\n", stGI.nDstBN);
+				PRINTF("[GC:%X] Dst fill: %X\n", SIM_GetSeqNo(), stGI.nDstBN);
 				if (FF16 != stGI.nSrcBN)
 				{
 					META_SetBlkState(stGI.nSrcBN, BS_Closed);
@@ -134,7 +132,7 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 			if ((FF16 == stGI.nSrcBN) || (FF16 == stGI.nSrcWL)) // No valid victim.
 			{
 				META_GetMinVPC(&stGI.nSrcBN);
-				PRINTF("[GC] New Victim: %X\n", stGI.nSrcBN);
+				PRINTF("[GC:%X] New Victim: %X\n", SIM_GetSeqNo(), stGI.nSrcBN);
 				META_SetBlkState(stGI.nSrcBN, BS_Victim);
 				stGI.nSrcWL = 0;
 			}
@@ -143,7 +141,7 @@ void gc_Move_OS(uint16 nDstBN, uint16 nDstWL)
 				if ((0 == stGI.nPgmRun) && (0 == stGI.nReadRun))
 				{
 					META_SetBlkState(stGI.nSrcBN, BS_Closed);
-					PRINTF("[GC] Close victim: %X\n", stGI.nSrcBN);
+					PRINTF("[GC:%X] Close victim: %X\n", SIM_GetSeqNo(), stGI.nSrcBN);
 					if (gc_ScanFree() > 0)
 					{
 						OS_SyncEvt(BIT(EVT_NEW_BLK));
@@ -254,7 +252,6 @@ uint16 GC_ReqFree_Blocking(OpenType eType)
 void GC_BlkErase_OS(OpenType eOpen, uint16 nBN)
 {
 	CbKey eCbKey = eOpen == OPEN_GC ? CbKey::IOCB_Mig : CbKey::IOCB_UErs;
-
 
 	// Erase block.
 	CmdInfo* pCmd = IO_Alloc(eCbKey);

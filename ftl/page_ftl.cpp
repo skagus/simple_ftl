@@ -19,7 +19,7 @@ Queue<ReqInfo*, SIZE_REQ_QUE> gstReqQ;
 */
 void FTL_Request(ReqInfo* pReq)
 {
-	pReq->nSeqNo = SIM_GetSeqNo();
+	pReq->nSeqNo = SIM_IncSeqNo();
 	gstReqQ.PushTail(pReq);
 	OS_AsyncEvt(BIT(EVT_USER_CMD));
 	CPU_TimePass(SIM_USEC(5));
