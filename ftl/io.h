@@ -8,6 +8,7 @@ enum CbKey
 {
 	IOCB_URead,
 	IOCB_UWrite,
+	IOCB_Open,
 	IOCB_Meta,
 	IOCB_Mig,
 	IOCB_UErs,

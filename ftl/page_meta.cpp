@@ -282,7 +282,7 @@ void open_UserScan_OS(OpenType eOpen)
 	while (bRun)
 	{
 		CmdInfo* pDone;
-		if (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Meta)))
+		if (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Open)))
 		{
 			nRun--;
 			uint16 nBuf = pDone->stRead.anBufId[0];
@@ -320,7 +320,7 @@ void open_UserScan_OS(OpenType eOpen)
 		while ((FF16 == nErasedWL) && (nNextWL < NUM_WL) && (nRun < 2))
 		{
 			uint16 nBuf = BM_Alloc();
-			CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
+			CmdInfo* pCmd = IO_Alloc(IOCB_Open);
 			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
 			IO_Read(pCmd, nBN, nNextWL, nNextWL);
 			nNextWL++;
@@ -356,7 +356,7 @@ uint16 open_PageScan_OS(uint16 nBN)
 	while (true)
 	{
 		CmdInfo* pDone;
-		while (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Meta)))
+		while (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Open)))
 		{
 			nDone++;
 			uint16 nBuf = pDone->stRead.anBufId[0];
@@ -383,7 +383,7 @@ uint16 open_PageScan_OS(uint16 nBN)
 		{
 			uint16 nWL = nIssued * PAGE_PER_META;
 			uint16 nBuf = BM_Alloc();
-			CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
+			CmdInfo* pCmd = IO_Alloc(IOCB_Open);
 			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
 			IO_Read(pCmd, nBN, nWL, nIssued);
 			nIssued++;
@@ -469,7 +469,7 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 	{
 		// Check phase.
 		CmdInfo* pDone;
-		while (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Meta)))
+		while (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Open)))
 		{
 			nDone++;
 			uint16 nBuf = pDone->stRead.anBufId[0];
@@ -502,7 +502,7 @@ void open_MtLoad_OS(uint16 nMaxBO, uint16 nCPO)
 				nBN = meta_MtBlk2PBN((nMaxBO + 1) % NUM_META_BLK);
 			}
 			uint16 nBuf = BM_Alloc();
-			CmdInfo* pCmd = IO_Alloc(IOCB_Meta);
+			CmdInfo* pCmd = IO_Alloc(IOCB_Open);
 			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
 			IO_Read(pCmd, nBN, nWL, nIssued);
 			nIssued++;
@@ -537,7 +537,7 @@ uint16 open_BlkScan_SM()
 			uint16 nBuf = BM_Alloc();
 			CmdInfo* pCmd;
 			uint16 nBN = meta_MtBlk2PBN(nIssued);
-			pCmd = IO_Alloc(IOCB_Meta);
+			pCmd = IO_Alloc(IOCB_Open);
 			IO_SetReadBuf(pCmd, &nBuf, BIT(0));
 			IO_Read(pCmd, nBN, 0, nIssued);
 			PRINTF("[OPEN] BlkScan Issue %X\n", nIssued);
@@ -545,7 +545,7 @@ uint16 open_BlkScan_SM()
 		}
 		// Check phase.
 		CmdInfo* pDone;
-		while (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Meta)))
+		while (nullptr != (pDone = IO_PopDone(CbKey::IOCB_Open)))
 		{
 			nDone++;
 			uint16 nBuf = pDone->stRead.anBufId[0];
